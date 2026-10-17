@@ -13,10 +13,18 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
+  drift: ^2.35.1
+  drift_flutter: ^0.3.1
+  camera: ^0.12.1
+  google_mlkit_face_detection: ^0.15.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  drift_dev: ^2.35.1
+  build_runner: ^2.16.1
+  test: ^1.31.1
 
 flutter:
   uses-material-design: true

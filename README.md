@@ -2,27 +2,53 @@
 
 毎朝、顔位置確認後に15秒間撮影し、記録と過去の自分との差を振り返るFlutter製の検証用MVP。診断を目的としません。
 
-## 現在の実装範囲
+## 現在の実装
 
-FlutterのiOS / Android初期構成、日本語Material UI、アプリ入口、6画面分のルートを用意しています。起動時のホームは開発用ランチャーです。初回設定・撮影・結果・履歴・設定は未実装のプレースホルダーで、撮影・計測・権限取得・保存・通知・AIはまだ動作しません。
+- 初回説明と確認状態のSQLite保存。次回起動はホームへ進む。
+- 設定の読込・書込失敗表示と再試行、重複保存・古い非同期応答の抑止。
+- ホーム、Cの計測サービスが未接続であることを示す画面。
+- 任意の体調1〜5と外部体温入力部品。結果画面・健康記録の保存への接続は未実施。
+- 今日を除く直近7暦日の有効記録から自己申告の中央値を求める分析関数。健康記録との接続は未実施。
+- C向けカメラ・ML Kit依存とiOSビルド設定。
 
-## 開発環境
+履歴・設定・結果は仮画面です。健康チェックの実計測・健康記録DB・削除・レポート・通知はまだ利用できません。CのAPI実装は文章で回答を受領しましたが、コード本体のpush待ちです。未接続を空の履歴や成功として表示しません。
 
-共通環境：Flutter 3.47.7 stable / Dart 3.13.5、macOS 26.4.1 arm64。C担当のDartに合わせて更新済みです。推奨Flutter版は `.flutter-version` に記録し、pubspecでも最低バージョンを指定しています（このファイルだけでSDKは自動切替されません）。初回構築はFlutter 3.41.6 / Dart 3.11.4で実施しました。
+## 環境
+
+Flutter **3.47.7 stable / Dart 3.13.5**。推奨版は `.flutter-version` に記録（自動切替なし）、pubspecにも最低条件を指定しています。
+
+正式対象は **iPhone 17 / iOS 27以降**。iPhone 15 / iOS 26.6.2は追加検証用。Androidの生成構成はありますが、SDK未導入・ビルド未検証です。Chrome/macOSは製品の対象に含めません。
 
 ```sh
-flutter --version
-flutter doctor -v
 flutter pub get
+dart run build_runner build
 flutter devices
-flutter run -d <device-id>
 ```
 
-対象はiOS / Androidです。Android SDK、iOS用の完全なXcode設定、および対象端末を各開発環境で準備してください。iOS実機の署名チームは開発者がローカルで設定します。生成時に選択された個人のチーム情報は共有プロジェクトから除外しています。
+DB変更時はコードを再生成し、g.dartも差分確認してください。既存のDBを削除して作り直す運用は禁止です。
 
-アプリ識別子はFlutter生成時の開発用（iOS: `com.example.os2604`、Android: `com.example.os_2604`）です。配布用識別子は未確定です。カメラ・通知の権限とネイティブ設定は各機能の導入時に追加します。
+## iOSの起動・ビルド
 
-2026-10-17時点の本作業環境ではAndroid SDK未検出。iPhone 15 / iOS 26.6.2をUSB接続し、署名付きDebugビルドとインストールを確認済みです。Xcode 26.4はインストール済みですが、システムの選択先はCommandLineToolsのため、この作業では `DEVELOPER_DIR` でXcodeを指定しています。iPhone 15で基盤画面の起動表示は確認済みです。カメラ・AIは未実装で、動作未検証です。Chrome / macOSが検出されても製品の対応OSには含めません。
+このMacはXcode 26.4がインストール済みですが、xcode-selectがCommandLineToolsを指しています。native assetのhookがDEVELOPER_DIRを引き継がないため、単なる環境変数指定だけでは追加依存のビルドに失敗します。
+
+既存のXcodeをこのコマンドだけで参照するラッパーを用意しています。システム設定は変更しません。
+
+```sh
+tool/flutter_with_xcode.sh build ios --release --no-codesign
+tool/flutter_with_xcode.sh run --release -d <device-id>
+```
+
+Xcodeの場所が異なる場合はDEVELOPER_DIRで指定してください。ラッパーは一時的なxcrunのみをPATHへ追加し、終了時に生成物を除去します。
+
+署名チームはGit除外済みの `ios/Flutter/LocalSigning.xcconfig` に設定します。
+
+```xcconfig
+DEVELOPMENT_TEAM = <自分のチームID>
+```
+
+Debug版はFlutter/Xcodeから起動します。ホーム画面から直接開く場合はRelease版を使います。iPhoneのロックを解除し、必要な開発者署名の信頼設定を本人が行ってください。
+
+iOS最低バージョンはML Kitの要件に合わせ15.5。カメラの利用目的を設定済みで、音声を無効にするCの実装に合わせマイクの利用目的は追加していません。カメラ・顔検出が実機で動いたことを示す設定ではありません。
 
 ## 検証
 
@@ -30,54 +56,23 @@ flutter run -d <device-id>
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
+git diff --check
 ```
 
-`test/app_navigation_test.dart` は開発用ホームから各プレースホルダーへの遷移と戻る操作を検証します。初回設定の永続化や計測の受け入れ試験を代替しません。
+現在28件成功。画面callback・小画面/拡大文字、起動ゲートの読込/保存失敗と競合、実SQLiteの冪等性・書込失敗・file再open、比較境界・中央値、任意入力を確認します。fakeによる失敗注入と実SQLite試験は区別しています。
 
-初期構築時は整形チェック・解析・テスト（1件）、Dart/アセットbundle生成、Xcode 26.4での署名なしiOS Debugビルドが成功しました。更新後のFlutter 3.47.7 / Dart 3.13.5でも依存解決・整形チェック・解析・テスト（1件）・署名付きiOS Releaseビルド・実機インストールとCLI起動が成功しています。生成物は `build/ios/iphoneos/Runner.app`。追加でiPhone 15 / iOS 26.6.2への署名付きReleaseビルド・インストールを確認し、ユーザーがホーム画面から起動して「15秒健康チェック」「開発用の画面骨格」を確認しました。正式対象のiPhone 17 / iOS 27以降は未検証です。
+追加依存を含む署名なし/署名付きiOS Releaseビルドは成功。今回版をiPhone 15へインストールしましたが、端末ロックでCLI起動は拒否され、画面操作は未確認です。正式対象での実計測・保存の通し試験は未実施です。旧基盤のFlutter 3.41.6版はユーザーによるiPhone 15の画面表示確認、新SDK 3.47.7版はCLI起動を確認済みですが、今回の説明保存・カメラ依存追加後の実機試験とは区別します。
 
-ネイティブ環境の準備後：
+ML KitにはCocoaPods併用と、Apple SiliconのiOS 26以降シミュレータ用arm64非対応の警告があります。シミュレータを正式実機の代替にしません。
 
-```sh
-flutter build apk --debug
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer flutter build ios --debug --no-codesign
-```
+## 担当と資料
 
-ビルド成功と実機試験は区別してください。計測・保存・AIの受け入れ条件は仕様書と分業書に記載しています。
+- `lib/app.dart`, `main.dart`, 依存・native設定：①統合
+- `lib/screens/`, `widgets/`：②画面
+- `lib/services/db/`, `analysis/`, `settings/`：③保存・分析
+- `docs/b-verification-plan.md`：④独立レビュー・受け入れ試験
+- `lib/models/`, `features/scan/`, `services/ai/`：Cの実装と共同契約（本体取得待ち）
 
-## 構成と担当
+仕様正本は `docs/app-spec-source.txt` と `docs/team-plan-source.txt`。現在の決定事項は `docs/implementation-decisions.md`、Cとの接続状況は `docs/c-integration-status.md`、分担は `docs/b-team-plan.md`、作業状態は `.codex/STATE.md` を参照してください。
 
-| ファイル・領域 | 役割・窓口 |
-| --- | --- |
-| `lib/main.dart` | アプリ起動 / ① |
-| `lib/app.dart` | MaterialApp・日本語化・画面接続 / ① |
-| `lib/navigation/app_routes.dart` | 6画面のルート名 / ① |
-| `lib/foundation/scaffold_pages.dart` | ②の画面実装へ置き換える仮画面 |
-| `lib/screens/`, `lib/widgets/` | ② 画面 |
-| `lib/services/db/`, 対応する `test/` | ③ 保存 |
-| `lib/services/notifications/`, 対応する `test/` | ④ 通知（P1） |
-| `lib/models/` | B/C合意後の共通型。現時点では未実装 |
-| `lib/features/scan/`, `lib/services/ai/` | C担当 |
-
-依存・lockfile・main.dart・ネイティブ構成の変更は①に集約します。各担当の独立worktreeで作業し、PRの取り込み先は `B`。マージは人間が行います。
-
-## 仕様と次の手順
-
-- `AGENTS.md`：開発ルール
-- `docs/app-spec-source.txt`：製品仕様の正本スナップショット
-- `docs/team-plan-source.txt`：分業・進行・受け入れ試験
-- `docs/implementation-decisions.md`：未決事項
-- `docs/b-foundation-contract-proposal.md`：共有契約案（未合意）
-- `.codex/STATE.md`：現在の作業状態
-
-次は優先実機・OSとB/Cの契約を確認し、②の画面、③の保存を接続します。詳細UIとDBを先に別々の共通型で実装しないでください。
-
-Flutter初期構築は[公式手順](https://docs.flutter.dev/reference/create-new-app)に沿っています。
-
-## iPhoneで単独起動する場合
-
-Debug版はFlutterまたはXcode経由で起動します。ホーム画面から直接起動して確認する場合は `flutter run --release -d <device-id>` を使用します。初回は端末の開発者署名の信頼も必要です。
-
-iOS実機の署名チームは、Git除外済みの `ios/Flutter/LocalSigning.xcconfig` に `DEVELOPMENT_TEAM = <自分のチームID>` として設定できます。Debug/Releaseのxcconfigから任意で読み込みます。個人の設定をコミットしないでください。
-
-容量確保後、Release版への入れ替えとユーザーによる実機画面表示確認が完了しました。CLIから起動する場合はiPhoneのロックを解除してください。正式な検証対象はCと同じiPhone 17 / iOS 27以降で、手元のiPhone 15は追加検証用です。
+作業ブランチはBから作成し、取り込み先もB。mainへのマージはユーザーが行います。
