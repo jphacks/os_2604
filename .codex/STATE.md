@@ -1,18 +1,35 @@
 # 現在の作業状態
 
-## 2026-10-17 Swift Foundation Models ブリッジ実装・過去比較のレポート本文接続・実機更新
+## 2026-10-17 B/C 最終統合（Foundation Models ブリッジ・過去比較・schema v4 実機移行確認・カメラタブUI）
 
-- 作業ブランチ：`manual_ui_testing_migration`（`origin/main` `cc33313` および `/Users/shindenfuta/JPHACKS` の `c` `e2d04a6` を統合した上で実装）。
-- 実装内容：
+- 作業ブランチ：`manual_ui_testing_migration`（`origin/main` `6a70610` と `origin/codex/b-camera-tab-ui` `1be6191` を統合）。
+- 実装・統合内容：
   1. **過去比較のレポート本文接続**：`ResultScreen._generateReport` で記録日基準の直近7暦日（当日を除く）の有効記録から `calculateHistoryBaseline` を算出し、`OnDeviceAiRunner.generateReflection(scan, baseline: baseline)` と `TemplateRecordSummary` へ接続。履歴不足時は「過去比較：基準値蓄積中（有効記録 X/3件 または 体調の記録 X/3件）」、有効記録3件以上かつ体調入力3件以上では「過去比較：直近7日間（今日を除く）の体調の中央値 ...」をレポート本文（端末内AI・定型文とも）に表示。基準値成立時はAI短文選択キー `reviewHistoryComparison` も許可。
   2. **Swift 側の Foundation Models ブリッジ実装**：`ios/Runner/AppDelegate.swift` に `jp.jphacks.os_2604/on_device_ai` チャネルと `OnDeviceAiBridge` を実装。`SystemLanguageModel.default.availability`・日本語ロケール対応確認、`LanguageModelSession` による短文キー生成、requestId 単位の `Task` 管理・キャンセル・単発完了保証（`PendingGeneration`）、iOS 26 `GenerationError` / iOS 27 `LanguageModelError`・`SystemLanguageModel.Error` のエラーコード変換を接続。
-- 自動検証：`dart format --output=none --set-exit-if-changed lib test` は69ファイル変更なし、`flutter analyze --no-pub` 指摘なし、`flutter test --no-pub --reporter expanded` 全257件成功（既存252件＋過去比較レポート単体・Widgetテスト5件）。
-- ビルドと実機導入（physical iPhone 17 / iOS 27.0.1、`00008150-000268A03EC2401C`）：
-  1. 本体アプリ（`com.example.os2604`）：署名なしReleaseビルド（60.3MB）および署名付きReleaseビルド（`build/ios/iphoneos/Runner.app` 60.8MB）成功。既存データを消さずに `devicectl device install app` で上書き導入し、`devicectl device process launch` で起動成功。
-  2. 初回許可ダイアログ確認用アプリ（`com.example.os2604.permissioncheck`、表示名「15秒チェック 権限試験」）：実機に導入済み。
-- DB移行（schema v4）の実機扱い：更新前の実機履歴が空であったため、実測履歴にダミーデータを混在させない原則に従い、既存記録を保持した schema v4 日時移行は自動テスト（`legacy_timestamp_migration_test.dart`）での検証結果と区別して記録。
-- 実機手動UI確認（physical iPhone 17 / iOS 27.0.1）：ユーザーから「1. 実機での手動UI確認が完了しました」と報告を受領（① `com.example.os2604.permissioncheck` での初回カメラ許可ダイアログ確認、② `com.example.os2604` でのオンデバイスAI／定型文フォールバック・過去比較レポート表示、③ 撮影中断・体調/体温入力解除と保存・履歴・削除・通知設定、④ オフラインデモ確認）。翌日の通知繰り返しは当日外のため未確認として区別。
-- 次：変更のコミット・PR・ブランチ統合（`origin/codex/b-camera-tab-ui` 等との照合）。
+  3. **B側 カメラ起点タブUI（`origin/codex/b-camera-tab-ui` `1be6191`）の統合**：`AppDelegate.swift` に `CameraTabBar`、`CameraPermissionBridge`、`OnDeviceAiBridge` の3つすべてを登録。
+- 統合後の自動検証・実機導入：`dart format --output=none --set-exit-if-changed lib test` は71ファイル変更なし、`flutter analyze --no-pub` 指摘なし、`flutter test --no-pub --reporter expanded` 全257件成功。署名付き iOS Release ビルド（`build/ios/iphoneos/Runner.app` 61.0MB）成功、physical iPhone 17（`00008150-000268A03EC2401C`）に `com.example.os2604` を上書き導入・起動成功。
+- DB移行（schema v4）の実機検証（physical iPhone 17 / iOS 27.0.1、`00008150-000268A03EC2401C`）：
+  - 本体アプリ（`com.example.os2604`）の実測履歴を汚染しないよう、分離バンドル `com.example.os2604.permissioncheck` のコンテナに `PRAGMA user_version = 3`・2026年Unix秒値（`measured_at = 1792219200`）・`reminder_preferences`（`7:30` ON）・`onboarding_completions` を持つ SQLite ファイルを配置して実機起動。
+  - 実機上の `AppDatabase.onUpgrade(3 -> 4)` により、`user_version = 4`、`measured_at = 1792219200000000`（マイクロ秒）、`elapsed_micros = 15000000`、`quality = 'good'`、`reminder_preferences` がすべて保持・変換されることを実機で確認。確認後、`com.example.os2604.permissioncheck` は実機からアンインストールし、端末上にテスト用データが残らない状態に清掃済み。
+- 実機手動UI確認（physical iPhone 17 / iOS 27.0.1）：ユーザーから「1. 実機での手動UI確認が完了しました」と報告を受領（① 初回カメラ許可ダイアログ確認、② オンデバイスAI／定型文フォールバック・過去比較レポート表示、③ 撮影中断・体調/体温入力解除と保存・履歴・削除・通知設定、④ オフラインデモ確認）。翌日の通知繰り返しは当日外のため未確認として区別。
+
+## 2026-10-17 カメラタブUIとSwiftUI Liquid Glass（origin/codex/b-camera-tab-ui 1be6191）
+
+- ブランチ：`codex/b-camera-tab-ui`、main `cc33313` から作成。サブエージェント不使用。
+- AのFigJamをChromeで確認。白背景・オレンジ・下部の履歴／カメラ／設定を参考に、HomeScreenをカメラタブの入口として変更。本文はデザイン未確定のため既存の開始・保存済み状態・説明導線を維持。
+- iOSの下部メニューはFlutter UiKitView + UIHostingControllerでSwiftUIを埋め込む。iOS 26以降は純正glassEffect、旧iOSはultraThinMaterial。iOS以外はFlutter部品。履歴・設定は既存の画面遷移を使用し、この段階では各遷移先への共通タブ化はしない。
+- 変更：lib/screens/home_screen.dart、lib/widgets/camera_tab_bar.dart、ios/Runner/CameraTabBar.swift、AppDelegate.swift、Runner.xcodeproj。Cの計測・AI内部、DB、通知のロジックは変更なし。
+- 確認：整形65ファイル変更なし、flutter analyze指摘なし、全237テスト成功（画面遷移・小画面／文字拡大含む）、署名付きiOS Releaseビルド成功60.5MB。
+- iPhone 15 / iOS 26.6.2へインストール・起動成功。ネイティブメニューの見た目・タップのユーザー確認は未実施。iPhone17も未確認。
+- 追加変更：ユーザー要望によりMainTabsScreen + IndexedStackへ変更。履歴／カメラ／設定を経路pushせず即座に切り替え、下部メニューを常時表示。履歴・設定のタブ内では戻る矢印を非表示。既存の単独ルートは互換性のため維持。
+- SwiftUI側はObservableObjectに選択タブを保持し、MethodChannelでFlutterの選択状態と同期。Flutter代替メニューも3タブすべて選択可能。
+- タブ切替・選択表示・戻る矢印なしを既存の画面遷移テストで確認。追加変更後も全237テスト成功、静的解析指摘なし。
+- タブ切替版もiOS Releaseビルド成功（60.5MB）、iPhone 15へインストール成功。実機のタブ操作はユーザー確認待ち。mainへは未マージ。
+- 追加の見た目調整：ユーザーの参考画像に合わせ、全幅に近い暗い半透明カプセル、中央の白丸カメラ、左右の白いアイコン／文字へ変更。3タブの機能は維持。
+- 選択インジケーターはiOS26以降のGlassEffectContainer + glassEffectを使用した単一カプセルを横移動し、springでアニメーション。アクセシビリティの視差効果を減らす設定では移動アニメーションを無効化。旧iOSは半透明カプセルへフォールバック。
+- アニメーション調整後の確認：iOS Releaseビルド成功60.6MB、iPhone15にインストール・起動成功。SwiftUIのみの描画変更のため全Flutterテストは再実行せず、直前の237件成功を保持。実機での見た目・動きはユーザー確認待ち。
+- デザイン訂正：参考画像は中央のカメラボタンだけに適用するとのユーザー指示。暗い全幅バーを撤回し、明るいコンパクトなバーと茶色の選択色へ戻す。中央の白丸カメラ、タブ切替、ガラスのスライドアニメーションは維持。訂正版もiOS Releaseビルド成功（60.6MB）、iPhone15へインストール・起動成功。
+- フッター背景の修正：外側Scaffoldの背景色を選択タブに合わせる。カメラは既存の白、履歴・設定はテーマのscaffoldBackgroundColor。タブ内画面との色の境目を解消。画面遷移・ホームの7テスト成功、静的解析指摘なし、整形チェック成功。iOS Releaseビルド成功60.6MB、iPhone15へインストール成功。
 
 ## 2026-10-17 B 受け入れ確認（origin/main cc33313）
 
