@@ -9,10 +9,12 @@ class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
     required this.repository,
+    this.embedded = false,
     required this.reminderService,
     required this.reminderStore,
   });
 
+  final bool embedded;
   final HealthRecordRepository repository;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
@@ -134,7 +136,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('設定')),
+      appBar: AppBar(
+        title: const Text('設定'),
+        automaticallyImplyLeading: !widget.embedded,
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),

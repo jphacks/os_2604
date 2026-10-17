@@ -3,7 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'navigation/app_routes.dart';
 import 'screens/history_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_tabs_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/scan_screen.dart';
@@ -39,12 +39,12 @@ class MorningCheckApp extends StatelessWidget {
   /// 撮影画面ごとに1回呼ばれる。本番は CameraScanService、テストは偽物を返す。
   final ScanSession Function() createScanSession;
 
-  Widget _home(BuildContext context) => HomeScreen(
+  Widget _home(BuildContext context) => MainTabsScreen(
     repository: repository,
     now: now,
+    reminderService: reminderService,
+    reminderStore: reminderStore,
     onStartCheck: () => Navigator.of(context).pushNamed(AppRoutes.scan),
-    onOpenHistory: () => Navigator.of(context).pushNamed(AppRoutes.history),
-    onOpenSettings: () => Navigator.of(context).pushNamed(AppRoutes.settings),
     onShowExplanation: () =>
         Navigator.of(context).pushNamed(AppRoutes.onboarding),
   );

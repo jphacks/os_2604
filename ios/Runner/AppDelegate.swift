@@ -23,6 +23,10 @@ import FoundationModels
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let tabRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "CameraTabBar") {
+      tabRegistrar.register(CameraTabBarFactory(messenger: tabRegistrar.messenger()), withId: "os2604/camera-tabs")
+    }
+
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CameraPermissionBridge") {
       let channel = FlutterMethodChannel(
         name: "jp.jphacks.os_2604/camera_permission",
