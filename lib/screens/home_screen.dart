@@ -31,8 +31,6 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const Text('記録を確認できません（履歴未接続）。'),
-              const SizedBox(height: 16),
-              const Text('現在、実際の計測・保存サービスは未接続です。チェック開始から接続状況を確認できます。'),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: onStartCheck,
