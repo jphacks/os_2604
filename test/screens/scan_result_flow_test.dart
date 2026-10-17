@@ -16,6 +16,14 @@ class _Done implements OnboardingStore {
   Future<void> completeOnboarding() async {}
 }
 
+/// drift の watch() は購読解除後に Timer を残すため、テスト末尾で画面を外して流す。
+void tw(String name, Future<void> Function(WidgetTester) body) =>
+    testWidgets(name, (tester) async {
+      await body(tester);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
 void main() {
   late AppDatabase db;
   late FlakyRepository repo;
@@ -52,9 +60,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('success saves before the result screen; nulls are 未測定', (
-    tester,
-  ) async {
+  tw('success saves before the result screen; nulls are 未測定', (tester) async {
     await openScan(tester);
     expect(find.textContaining('診断目的ではありません'), findsOneWidget);
     await tester.tap(find.text('開始'));
@@ -90,7 +96,7 @@ void main() {
     expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
   });
 
-  testWidgets('insert failure: no navigation, honest message, retry saves', (
+  tw('insert failure: no navigation, honest message, retry saves', (
     tester,
   ) async {
     repo.failInsert = true;
@@ -115,7 +121,7 @@ void main() {
     ScanFailureReason.cameraUnavailable: '技術的な失敗',
     ScanFailureReason.processingFailed: '技術的な失敗',
   }.entries) {
-    testWidgets('failure ${entry.key.name}: message, retry, nothing saved', (
+    tw('failure ${entry.key.name}: message, retry, nothing saved', (
       tester,
     ) async {
       await openScan(tester);
@@ -132,25 +138,24 @@ void main() {
     });
   }
 
-  testWidgets(
-    'back during scan cancels; unmount disposes; stale result ignored',
-    (tester) async {
-      await openScan(tester);
-      await tester.tap(find.text('開始'));
-      await tester.pump();
-      await tester.tap(find.byType(BackButton));
-      await tester.pumpAndSettle();
-      expect(scan.cancels, greaterThanOrEqualTo(1));
-      expect(scan.disposes, 1);
-      expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
-      scan.finish(successOutcome('late'));
-      await tester.pumpAndSettle();
-      expect(await repo.findById('late'), isNull);
-      expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
-    },
-  );
+  tw('back during scan cancels; unmount disposes; stale result ignored', (
+    tester,
+  ) async {
+    await openScan(tester);
+    await tester.tap(find.text('開始'));
+    await tester.pump();
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(scan.cancels, greaterThanOrEqualTo(1));
+    expect(scan.disposes, 1);
+    expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
+    scan.finish(successOutcome('late'));
+    await tester.pumpAndSettle();
+    expect(await repo.findById('late'), isNull);
+    expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
+  });
 
-  testWidgets(
+  tw(
     'result: self condition and temperature persist; failure shown; unknown id',
     (tester) async {
       await openScan(tester);
@@ -179,7 +184,7 @@ void main() {
     },
   );
 
-  testWidgets('result with unknown id shows not-found', (tester) async {
+  tw('result with unknown id shows not-found', (tester) async {
     await openScan(tester);
     final nav = tester.state<NavigatorState>(find.byType(Navigator));
     nav.pushReplacementNamed('/result', arguments: 'nope');
