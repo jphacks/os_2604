@@ -71,7 +71,7 @@ class SelfConditionInput extends StatelessWidget {
                   '$condition',
                   style: TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: AsakaoStyle.ink,
                   ),
                 ),

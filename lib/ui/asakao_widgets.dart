@@ -64,20 +64,28 @@ class AsakaoCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.onTap,
+    this.fullBleed = false,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
 
+  /// true は画面の左右いっぱいに広げ、角丸にしない（上下の線だけ）。
+  final bool fullBleed;
+
+  static const _edge = BorderSide(color: AsakaoStyle.border);
+
   @override
   Widget build(BuildContext context) => Material(
     color: AsakaoStyle.card,
     clipBehavior: Clip.antiAlias,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-      side: const BorderSide(color: AsakaoStyle.border),
-    ),
+    shape: fullBleed
+        ? const Border(top: _edge, bottom: _edge)
+        : RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: _edge,
+          ),
     child: InkWell(
       onTap: onTap,
       child: Padding(padding: padding, child: child),
@@ -215,13 +223,19 @@ class AsakaoListRow extends StatelessWidget {
 
 /// [AsakaoListRow] を1枚のカードにまとめ、行間に区切り線を引く。
 class AsakaoListGroup extends StatelessWidget {
-  const AsakaoListGroup({super.key, required this.children});
+  const AsakaoListGroup({
+    super.key,
+    required this.children,
+    this.fullBleed = false,
+  });
 
   final List<Widget> children;
+  final bool fullBleed;
 
   @override
   Widget build(BuildContext context) => AsakaoCard(
     padding: EdgeInsets.zero,
+    fullBleed: fullBleed,
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -234,10 +248,10 @@ class AsakaoListGroup extends StatelessWidget {
   );
 }
 
-enum AsakaoMascotMood { normal, happy, sad, busy }
+/// [wilted] は今日まだチェックしていない履歴カード用（灰色のしおれた花）。
+enum AsakaoMascotMood { normal, happy, sad, busy, wilted }
 
-/// マスコット（あさかお）の仮表示。キャラクター画像が届いたらこの中身を
-/// 画像に差し替える（呼び出し側の変更は不要）。表示は装飾でスクリーンリーダーには読ませない。
+/// マスコット（あさかお）。表情ごとの画像を出す。表示は装飾でスクリーンリーダーには読ませない。
 class AsakaoMascot extends StatelessWidget {
   const AsakaoMascot({
     super.key,
@@ -249,51 +263,16 @@ class AsakaoMascot extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    final (flower, color, badge, badgeColor) = switch (mood) {
-      AsakaoMascotMood.normal => (
-        Icons.local_florist,
-        AsakaoStyle.coral,
-        null,
-        null,
-      ),
-      AsakaoMascotMood.happy => (
-        Icons.local_florist,
-        AsakaoStyle.coral,
-        Icons.favorite,
-        AsakaoStyle.destructive,
-      ),
-      AsakaoMascotMood.sad => (
-        Icons.local_florist_outlined,
-        AsakaoStyle.muted,
-        Icons.water_drop,
-        AsakaoStyle.link,
-      ),
-      AsakaoMascotMood.busy => (
-        Icons.local_florist,
-        AsakaoStyle.coral,
-        Icons.hourglass_empty,
-        AsakaoStyle.muted,
-      ),
-    };
-    return ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Icon(flower, size: size, color: color),
-            if (badge != null)
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Icon(badge, size: size * 0.3, color: badgeColor),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Image.asset(
+      'assets/mascot/${mood.name}.png',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      // 画像を読めなくても画面は止めない。枠だけ確保する。
+      errorBuilder: (_, _, _) => SizedBox.square(dimension: size),
+    ),
+  );
 }
 
 /// オンボーディングのページドット。現在ページは横長のコーラル。
@@ -311,7 +290,9 @@ class AsakaoStepDots extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < count; i++)
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutCubic,
             width: i == index ? 24 : 8,
             height: 8,
             margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -322,6 +303,62 @@ class AsakaoStepDots extends StatelessWidget {
           ),
       ],
     ),
+  );
+}
+
+/// 画面が出てから [delay] 後に、下から少し浮き上がりながらフェードインする。
+/// 遅延も同じアニメーションの中で扱う（タイマーを使わない）。
+class AsakaoReveal extends StatefulWidget {
+  const AsakaoReveal({
+    super.key,
+    required this.delay,
+    required this.child,
+    this.duration = const Duration(milliseconds: 450),
+    this.rise = 16,
+  });
+
+  final Duration delay;
+  final Duration duration;
+
+  /// 下からずらして始める距離（論理ピクセル）。
+  final double rise;
+  final Widget child;
+
+  @override
+  State<AsakaoReveal> createState() => _AsakaoRevealState();
+}
+
+class _AsakaoRevealState extends State<AsakaoReveal>
+    with SingleTickerProviderStateMixin {
+  late final _total = widget.delay + widget.duration;
+  late final _controller = AnimationController(vsync: this, duration: _total)
+    ..forward();
+  late final _progress = CurvedAnimation(
+    parent: _controller,
+    curve: Interval(
+      widget.delay.inMicroseconds / _total.inMicroseconds,
+      1,
+      curve: Curves.easeOutCubic,
+    ),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _progress,
+    builder: (_, child) => Opacity(
+      opacity: _progress.value,
+      child: Transform.translate(
+        offset: Offset(0, (1 - _progress.value) * widget.rise),
+        child: child,
+      ),
+    ),
+    child: widget.child,
   );
 }
 

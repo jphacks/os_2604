@@ -92,7 +92,6 @@ void main() {
     );
     unawaited(navigator.currentState!.pushNamed('/scan'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('開始'));
     await tester.pump();
   }
 
@@ -106,10 +105,7 @@ void main() {
       expect(scan.currentProgress.phase, ScanPhase.requestingPermission);
       expect(scan.currentProgress.elapsed, Duration.zero);
       expect(frames.starts, 0);
-      expect(
-        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-        isNull,
-      );
+      expect(find.byType(FilledButton), findsNothing); // 開始ボタンは無い
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.tap(find.text('中止する'));
       await tester.pumpAndSettle();

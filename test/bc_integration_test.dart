@@ -50,9 +50,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('チェック開始'));
+    await tester.tap(find.byKey(const ValueKey('main-tab-1'))); // カメラボタン
     await tester.pumpAndSettle();
-    await tester.tap(find.text('開始'));
     await tester.pump();
     expect(scan.starts, 1);
   }
@@ -87,9 +86,7 @@ void main() {
       expect(updated.bodyTemperatureC, isNull);
       await tester.ensureVisible(find.text('履歴に戻る'));
       await tester.tap(find.text('履歴に戻る'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('履歴'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(); // 4-3 → 5-1（cover を閉じると履歴）
       final row = find.byKey(ValueKey('history-row-${first.id}'));
       expect(
         find.descendant(of: row, matching: find.text('4')),
@@ -103,7 +100,7 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, '削除'));
       await tester.pumpAndSettle();
       expect(await records.loadAll(), isEmpty);
-      expect(find.text('測定記録はまだありません。'), findsOneWidget);
+      expect(find.text('まだ記録がありません'), findsOneWidget);
       await unmount(tester);
       expect(tester.takeException(), isNull);
     },
@@ -168,9 +165,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('チェック開始'));
+      await tester.tap(find.byKey(const ValueKey('main-tab-1'))); // カメラボタン
       await tester.pumpAndSettle();
-      await tester.tap(find.text('開始'));
       await tester.pump();
 
       scan.finish(
@@ -226,9 +222,7 @@ void main() {
 
       await tester.ensureVisible(find.text('履歴に戻る'));
       await tester.tap(find.text('履歴に戻る'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('履歴'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(); // 4-3 → 5-1（cover を閉じると履歴）
 
       final row = find.byKey(ValueKey('history-row-${updatedRecord.id}'));
       expect(

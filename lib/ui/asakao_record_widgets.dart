@@ -39,9 +39,12 @@ String _temperatureSourceLabel(TemperatureSource s) => switch (s) {
 
 /// 計測品質カード（棒アイコン + 品質チップ + 顔検出・計測時間）。
 class RecordQualityCard extends StatelessWidget {
-  const RecordQualityCard(this.record, {super.key});
+  const RecordQualityCard(this.record, {super.key, this.fullBleed = false});
 
   final HealthCheckResult record;
+
+  /// 画面の左右いっぱいに広げ、角丸にしない。
+  final bool fullBleed;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +60,10 @@ class RecordQualityCard extends StatelessWidget {
       MeasurementQuality.interrupted => AsakaoStyle.muted,
     };
     return AsakaoCard(
+      fullBleed: fullBleed,
+      padding: fullBleed
+          ? const EdgeInsets.symmetric(horizontal: 24, vertical: 16)
+          : const EdgeInsets.all(16),
       child: Row(
         children: [
           ExcludeSemantics(
@@ -117,10 +124,18 @@ class RecordQualityCard extends StatelessWidget {
 /// 体調・体温・推定心拍（参考値）・顔色特徴量の行カード。
 /// [conditionDiff] は実際の基準値との差。null なら比較は出さない。
 class RecordValuesCard extends StatelessWidget {
-  const RecordValuesCard(this.record, {super.key, this.conditionDiff});
+  const RecordValuesCard(
+    this.record, {
+    super.key,
+    this.conditionDiff,
+    this.fullBleed = false,
+  });
 
   final HealthCheckResult record;
   final double? conditionDiff;
+
+  /// 画面の左右いっぱいに広げ、角丸にしない。
+  final bool fullBleed;
 
   @override
   Widget build(BuildContext context) {
@@ -131,42 +146,60 @@ class RecordValuesCard extends StatelessWidget {
     final hr = r.estimatedHeartRateBpm;
     final showHr = hr != null && r.quality == MeasurementQuality.good;
     final feature = r.faceColorFeature;
+    // 全幅のときは区切り線をフレームまで引き、文字の行だけを内側に寄せる。
+    Widget row(Widget child) => fullBleed
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: child,
+          )
+        : child;
     return AsakaoCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      fullBleed: fullBleed,
+      padding: fullBleed
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          RecordRow(
-            title: '体調',
-            subtitle: '自分で入力',
-            value: cond == null
-                ? '未入力'
-                : '$cond / 5 ${selfConditionLabel(cond)}',
-            caption: cond == null || diff == null
-                ? null
-                : recordComparisonCaption(diff),
+          row(
+            RecordRow(
+              title: '体調',
+              subtitle: '自分で入力',
+              value: cond == null
+                  ? '未入力'
+                  : '$cond / 5 ${selfConditionLabel(cond)}',
+              caption: cond == null || diff == null
+                  ? null
+                  : recordComparisonCaption(diff),
+            ),
           ),
           const Divider(),
-          RecordRow(
-            title: '体温',
-            subtitle: t == null
-                ? '体温計'
-                : '体温計（${_temperatureSourceLabel(r.temperatureSource)}）',
-            value: t == null ? '未入力' : '$t℃',
+          row(
+            RecordRow(
+              title: '体温',
+              subtitle: t == null
+                  ? '体温計'
+                  : '体温計（${_temperatureSourceLabel(r.temperatureSource)}）',
+              value: t == null ? '未入力' : '$t℃',
+            ),
           ),
           if (showHr) ...[
             const Divider(),
-            RecordRow(
-              title: '推定心拍',
-              badge: '参考値',
-              subtitle: r.heartRateSource == HeartRateSource.external
-                  ? '外部の記録'
-                  : 'カメラから推定（研究モード）',
-              value: '${hr.round()} bpm',
+            row(
+              RecordRow(
+                title: '推定心拍',
+                badge: '参考値',
+                subtitle: r.heartRateSource == HeartRateSource.external
+                    ? '外部の記録'
+                    : 'カメラから推定（研究モード）',
+                value: '${hr.round()} bpm',
+              ),
             ),
           ],
           if (feature != null) ...[
             const Divider(),
-            RecordRow(title: '顔色特徴量', subtitle: '研究モード', value: '$feature'),
+            row(
+              RecordRow(title: '顔色特徴量', subtitle: '研究モード', value: '$feature'),
+            ),
           ],
         ],
       ),
@@ -181,10 +214,14 @@ class RecordReportCard extends StatelessWidget {
     super.key,
     required this.missingText,
     this.fallbackNote,
+    this.fullBleed = false,
   });
 
   final HealthCheckResult record;
   final String missingText;
+
+  /// 画面の左右いっぱいに広げ、角丸にしない。
+  final bool fullBleed;
 
   /// 定型文に切り替わった理由（結果画面で生成直後だけ分かる）。
   final String? fallbackNote;
@@ -193,6 +230,10 @@ class RecordReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = record.reportText;
     return AsakaoCard(
+      fullBleed: fullBleed,
+      padding: fullBleed
+          ? const EdgeInsets.symmetric(horizontal: 24, vertical: 16)
+          : const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -288,7 +329,7 @@ class RecordRow extends StatelessWidget {
               value,
               style: const TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: AsakaoStyle.ink,
               ),
             ),

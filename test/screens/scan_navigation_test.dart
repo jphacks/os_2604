@@ -94,7 +94,6 @@ void main() {
   }
 
   Future<void> start(WidgetTester tester) async {
-    await tester.tap(find.text('開始'));
     await tester.pump();
   }
 
@@ -140,17 +139,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('start double tap starts only one scan before rebuild', (
+  testWidgets('opening starts exactly one scan, even after rebuilds', (
     tester,
   ) async {
     await open(tester);
-    final begin = tester
-        .widget<FilledButton>(find.byType(FilledButton))
-        .onPressed!;
-    begin();
-    begin();
+    await tester.pump();
     await tester.pump();
     expect(scan.starts, 1);
+    expect(find.byType(FilledButton), findsNothing);
     await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
   });
@@ -214,7 +210,8 @@ void main() {
     await start(tester);
     repository.insertGate = Completer<void>();
     scan.finish(successOutcome());
-    await tester.pump();
+    await tester.pump(); // 計測結果を受け取る
+    await tester.pump(); // 保存中の表示を描く
     expect(find.text('記録を保存しています…'), findsOneWidget);
     expect(observer.replacements, 0);
     expect(await repository.findById('rec-1'), isNull);

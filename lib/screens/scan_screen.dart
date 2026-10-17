@@ -10,7 +10,9 @@ import '../features/scan/scan_widget.dart';
 import '../models/health_check_result.dart';
 import '../models/scan_contract.dart';
 import '../navigation/app_routes.dart';
+import '../navigation/app_transitions.dart';
 import '../services/db/health_record_repository.dart';
+import '../services/sound/sound_effects.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
 
@@ -41,6 +43,7 @@ class _ScanScreenState extends State<ScanScreen> {
   late final ScanSession _session = widget.createSession();
   _Stage _stage = _Stage.idle;
   ScanFailureReason? _failure;
+  bool _failureShown = false; // 3-3 の fade が終わったら計測画面を隠す
   HealthCheckResult? _unsaved;
   bool _leaving = false;
   bool _canPop = false;
@@ -53,15 +56,30 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _seenGuidance = false;
   StreamSubscription<ScanProgress>? _progressSub;
 
+  /// 「撮影準備」の音はこの試行で1回だけ鳴らす。
+  bool _readySounded = false;
+
   @override
   void initState() {
     super.initState();
+    // 3-1'。画面を開いたらすぐにカメラを起動し、条件がそろえば自動で計測を始める。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_start());
+    });
     _progressSub = _session.service.progress.listen((p) {
       final seen =
           p.phase == ScanPhase.preparing &&
           (p.guidance != null || _seenGuidance);
       if (seen != _seenGuidance && mounted) {
         setState(() => _seenGuidance = seen);
+      }
+      // 3つの条件がそろった（または計測に入った）ら、撮影準備の音を1回鳴らす。
+      final ready =
+          p.phase == ScanPhase.measuring ||
+          (p.phase == ScanPhase.preparing && _conditionsFor(p, seen).ready);
+      if (ready && !_readySounded && _stage == _Stage.running && mounted) {
+        _readySounded = true;
+        SoundEffects.play(SoundEffect.ready);
       }
     });
   }
@@ -104,6 +122,8 @@ class _ScanScreenState extends State<ScanScreen> {
     final attempt = ++_attempt;
     setState(() {
       _stage = _Stage.running;
+      _readySounded = false;
+      _failureShown = false;
       _failure = null;
       _unsaved = null;
     });
@@ -118,17 +138,20 @@ class _ScanScreenState extends State<ScanScreen> {
         _stage = _Stage.failed;
         _failure = ScanFailureReason.processingFailed;
       });
+      SoundEffects.play(SoundEffect.pause); // 3-3
       return;
     }
     if (!_isCurrent(attempt)) return;
     switch (outcome) {
       case ScanSuccess(:final result):
+        SoundEffects.play(SoundEffect.measureDone);
         await _save(result, attempt);
       case ScanFailure(:final reason):
         setState(() {
           _stage = _Stage.failed;
           _failure = reason;
         });
+        SoundEffects.play(SoundEffect.pause); // 3-3
     }
   }
 
@@ -199,17 +222,24 @@ class _ScanScreenState extends State<ScanScreen> {
           backgroundColor: failed
               ? AsakaoStyle.background
               : AsakaoStyle.scanBackground,
-          // 失敗画面は重ねて表示する。ScanWidget を外すと計測サービスの
-          // cancelScan が走るため、暗い計測画面は Offstage のまま残す。
+          // 失敗画面（3-3）は fade で重ねる。ScanWidget を外すと計測サービスの
+          // cancelScan が走るため、暗い計測画面は fade の後に Offstage で残す。
           body: Stack(
             fit: StackFit.expand,
             children: [
-              Offstage(offstage: failed, child: _scanView()),
+              Offstage(offstage: failed && _failureShown, child: _scanView()),
               if (failed)
                 Positioned.fill(
-                  child: ColoredBox(
-                    color: AsakaoStyle.background,
-                    child: _failedView(),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: AppTransitions.fadeDuration,
+                    onEnd: () => setState(() => _failureShown = true),
+                    builder: (_, opacity, child) =>
+                        Opacity(opacity: opacity, child: child),
+                    child: ColoredBox(
+                      color: AsakaoStyle.background,
+                      child: _failedView(),
+                    ),
                   ),
                 ),
             ],
@@ -231,8 +261,6 @@ class _ScanScreenState extends State<ScanScreen> {
           final measuring =
               p.phase == ScanPhase.measuring && _stage == _Stage.running;
           final conditions = _conditionsFor(p, _seenGuidance);
-          final busy =
-              _leaving || _stage == _Stage.running || _stage == _Stage.saving;
           return Column(
             children: [
               Expanded(
@@ -278,22 +306,16 @@ class _ScanScreenState extends State<ScanScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _stage == _Stage.saveFailed
-                        ? FilledButton(
-                            style: _darkFilled,
-                            onPressed: _leaving
-                                ? null
-                                : () => _save(_unsaved!, _attempt),
-                            child: const Text('保存を再試行'),
-                          )
-                        : measuring
-                        ? const SizedBox.shrink()
-                        : FilledButton(
-                            style: _darkFilled,
-                            onPressed: busy ? null : _start,
-                            child: const Text('開始'),
-                          ),
-                    const SizedBox(height: 12),
+                    if (_stage == _Stage.saveFailed) ...[
+                      FilledButton(
+                        style: _darkFilled,
+                        onPressed: _leaving
+                            ? null
+                            : () => _save(_unsaved!, _attempt),
+                        child: const Text('保存を再試行'),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AsakaoStyle.scanText,
@@ -351,6 +373,7 @@ class _ScanScreenState extends State<ScanScreen> {
       ? const Text(
           'そのまま動かずに',
           style: TextStyle(
+            fontFamily: AsakaoStyle.displayFont,
             fontSize: 18,
             fontWeight: FontWeight.w800,
             color: AsakaoStyle.scanText,
@@ -362,6 +385,7 @@ class _ScanScreenState extends State<ScanScreen> {
             Text(
               '枠の中に顔を合わせてください',
               style: TextStyle(
+                fontFamily: AsakaoStyle.displayFont,
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: AsakaoStyle.scanText,
@@ -411,7 +435,7 @@ class _ScanScreenState extends State<ScanScreen> {
                           padding: const EdgeInsets.all(24),
                           child: Text(
                             p.phase == ScanPhase.idle
-                                ? '開始を押すとカメラが起動します'
+                                ? 'カメラを起動しています'
                                 : 'カメラを準備しています',
                             style: const TextStyle(
                               fontSize: 13,
@@ -459,7 +483,7 @@ class _ScanScreenState extends State<ScanScreen> {
             '$seconds',
             style: const TextStyle(
               fontSize: 72,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1,
               color: AsakaoStyle.scanText,
             ),
@@ -517,7 +541,7 @@ class _ScanScreenState extends State<ScanScreen> {
       ScanPhase.requestingPermission => 'カメラの許可を確認しています',
       ScanPhase.preparing =>
         p.guidance == null ? '顔の位置を確認しています' : _guidance(p.guidance!),
-      _ => '開始を押すと、カメラで3つの条件を確認します',
+      _ => 'カメラで3つの条件を確認します',
     };
   }
 
@@ -626,11 +650,23 @@ class _ScanScreenState extends State<ScanScreen> {
                         ),
                       ),
                     const SizedBox(height: 16),
-                    const AsakaoMascot(mood: AsakaoMascotMood.sad, size: 96),
-                    const SizedBox(height: 16),
+                    const Center(
+                      child: AsakaoMascot(
+                        mood: AsakaoMascotMood.sad,
+                        size: 200,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
                     Semantics(
                       header: true,
-                      child: Text(copy.heading, style: AsakaoStyle.title),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          copy.heading,
+                          style: AsakaoStyle.title,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     AsakaoCard(

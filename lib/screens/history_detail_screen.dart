@@ -84,12 +84,20 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
       return Scaffold(
         backgroundColor: AsakaoStyle.background,
         appBar: AppBar(
-          leadingWidth: MediaQuery.textScalerOf(context).scale(96),
+          // 戻るは iOS の標準に近い大きさ（矢印 32・文字 17）にする。
+          leadingWidth: MediaQuery.textScalerOf(context).scale(120),
           leading: Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.only(left: 4, right: 12),
+                textStyle: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.chevron_left, size: 24),
+              icon: const Icon(Icons.chevron_left, size: 32),
               label: const Text('履歴'),
             ),
           ),
@@ -131,28 +139,50 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
     },
   );
 
+  // 「この日の記録」より下のカードは画面の左右いっぱいに広げ、角丸にしない。
+  static const _side = EdgeInsets.symmetric(horizontal: 24);
+  static const _label = EdgeInsets.fromLTRB(28, 16, 28, 8);
+
   Widget _content(HealthCheckResult r, List<HealthCheckResult> all) => ListView(
-    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+    padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
     children: [
-      Text('${formatClock(r.measuredAt)} に記録', style: AsakaoStyle.caption),
-      const SizedBox(height: 4),
-      Semantics(
-        header: true,
-        child: Text(formatJaDate(r.measuredAt), style: AsakaoStyle.title),
+      Padding(
+        padding: _side,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${formatClock(r.measuredAt)} に記録',
+              style: AsakaoStyle.caption,
+            ),
+            const SizedBox(height: 4),
+            Semantics(
+              header: true,
+              child: Text(formatJaDate(r.measuredAt), style: AsakaoStyle.title),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
-      const SizedBox(height: 16),
-      RecordQualityCard(r),
-      const AsakaoSectionLabel('この日の記録'),
-      RecordValuesCard(r, conditionDiff: _conditionDiff(r, all)),
-      const AsakaoSectionLabel('この日のレポート'),
-      RecordReportCard(r, missingText: 'レポートは未作成です'),
-      const SizedBox(height: 12),
-      const Text(
-        '医療機器ではありません。値は目安です。診断目的ではありません。体温はカメラでは測定していません。',
-        style: AsakaoStyle.caption,
+      RecordQualityCard(r, fullBleed: true),
+      const AsakaoSectionLabel('この日の記録', padding: _label),
+      RecordValuesCard(
+        r,
+        conditionDiff: _conditionDiff(r, all),
+        fullBleed: true,
+      ),
+      const AsakaoSectionLabel('この日のレポート', padding: _label),
+      RecordReportCard(r, missingText: 'レポートは未作成です', fullBleed: true),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(24, 12, 24, 0),
+        child: Text(
+          '医療機器ではありません。値は目安です。診断目的ではありません。体温はカメラでは測定していません。',
+          style: AsakaoStyle.caption,
+        ),
       ),
       const SizedBox(height: 24),
       AsakaoListGroup(
+        fullBleed: true,
         children: [
           AsakaoListRow(
             title: 'この記録を削除',

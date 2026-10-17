@@ -142,7 +142,7 @@ class _ManualTemperatureInputState extends State<ManualTemperatureInput> {
                   ),
                   style: const TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: AsakaoStyle.ink,
                   ),
                   decoration: InputDecoration(
@@ -167,7 +167,7 @@ class _ManualTemperatureInputState extends State<ManualTemperatureInput> {
                 '℃',
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: AsakaoStyle.muted,
                 ),
               ),

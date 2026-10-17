@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../navigation/app_transitions.dart';
 import '../models/health_check_result.dart';
 import '../services/ai/on_device_ai_client.dart';
 import '../services/ai/on_device_ai_runner.dart';
@@ -273,7 +274,15 @@ class _ResultScreenState extends State<ResultScreen> {
             : null,
         centerTitle: true,
       ),
-      body: SafeArea(child: _body(context)),
+      // 4-1 → 4-2 → 4-3 / 4-2' は同じ場所の fade。
+      body: SafeArea(
+        child: AppTransitions.fadeSwitch(
+          child: KeyedSubtree(
+            key: ValueKey((_loading, _loadError, _stage)),
+            child: _body(context),
+          ),
+        ),
+      ),
     );
   }
 

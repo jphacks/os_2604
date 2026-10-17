@@ -49,17 +49,19 @@ void main() {
 
   Finder text(String t) => find.text(t);
 
-  tw('idle: title, unchecked conditions and button-fitting caption', (
+  tw('opening: title, unchecked conditions and caption before camera data', (
     tester,
   ) async {
     await open(tester);
+    expect(scan.starts, 1); // 開いた瞬間にカメラを起動する（3-1'）
+    expect(find.widgetWithText(FilledButton, '開始'), findsNothing);
     expect(text('顔の位置合わせ'), findsOneWidget);
     expect(text('枠の中に顔を合わせてください'), findsOneWidget);
     expect(text('顔'), findsOneWidget);
     expect(text('明るさ'), findsOneWidget);
     expect(text('角度'), findsOneWidget);
     expect(text('未確認'), findsNWidgets(3)); // 何も判定していないので緑にしない
-    expect(text('開始を押すと、カメラで3つの条件を確認します'), findsOneWidget);
+    expect(text('カメラで3つの条件を確認します'), findsOneWidget);
     expect(find.textContaining('自動で計測が始まります'), findsNothing);
     expect(text('中止する'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsNothing);
@@ -69,7 +71,6 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(text('開始'));
     await tester.pump();
     await emit(
       tester,
@@ -123,7 +124,6 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(text('開始'));
     await tester.pump();
     // 最初のフレーム前の guidance なしは「条件OK」とは限らない。
     await emit(tester, const ScanProgress(phase: ScanPhase.preparing));
@@ -147,7 +147,6 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(text('開始'));
     await tester.pump();
     await emit(
       tester,
@@ -170,7 +169,6 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(text('開始'));
     await tester.pump();
     await emit(
       tester,
@@ -196,7 +194,6 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(text('開始'));
     await tester.pump();
     scan.finish(
       const ScanFailure(
@@ -218,7 +215,6 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(text('開始'));
     await tester.pump();
     scan.finish(
       const ScanFailure(
@@ -239,7 +235,6 @@ void main() {
     await open(tester);
     tester.view.physicalSize = const Size(360, 640);
     await tester.pumpAndSettle();
-    await tester.tap(text('開始'));
     await tester.pump();
     await emit(
       tester,

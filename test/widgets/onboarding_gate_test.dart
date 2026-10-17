@@ -49,6 +49,8 @@ Future<void> acknowledge(WidgetTester tester) async {
     await tapText(tester, 'つづける');
     await tapText(tester, '同意してつづける');
     await tapText(tester, '今はしない');
+    // 1-4 → 1-5（fade）→ 1-6（push）
+    await tapText(tester, 'あとで設定する');
     await tapText(tester, 'スキップ');
   }
   final button = find.text('記録をはじめる');
@@ -95,10 +97,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('テストホーム'), findsOneWidget);
     expect(find.text('毎朝のチェックはここから'), findsOneWidget);
+    // 表示中は全体を暗くして、下の画面を操作できない（タップで閉じる）。
+    final dim = find.byWidgetPredicate(
+      (w) => w is ModalBarrier && w.color == const Color(0x8C000000),
+    );
+    expect(dim, findsOneWidget);
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();
     expect(find.text('テストホーム'), findsOneWidget);
     expect(find.text('毎朝のチェックはここから'), findsNothing);
+    expect(dim, findsNothing);
+  });
+
+  testWidgets('tapping outside the tip also closes it', (tester) async {
+    await tester.pumpWidget(gate(FakeStore()));
+    await tester.pumpAndSettle();
+    await acknowledge(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('毎朝のチェックはここから'), findsOneWidget);
+    await tester.tapAt(const Offset(20, 20)); // 暗くした部分
+    await tester.pumpAndSettle();
+    expect(find.text('毎朝のチェックはここから'), findsNothing);
+    expect(find.text('テストホーム'), findsOneWidget);
   });
 
   testWidgets('completed store bypasses explanation without another write', (
