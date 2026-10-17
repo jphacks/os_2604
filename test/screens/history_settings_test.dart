@@ -140,13 +140,15 @@ void main() {
 
     tw('tap opens result for that id', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
+      await repo.updateReport('a', '保存済みレポート', ReportMode.template);
       await pumpApp(tester);
       await tester.tap(find.text('履歴'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('2026/10/16 08:00'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, '結果'), findsOneWidget);
-      expect(find.text('2026/10/16 08:00'), findsOneWidget);
+      // レポート済みの記録は、自己申告を挟まず結果をそのまま表示する。
+      expect(find.text('10月16日（金） 8:00'), findsOneWidget);
+      expect(find.text('保存済みレポート'), findsOneWidget);
     });
 
     tw('delete with confirm removes only that record', (tester) async {

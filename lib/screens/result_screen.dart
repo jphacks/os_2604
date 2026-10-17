@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
-import '../ui/asakao_widgets.dart';
 import '../services/ai/on_device_ai_client.dart';
 import '../services/ai/on_device_ai_runner.dart';
+import '../services/ai/template_record_summary.dart';
 import '../services/analysis/history_baseline.dart';
 import '../services/db/health_record_repository.dart';
+import '../ui/asakao_style.dart';
+import '../ui/asakao_widgets.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
 
-/// 保存済みの記録を表示し、体調・体温を同一IDへ任意で追記する。
+/// 計測直後の自己申告（4-1）→ レポート生成（4-2）→ 結果（4-3）。
+/// 記録は計測直後に保存済みで、ここでは同一IDへ体調・体温・レポートを追記する。
+/// レポート済みの記録（履歴から開いた場合）は結果を直接表示する。
 class ResultScreen extends StatefulWidget {
   const ResultScreen({
     super.key,
@@ -30,23 +34,26 @@ class ResultScreen extends StatefulWidget {
   State<ResultScreen> createState() => _ResultScreenState();
 }
 
+enum _Stage { input, generating, failed, result }
+
 class _ResultScreenState extends State<ResultScreen> {
   HealthCheckResult? _record;
+  HistoryBaseline? _baseline;
   bool _loading = true;
-  bool _saving = false;
-  bool _writingReport = false;
-  int _inputRevision = 0;
   bool _loadError = false;
+  _Stage _stage = _Stage.input;
+
+  // 入力（4-1）
   int? _condition;
   double? _temperature;
   bool _temperatureValid = true;
-  String? _conditionMsg;
-  String? _temperatureMsg;
+  bool _saving = false;
+  String? _inputMsg;
 
-  // 世代番号。新しい生成要求・体調/体温の保存・破棄で進め、古い結果を捨てる。
+  // 世代番号。新しい生成要求・破棄で進め、古い結果を捨てる。
   int _gen = 0;
   bool _generating = false;
-  String? _reportMsg;
+  bool _wantTemplate = false; // 「定型文で先に見る」: AIを待たず定型文にする
   AiFallbackReason? _fallbackReason;
 
   @override
@@ -70,58 +77,79 @@ class _ResultScreenState extends State<ResultScreen> {
     }
   }
 
+  /// 今日を除く直近7日の有効記録から基準値を求める。
+  Future<(HealthCheckResult?, HistoryBaseline)> _freshAndBaseline(
+    String id,
+    DateTime measuredAt,
+  ) async {
+    final referenceAt = measuredAt.toLocal();
+    final today = DateTime(
+      referenceAt.year,
+      referenceAt.month,
+      referenceAt.day,
+    );
+    final start = DateTime(today.year, today.month, today.day - 7);
+    final (fresh, observations) = await (
+      widget.repository.findById(id),
+      widget.repository.baselineObservations(start, today),
+    ).wait;
+    return (
+      fresh,
+      calculateHistoryBaseline(
+        observations,
+        referenceDate: fresh?.measuredAt ?? measuredAt,
+      ),
+    );
+  }
+
   Future<void> _generateReport() async {
     final id = widget.recordId;
-    if (id == null || _generating || _saving || _writingReport) return;
+    if (id == null || _generating || _saving) return;
     final gen = ++_gen;
     setState(() {
       _generating = true;
-      _reportMsg = null;
+      _stage = _Stage.generating;
     });
-    String? failure;
     try {
-      final referenceAt = (_record?.measuredAt ?? DateTime.now()).toLocal();
-      final today = DateTime(
-        referenceAt.year,
-        referenceAt.month,
-        referenceAt.day,
+      final (fresh, baseline) = await _freshAndBaseline(
+        id,
+        _record?.measuredAt ?? DateTime.now(),
       );
-      final start = DateTime(today.year, today.month, today.day - 7);
-      final (fresh, observations) = await (
-        widget.repository.findById(id),
-        widget.repository.baselineObservations(start, today),
-      ).wait;
       if (!mounted || gen != _gen) return;
       if (fresh == null) throw StateError('record missing');
-      final baseline = calculateHistoryBaseline(
-        observations,
-        referenceDate: fresh.measuredAt,
-      );
-      final outcome = await widget.aiRunner.generateReflection(
-        fresh,
-        baseline: baseline,
-      );
+      final ({String text, ReportMode mode, AiFallbackReason? reason}) outcome;
+      if (_wantTemplate) {
+        outcome = (
+          text: const TemplateRecordSummary().format(fresh, baseline: baseline),
+          mode: ReportMode.template,
+          reason: AiFallbackReason.cancelled,
+        );
+      } else {
+        final r = await widget.aiRunner.generateReflection(
+          fresh,
+          baseline: baseline,
+        );
+        outcome = (text: r.text, mode: r.mode, reason: r.fallbackReason);
+      }
       if (!mounted || gen != _gen) return;
-      FocusScope.of(context).unfocus();
-      setState(() => _writingReport = true);
       await widget.repository.updateReport(id, outcome.text, outcome.mode);
       if (!mounted || gen != _gen) return;
       final updated = await widget.repository.findById(id);
       if (!mounted || gen != _gen) return;
       setState(() {
         _record = updated;
-        _fallbackReason = outcome.fallbackReason;
+        _baseline = baseline;
+        _fallbackReason = outcome.reason;
+        _generating = false;
+        _stage = _Stage.result;
       });
     } catch (_) {
-      failure = 'レポートを作成できませんでした（保存されていません）';
+      if (!mounted || gen != _gen) return;
+      setState(() {
+        _generating = false;
+        _stage = _Stage.failed;
+      });
     }
-    if (!mounted) return;
-    setState(() => _writingReport = false);
-    if (gen != _gen) return;
-    setState(() {
-      _generating = false;
-      _reportMsg = failure;
-    });
   }
 
   Future<void> _load() async {
@@ -132,11 +160,21 @@ class _ResultScreenState extends State<ResultScreen> {
     final id = widget.recordId;
     try {
       final r = id == null ? null : await widget.repository.findById(id);
+      HistoryBaseline? baseline;
+      if (r != null && id != null) {
+        try {
+          baseline = (await _freshAndBaseline(id, r.measuredAt)).$2;
+        } catch (_) {
+          baseline = null; // 比較は表示しない（捏造しない）。
+        }
+      }
       if (!mounted) return;
       setState(() {
         _record = r;
+        _baseline = baseline;
         _condition = r?.selfCondition;
         _temperature = r?.bodyTemperatureC;
+        _stage = r?.reportText == null ? _Stage.input : _Stage.result;
         _loading = false;
       });
     } catch (_) {
@@ -148,29 +186,15 @@ class _ResultScreenState extends State<ResultScreen> {
     }
   }
 
-  Future<void> _saveCondition() => _saveInputs(condition: true);
-
-  Future<void> _saveTemperature() => _saveInputs(condition: false);
-
-  Future<void> _saveInputs({required bool condition}) async {
+  /// 体調・体温を同じ記録IDへ保存する。保存済みのレポートは入力が変わるため消える。
+  Future<bool> _saveInputs() async {
     final id = widget.recordId;
-    if (id == null ||
-        _saving ||
-        _writingReport ||
-        (!condition && !_temperatureValid)) {
-      return;
-    }
+    if (id == null || _saving || !_temperatureValid) return false;
     final c = _condition;
     final t = _temperature;
-    final revision = _inputRevision;
-    _invalidateGeneration();
     setState(() {
       _saving = true;
-      if (condition) {
-        _conditionMsg = null;
-      } else {
-        _temperatureMsg = null;
-      }
+      _inputMsg = null;
     });
     var success = false;
     try {
@@ -185,63 +209,98 @@ class _ResultScreenState extends State<ResultScreen> {
         estimatedHeartRateBpm: current.estimatedHeartRateBpm,
         heartRateSource: current.heartRateSource,
         faceColorFeature: current.faceColorFeature,
-        selfCondition: condition ? c : current.selfCondition,
-        bodyTemperatureC: condition ? current.bodyTemperatureC : t,
-        temperatureSource: condition
-            ? current.temperatureSource
-            : t == null
+        selfCondition: c,
+        bodyTemperatureC: t,
+        temperatureSource: t == null
             ? TemperatureSource.none
+            : t == current.bodyTemperatureC
+            ? current.temperatureSource
             : TemperatureSource.manual,
       );
       if (!await widget.repository.updateInputsAndReport(updated)) {
         throw StateError('record missing');
       }
-      if (!mounted) return;
-      setState(() {
-        _record = updated;
-        _fallbackReason = null;
-        _reportMsg = null;
-      });
+      if (!mounted) return false;
+      _record = updated;
       success = true;
     } catch (_) {
-      // Keep the draft, including invalid text, available for retry.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          if (revision == _inputRevision) {
-            final label = condition ? '体調' : '体温';
-            final message = success
-                ? '$labelを保存しました'
-                : '$labelを保存できませんでした（保存されていません）';
-            if (condition) {
-              _conditionMsg = message;
-            } else {
-              _temperatureMsg = message;
-            }
-          }
-        });
-      }
+      // 下書き（不正な文字列を含む）は残し、再試行できるようにする。
     }
+    if (mounted) {
+      setState(() {
+        _saving = false;
+        if (!success) _inputMsg = '入力を保存できませんでした（保存されていません）。もう一度お試しください。';
+      });
+    }
+    return success;
   }
 
-  void _inputChanged() {
-    _inputRevision++;
-    _invalidateGeneration();
-    _conditionMsg = null;
-    _temperatureMsg = null;
+  Future<void> _submit() async {
+    if (_saving || _generating || !_temperatureValid) return;
+    if (!await _saveInputs() || !mounted) return;
+    _wantTemplate = false;
+    await _generateReport();
+  }
+
+  void _retry() {
+    _wantTemplate = false;
+    _generateReport();
+  }
+
+  void _showTemplate() {
+    _wantTemplate = true;
+    if (_generating) {
+      widget.aiRunner.cancel(); // 生成中ならAIを止め、定型文で続ける。
+    } else {
+      _generateReport();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('結果')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: _body(context),
-        ),
+      appBar: AppBar(
+        title: _stage == _Stage.input && _record != null
+            ? const Text(
+                '計測できました',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AsakaoStyle.muted,
+                ),
+              )
+            : null,
+        centerTitle: true,
       ),
+      body: SafeArea(child: _body(context)),
+    );
+  }
+
+  /// 本文（スクロール）と下部ボタンを分けて固定する。
+  Widget _page({
+    required List<Widget> children,
+    required List<Widget> actions,
+  }) {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: actions,
+          ),
+        ),
+      ],
     );
   }
 
@@ -249,124 +308,392 @@ class _ResultScreenState extends State<ResultScreen> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     final r = _record;
     if (_loadError || r == null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      return _page(
         children: [
-          Text(_loadError ? '記録を読み込めませんでした。' : '該当する記録が見つかりません。'),
-          const SizedBox(height: 16),
-          if (_loadError)
-            OutlinedButton(onPressed: _load, child: const Text('再読み込み')),
-          FilledButton(
-            onPressed: widget.onBackToHome,
-            child: const Text('ホームへ'),
+          const SizedBox(height: 24),
+          Text(
+            _loadError ? '記録を読み込めませんでした。' : '該当する記録が見つかりません。',
+            style: AsakaoStyle.body,
           ),
+        ],
+        actions: [
+          if (_loadError) ...[
+            OutlinedButton(onPressed: _load, child: const Text('再読み込み')),
+            const SizedBox(height: 8),
+          ],
+          AsakaoPrimaryButton(label: 'ホームへ', onPressed: widget.onBackToHome),
         ],
       );
     }
-    final hr = r.estimatedHeartRateBpm;
-    final showHr = hr != null && r.quality == MeasurementQuality.good;
-    final t = r.bodyTemperatureC;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return switch (_stage) {
+      _Stage.input => _inputView(),
+      _Stage.generating => _generatingView(),
+      _Stage.failed => _failedView(),
+      _Stage.result => _resultView(r),
+    };
+  }
+
+  // ---- 4-1 自己申告 ----
+
+  Widget _inputView() {
+    return _page(
       children: [
-        const Text('記録は保存されました。'),
-        const SizedBox(height: 16),
-        _row('計測日時', _fmt(r.measuredAt)),
-        _row(
-          '計測時間',
-          '${(r.elapsed.inMilliseconds / 1000).toStringAsFixed(1)} 秒',
+        Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: AsakaoStyle.linkPale,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check, size: 20, color: AsakaoStyle.link),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('15秒の計測が終わりました。あと少しです。', style: AsakaoStyle.body),
+            ),
+          ],
         ),
-        _row('品質', asakaoQualityLabel(r.quality)),
-        _row('顔検出', r.faceDetected ? 'あり' : 'なし'),
-        _row('心拍数', showHr ? '${hr.round()} bpm' : '未測定'),
-        if (showHr) const Text('心拍数は試験的な推定値です'),
-        _row(
-          '顔色特徴量',
-          r.faceColorFeature == null ? '未測定' : '${r.faceColorFeature}',
-        ),
-        _row('体温', t == null ? '未測定' : '$t ℃（${_source(r.temperatureSource)}）'),
-        const Text('体温はカメラで測定していません'),
-        _row('体調', r.selfCondition == null ? '未測定' : '${r.selfCondition} / 5'),
-        const SizedBox(height: 16),
-        Text('レポート', style: Theme.of(context).textTheme.titleMedium),
-        Text(r.reportText ?? 'レポートは未生成です。'),
-        if (r.reportText != null) ...[
-          Text(r.aiMode == ReportMode.onDevice ? '端末内AIで作成' : '定型文で作成'),
-          if (r.aiMode == ReportMode.template && _fallbackReason != null)
-            Text(_reasonText(_fallbackReason!)),
-        ],
-        const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: _generating || _saving || _writingReport
-              ? null
-              : _generateReport,
-          child: Text(
-            _generating
-                ? 'レポートを作成しています…'
-                : r.reportText == null
-                ? 'レポートを作成'
-                : 'レポートを作り直す',
-          ),
-        ),
-        if (_reportMsg != null) Text(_reportMsg!),
-        const Divider(height: 32),
-        AbsorbPointer(
-          absorbing: _writingReport,
-          child: SelfConditionInput(
-            value: _condition,
-            onChanged: (v) => setState(() {
-              if (_writingReport) return;
-              _inputChanged();
-              _condition = v;
-              _conditionMsg = null;
-            }),
-          ),
-        ),
-        OutlinedButton(
-          onPressed: _saving || _writingReport ? null : _saveCondition,
-          child: const Text('体調を保存'),
-        ),
-        if (_conditionMsg != null) Text(_conditionMsg!),
         const SizedBox(height: 24),
-        AbsorbPointer(
-          absorbing: _writingReport,
-          child: ManualTemperatureInput(
-            enabled: !_writingReport,
-            value: _temperature,
-            onChanged: (v) => setState(() {
-              if (_writingReport) return;
-              _inputChanged();
-              _temperature = v;
-              _temperatureMsg = null;
-            }),
-            onValidityChanged: (v) => setState(() => _temperatureValid = v),
-          ),
+        Semantics(
+          header: true,
+          child: const Text('いまの体調は？', style: AsakaoStyle.title),
         ),
-        OutlinedButton(
-          onPressed: _saving || _writingReport || !_temperatureValid
-              ? null
-              : _saveTemperature,
-          child: const Text('体温を保存'),
-        ),
-        if (_temperatureMsg != null) Text(_temperatureMsg!),
-        const SizedBox(height: 24),
-        const Text('このアプリは診断目的ではありません。', textAlign: TextAlign.center),
+        const SizedBox(height: 4),
+        const Text('直感で選んでください', style: AsakaoStyle.caption),
         const SizedBox(height: 12),
-        FilledButton(onPressed: widget.onBackToHome, child: const Text('ホームへ')),
+        SelfConditionInput(
+          value: _condition,
+          onChanged: (v) => setState(() {
+            _condition = v;
+            _inputMsg = null;
+          }),
+        ),
+        const SizedBox(height: 16),
+        ManualTemperatureInput(
+          enabled: !_saving,
+          value: _temperature,
+          onChanged: (v) => setState(() {
+            _temperature = v;
+            _inputMsg = null;
+          }),
+          onValidityChanged: (v) => setState(() => _temperatureValid = v),
+        ),
+        if (_inputMsg != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _inputMsg!,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AsakaoStyle.destructive,
+            ),
+          ),
+        ],
+      ],
+      actions: [
+        AsakaoPrimaryButton(
+          label: '結果を見る',
+          onPressed: _saving || _generating || !_temperatureValid
+              ? null
+              : _submit,
+        ),
       ],
     );
   }
 
-  Widget _row(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(width: 110, child: Text(label)),
-        Expanded(child: Text(value)),
+  // ---- 4-2 レポート生成中・失敗 ----
+
+  Widget _generatingView() {
+    return _page(
+      children: const [
+        SizedBox(height: 48),
+        Center(child: AsakaoMascot(mood: AsakaoMascotMood.busy, size: 140)),
+        SizedBox(height: 24),
+        _Centered('レポートを書いています…', AsakaoStyle.heading),
+        SizedBox(height: 12),
+        _Centered('記録は保存済みです。', AsakaoStyle.caption),
+        _Centered('まとめは数秒で表示されます。', AsakaoStyle.caption),
       ],
-    ),
-  );
+      actions: [AsakaoTextLink(label: '定型文で先に見る', onPressed: _showTemplate)],
+    );
+  }
+
+  Widget _failedView() {
+    return _page(
+      children: const [
+        SizedBox(height: 48),
+        Center(child: AsakaoMascot(mood: AsakaoMascotMood.sad, size: 120)),
+        SizedBox(height: 24),
+        _Centered('まとめを作れませんでした', AsakaoStyle.heading),
+        SizedBox(height: 12),
+        _Centered('今日の記録は保存済みなので、定型文で結果を確認できます。', AsakaoStyle.body),
+      ],
+      actions: [
+        AsakaoPrimaryButton(label: '定型文で結果を見る', onPressed: _showTemplate),
+        const SizedBox(height: 4),
+        AsakaoTextLink(label: 'もう一度試す', onPressed: _retry),
+      ],
+    );
+  }
+
+  // ---- 4-3 / 4-5 結果 ----
+
+  Widget _resultView(HealthCheckResult r) {
+    final good = r.quality == MeasurementQuality.good;
+    final baseline = _baseline;
+    final cond = r.selfCondition;
+    final median = baseline?.selfConditionMedian;
+    final diff = cond != null && median != null ? cond - median : null;
+    // 「いつもどおり」は、実際の基準値と同じ体調のときだけ言う。
+    final usual = good && diff == 0;
+    final headline = !good
+        ? '今回は十分な品質で計測できませんでした'
+        : usual
+        ? 'いつもどおりの朝です'
+        : '今日の記録ができました';
+    final hr = r.estimatedHeartRateBpm;
+    final showHr = hr != null && good;
+    final t = r.bodyTemperatureC;
+    final feature = r.faceColorFeature;
+    return _page(
+      children: [
+        Text(_dateHeader(r.measuredAt), style: AsakaoStyle.caption),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            AsakaoMascot(
+              mood: !good
+                  ? AsakaoMascotMood.sad
+                  : usual
+                  ? AsakaoMascotMood.happy
+                  : AsakaoMascotMood.normal,
+              size: 72,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Text(headline, style: AsakaoStyle.title),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (baseline != null && baseline.isAccumulating) ...[
+          _baselineCard(baseline),
+          const SizedBox(height: 12),
+        ],
+        _qualityCard(r),
+        const AsakaoSectionLabel('今日の記録'),
+        AsakaoCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              _RecordRow(
+                title: '体調',
+                subtitle: '自分で入力',
+                value: cond == null
+                    ? '未入力'
+                    : '$cond / 5 ${selfConditionLabel(cond)}',
+                caption: diff == null ? null : _comparison(diff),
+              ),
+              const Divider(),
+              _RecordRow(
+                title: '体温',
+                subtitle: t == null
+                    ? '体温計'
+                    : '体温計（${_source(r.temperatureSource)}）',
+                value: t == null ? '未入力' : '$t℃',
+              ),
+              if (showHr) ...[
+                const Divider(),
+                _RecordRow(
+                  title: '推定心拍',
+                  badge: '参考値',
+                  subtitle: r.heartRateSource == HeartRateSource.external
+                      ? '外部の記録'
+                      : 'カメラから推定（研究モード）',
+                  value: '${hr.round()} bpm',
+                ),
+              ],
+              if (feature != null) ...[
+                const Divider(),
+                _RecordRow(
+                  title: '顔色特徴量',
+                  subtitle: '研究モード',
+                  value: '$feature',
+                ),
+              ],
+            ],
+          ),
+        ),
+        const AsakaoSectionLabel('今日のレポート'),
+        _reportCard(r),
+        const SizedBox(height: 12),
+        const Text(
+          '医療機器ではありません。値は目安です。診断目的ではありません。体温はカメラでは測定していません。',
+          style: AsakaoStyle.caption,
+        ),
+      ],
+      actions: [
+        AsakaoPrimaryButton(label: '履歴に戻る', onPressed: widget.onBackToHome),
+      ],
+    );
+  }
+
+  Widget _baselineCard(HistoryBaseline b) {
+    // 体調つきの有効記録が3件そろうと比較を表示する（直近7日・今日を除く）。
+    final n = b.selfConditionCount.clamp(0, 3);
+    return AsakaoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '基準値を蓄積中',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AsakaoStyle.ink,
+                  ),
+                ),
+              ),
+              Text(
+                '$n / 3',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AsakaoStyle.link,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 6),
+                Expanded(
+                  child: Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i < n ? AsakaoStyle.link : AsakaoStyle.disabled,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'あと${3 - n}件、体調つきで記録すると普段との比較を表示します。',
+            style: AsakaoStyle.caption,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _qualityCard(HealthCheckResult r) {
+    final level = switch (r.quality) {
+      MeasurementQuality.good => 4,
+      MeasurementQuality.poor => 1,
+      MeasurementQuality.interrupted => 0,
+    };
+    final color = switch (r.quality) {
+      MeasurementQuality.good => AsakaoStyle.goodInk,
+      MeasurementQuality.poor => AsakaoStyle.poorInk,
+      MeasurementQuality.interrupted => AsakaoStyle.muted,
+    };
+    return AsakaoCard(
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: SizedBox(
+              height: 28,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (var i = 0; i < 4; i++)
+                    Container(
+                      width: 6,
+                      height: 8.0 + i * 6,
+                      margin: const EdgeInsets.only(right: 3),
+                      decoration: BoxDecoration(
+                        color: i < level ? color : AsakaoStyle.disabled,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      '計測品質',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AsakaoStyle.ink,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    AsakaoQualityChip(r.quality),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '顔検出：${r.faceDetected ? 'あり' : 'なし'}　計測時間 '
+                  '${(r.elapsed.inMilliseconds / 1000).toStringAsFixed(1)} 秒',
+                  style: AsakaoStyle.caption,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reportCard(HealthCheckResult r) {
+    final text = r.reportText;
+    return AsakaoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (text != null) ...[
+            Text(
+              r.aiMode == ReportMode.onDevice ? '端末内AIで作成' : '定型文',
+              style: AsakaoStyle.caption,
+            ),
+            if (r.aiMode == ReportMode.template && _fallbackReason != null)
+              Text(_reasonText(_fallbackReason!), style: AsakaoStyle.caption),
+            const SizedBox(height: 8),
+          ],
+          Text(text ?? 'レポートは未生成です。', style: AsakaoStyle.body),
+        ],
+      ),
+    );
+  }
+
+  static String _comparison(double diff) {
+    if (diff == 0) return '普段どおり';
+    final n = diff.abs() == diff.abs().roundToDouble()
+        ? diff.abs().round().toString()
+        : diff.abs().toString();
+    return '普段より ${diff > 0 ? '+' : '-'}$n';
+  }
 
   static String _reasonText(AiFallbackReason r) => switch (r) {
     AiFallbackReason.disabled => '端末内AIがオフのため、定型文で表示しています',
@@ -378,24 +705,132 @@ class _ResultScreenState extends State<ResultScreen> {
     AiFallbackReason.generationFailed ||
     AiFallbackReason.invalidResponse => '端末内AIで作成できなかったため、定型文で表示しています',
     AiFallbackReason.invalidScan => '測定品質が十分でないため、定型文で表示しています',
+    AiFallbackReason.cancelled => '先に定型文で表示しています',
     AiFallbackReason.unsupported ||
     AiFallbackReason.restricted ||
     AiFallbackReason.bridgeUnavailable ||
     AiFallbackReason.unavailable ||
-    AiFallbackReason.cancelled ||
     AiFallbackReason.disposed => 'この端末では端末内AIを使えないため、定型文で表示しています',
   };
 
-  static String _two(int n) => n.toString().padLeft(2, '0');
+  static const _weekdays = ['月', '火', '水', '木', '金', '土', '日'];
 
-  static String _fmt(DateTime d) =>
-      '${d.year}/${_two(d.month)}/${_two(d.day)} ${_two(d.hour)}:${_two(d.minute)}';
+  static String _dateHeader(DateTime d) {
+    final l = d.toLocal();
+    return '${l.month}月${l.day}日（${_weekdays[l.weekday - 1]}） '
+        '${l.hour}:${l.minute.toString().padLeft(2, '0')}';
+  }
 
   static String _source(TemperatureSource s) => switch (s) {
     TemperatureSource.manual => '手入力',
     TemperatureSource.healthPlatform => 'ヘルスプラットフォーム',
     TemperatureSource.none => '出典なし',
   };
+}
+
+class _Centered extends StatelessWidget {
+  const _Centered(this.text, this.style);
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(text, style: style, textAlign: TextAlign.center);
+}
+
+class _RecordRow extends StatelessWidget {
+  const _RecordRow({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    this.badge,
+    this.caption,
+  });
+
+  final String title;
+  final String subtitle;
+  final String value;
+  final String? badge;
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AsakaoStyle.ink,
+                      ),
+                    ),
+                  ),
+                  if (badge != null) ...[
+                    const SizedBox(width: 8),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AsakaoStyle.neutralBackground,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        child: Text(
+                          badge!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AsakaoStyle.muted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(subtitle, style: AsakaoStyle.caption),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AsakaoStyle.ink,
+              ),
+            ),
+            if (caption != null)
+              Text(
+                caption!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AsakaoStyle.link,
+                ),
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 String formatRecordDate(DateTime date) {
