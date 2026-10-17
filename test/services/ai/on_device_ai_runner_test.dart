@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
 
-import '../../../lib/models/health_check_result.dart';
-import '../../../lib/services/ai/on_device_ai_client.dart';
-import '../../../lib/services/ai/on_device_ai_runner.dart';
+import 'package:os_2604/models/health_check_result.dart';
+import 'package:os_2604/services/ai/on_device_ai_client.dart';
+import 'package:os_2604/services/ai/on_device_ai_runner.dart';
 
 class FakeAiClient implements OnDeviceAiClient {
   AiAvailability availability = AiAvailability.available;

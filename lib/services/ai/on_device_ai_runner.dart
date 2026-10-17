@@ -17,11 +17,8 @@ class AiTextOutcome {
 /// One local request at a time, with bounded UI wait and deterministic fallback.
 /// It never writes to a DB, alters a scan, calculates history or downloads a model.
 class OnDeviceAiRunner {
-  OnDeviceAiRunner({
-    required OnDeviceAiClient client,
-    required Duration timeout,
-  }) : _client = client,
-       _timeout = timeout {
+  OnDeviceAiRunner({required this._client, required Duration timeout})
+    : _timeout = timeout {
     if (timeout <= Duration.zero) throw ArgumentError.value(timeout, 'timeout');
   }
 
@@ -36,8 +33,9 @@ class OnDeviceAiRunner {
   bool get isNativeBusy => _busy;
 
   Future<AiTextOutcome> generateReflection(HealthCheckResult scan) {
-    if (_disposed)
+    if (_disposed) {
       return Future.value(_fallback(scan, AiFallbackReason.disposed));
+    }
     if (_busy) return Future.value(_fallback(scan, AiFallbackReason.busy));
     if (scan.quality != MeasurementQuality.good) {
       return Future.value(_fallback(scan, AiFallbackReason.invalidScan));

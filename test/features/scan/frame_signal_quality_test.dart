@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 
-import '../../../lib/features/scan/frame_signal_quality.dart';
+import 'package:os_2604/features/scan/frame_signal_quality.dart';
 
 void main() {
   // Synthetic test limits, not product thresholds.

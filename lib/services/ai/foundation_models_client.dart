@@ -6,10 +6,8 @@ import 'on_device_ai_client.dart';
 /// Missing native code is reported explicitly instead of claiming AI support.
 class FoundationModelsClient implements OnDeviceAiClient {
   const FoundationModelsClient({
-    MethodChannel channel = const MethodChannel(
-      'jp.jphacks.os_2604/on_device_ai',
-    ),
-  }) : _channel = channel;
+    this._channel = const MethodChannel('jp.jphacks.os_2604/on_device_ai'),
+  });
 
   final MethodChannel _channel;
 

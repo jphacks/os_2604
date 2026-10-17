@@ -35,14 +35,16 @@ class _ScanWidgetState extends State<ScanWidget> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(ScanWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.service != widget.service)
+    if (oldWidget.service != widget.service) {
       unawaited(oldWidget.service.cancelScan());
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed)
+    if (state != AppLifecycleState.resumed) {
       unawaited(widget.service.cancelScan());
+    }
   }
 
   @override
