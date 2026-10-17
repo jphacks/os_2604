@@ -39,8 +39,8 @@ void main() {
     expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
     await tester.tap(find.text('チェック開始'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, '15秒チェック'), findsOneWidget);
-    await tester.tap(find.byType(BackButton));
+    expect(find.text('顔の位置合わせ'), findsOneWidget);
+    await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
     for (final (index, title) in [(0, '履歴'), (2, '設定')]) {
       await tester.tap(find.byKey(ValueKey('main-tab-$index')));
