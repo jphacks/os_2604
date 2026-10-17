@@ -387,6 +387,10 @@ class _ScanScreenState extends State<ScanScreen> {
         p.elapsed.inMilliseconds /
         HealthCheckResult.targetDuration.inMilliseconds;
     return Center(
+      // Sibling types change when preparation becomes measurement. Keep this
+      // subtree keyed so Flutter retains ScanWidget instead of cancelling it
+      // through deactivate/dispose during the countdown transition.
+      key: const ValueKey('scan-camera-guide'),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 260),
         child: AspectRatio(

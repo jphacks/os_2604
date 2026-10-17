@@ -166,6 +166,32 @@ void main() {
     expect(find.byIcon(Icons.check), findsNWidgets(3));
   });
 
+  tw('preparing to countdown retains the camera without cancelling', (
+    tester,
+  ) async {
+    await open(tester);
+    await tester.tap(text('開始'));
+    await tester.pump();
+    await emit(
+      tester,
+      const ScanProgress(
+        phase: ScanPhase.preparing,
+        guidance: ScanGuidance.offCenter,
+      ),
+    );
+    expect(scan.cancels, 0);
+    await emit(tester, const ScanProgress(phase: ScanPhase.measuring));
+    expect(scan.cancels, 0);
+    await emit(
+      tester,
+      const ScanProgress(
+        phase: ScanPhase.measuring,
+        elapsed: Duration(seconds: 1),
+      ),
+    );
+    expect(scan.cancels, 0);
+  });
+
   tw('failure screen: invalid chip, reason card and honest note', (
     tester,
   ) async {

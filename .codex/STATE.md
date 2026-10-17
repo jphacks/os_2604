@@ -1,6 +1,14 @@
+## 2026-10-18 計測開始時の誤中断修正
+- ブランチ: `codex/fix-scan-countdown-interruption`（全画面UI `82c2e7d` 起点）。
+- 準備→計測で兄弟Widgetの型が変わると、キーのないカメラ部分が破棄され、ScanWidgetのdeactivate/disposeがcancelScanを呼んでいた。回帰テストで中断呼び出し2回を再現。
+- カメラ部分のルートに固定キーを付与し同一状態を維持。Cの品質条件・15秒時計・背景中断仕様は変更なし。
+- 関連24テスト成功、静的解析問題なし、署名付きReleaseビルド成功。iPhone15へ上書きインストール・起動成功。15秒完走の実機確認はユーザー回答待ち。
+
 # 現在の作業状態
 
 ## 2026-10-18 アサカオデザインを全画面へ反映（Liquid Glassタブバー除く）
+
+- 実機導入追記：このブランチの `82c2e7d` をXcode26.4で署名付きReleaseビルド成功（61.2MB）。iPhone15 / iOS26.6.2へ上書きインストール・起動成功。既存のXcode互換性guardが有効で追加コード修正なし。Liquid Glassタブバー3ファイルの差分なし。各画面の見た目・操作の実機合格はユーザー確認待ち。下記の「実機未確認／既知ビルド問題」は実装時点の記録であり、この導入成功を優先する。
 
 - ブランチ `add/20261018-apply-asakao-design-to-all-screens`（`codex/ui-history` 0f650cb から作成）。PR取り込み先は `codex/ui`、マージは人間。
 - 対象：タブバー以外の残り全画面。`camera_tab_bar.dart`／`CameraTabBar.swift`／`main_tabs_screen.dart` は基点から差分なし。
