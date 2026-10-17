@@ -1,5 +1,12 @@
 # 現在の作業状態
 
+## 2026-10-18 PR提出
+
+- 追加依頼「PR出してください」に対応し、実装コミット `7ec8c82` をorigin/rppg_accuracy_validation_integrationへ通常push。main向けドラフトPR #12を作成： https://github.com/jphacks/os_2604/pull/12 。マージは未実施。
+- 最新取得main `444390f` と `.codex/STATE.md`、onboarding_screen.dart、result_screen.dart、scan_screen.dartで競合。GitHubもCONFLICTINGを確認。作業ファイルのマージは行っていない。
+- UI should 2件と競合をPR本文に明記。次はmainのUIを保持してモード切替を統合し、UI指摘を修正後に再検証する。今回は既存変更をレビュー可能なPRとして提出する範囲で完了。
+- 検証は実装コミットでの整形・解析・全279テスト成功。今回のPR提出では製品コードを変更していない。
+
 ## 2026-10-18 心拍推定ブランチの未コミット分をコミット
 
 - ユーザー依頼：心拍推定ブランチの未コミット分をコミットする。対象は `rppg_accuracy_validation_integration`、基点 `315cf61`。通常／研究モード切替、schema v5移行、テスト、接続・検証・Aレビュー文書を1コミットにまとめる。push・PR・main統合は今回の依頼外。
