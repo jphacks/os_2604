@@ -2,7 +2,7 @@
 
 ## 2026-10-17 Swift Foundation Models ブリッジ実装・過去比較のレポート本文接続・実機更新
 
-- 作業ブランチ：`manual_ui_testing_migration`（`/Users/shindenfuta/JPHACKS` の `c` `e2d04a6` を fast-forward 取込した上で実装）。
+- 作業ブランチ：`manual_ui_testing_migration`（`origin/main` `cc33313` および `/Users/shindenfuta/JPHACKS` の `c` `e2d04a6` を統合した上で実装）。
 - 実装内容：
   1. **過去比較のレポート本文接続**：`ResultScreen._generateReport` で記録日基準の直近7暦日（当日を除く）の有効記録から `calculateHistoryBaseline` を算出し、`OnDeviceAiRunner.generateReflection(scan, baseline: baseline)` と `TemplateRecordSummary` へ接続。履歴不足時は「過去比較：基準値蓄積中（有効記録 X/3件 または 体調の記録 X/3件）」、有効記録3件以上かつ体調入力3件以上では「過去比較：直近7日間（今日を除く）の体調の中央値 ...」をレポート本文（端末内AI・定型文とも）に表示。基準値成立時はAI短文選択キー `reviewHistoryComparison` も許可。
   2. **Swift 側の Foundation Models ブリッジ実装**：`ios/Runner/AppDelegate.swift` に `jp.jphacks.os_2604/on_device_ai` チャネルと `OnDeviceAiBridge` を実装。`SystemLanguageModel.default.availability`・日本語ロケール対応確認、`LanguageModelSession` による短文キー生成、requestId 単位の `Task` 管理・キャンセル・単発完了保証（`PendingGeneration`）、iOS 26 `GenerationError` / iOS 27 `LanguageModelError`・`SystemLanguageModel.Error` のエラーコード変換を接続。
@@ -12,9 +12,20 @@
   2. 初回許可ダイアログ確認用アプリ（`com.example.os2604.permissioncheck`、表示名「15秒チェック 権限試験」）：実機に導入済み。
 - DB移行（schema v4）の実機扱い：更新前の実機履歴が空であったため、実測履歴にダミーデータを混在させない原則に従い、既存記録を保持した schema v4 日時移行は自動テスト（`legacy_timestamp_migration_test.dart`）での検証結果と区別して記録。
 - 実機手動UI確認（physical iPhone 17 / iOS 27.0.1）：ユーザーから「1. 実機での手動UI確認が完了しました」と報告を受領（① `com.example.os2604.permissioncheck` での初回カメラ許可ダイアログ確認、② `com.example.os2604` でのオンデバイスAI／定型文フォールバック・過去比較レポート表示、③ 撮影中断・体調/体温入力解除と保存・履歴・削除・通知設定、④ オフラインデモ確認）。翌日の通知繰り返しは当日外のため未確認として区別。
-- 次：変更のコミット・PR・ブランチ統合（`origin/main` / `origin/codex/b-camera-tab-ui` 等との照合）。
+- 次：変更のコミット・PR・ブランチ統合（`origin/codex/b-camera-tab-ui` 等との照合）。
 
-## 以下は e2d04a6 時点の記録
+## 2026-10-17 B 受け入れ確認（origin/main cc33313）
+
+- ブランチ：`codex/b-acceptance-checks`。基点 main `5d591c5`（PR #6 最終統合済み）。iPhoneに導入した統合版とのコード差分なし。
+- 自動確認：統合版の全237テスト成功、整形64ファイル変更なし、静的解析指摘なし。iOS Releaseビルド成功（60.4MB）。main統合後のコード変更がないため同じ確認は再実行していない。
+- 実機：iPhone 15 / iOS 26.6.2 にインストール・起動成功。ユーザーが通知を確認できたと報告し、通常動作も良好と報告。
+- 実機合格（ユーザー「未測定や。全部合格」）：体調・体温を解除して保存し再起動後も未入力／未測定、通知タップ起動、通知時刻変更後の配信、オフによる取消。翌日の繰り返しは未確認。
+- 実機合格（ユーザー「全部できた」）：計測中の顔外れ→失敗・再試行・履歴に増えない、アプリ離脱→中断・再試行、機内モードかつWi-Fiオフで計測・保存・レポートを2回。
+- カメラ権限拒否・暗所・個別／全件削除：ユーザー「全部いけてる思うよ」と報告。ユーザー確認で問題なし（画面・ログの独立確認は未実施）。
+- 残り：翌日の通知繰り返し、本番対象iPhone 17での最終確認。
+- ユーザーから結果を受け取った項目だけ確定し、未回答項目は未確認のまま残す。
+
+## 以下は過去の引き継ぎ記録（現状は上記を優先）
 
 ## 2026-10-17 c：B/C統合と実機導入（手動確認待ち）
 
