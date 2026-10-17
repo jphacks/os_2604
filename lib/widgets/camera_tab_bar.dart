@@ -2,11 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-final _fallbackTheme = ThemeData(
-  colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF246B63)),
-  useMaterial3: true,
-);
-
 /// iOSではSwiftUIのLiquid Glassを使う。その他の環境では通常の操作部品。
 class CameraTabBar extends StatefulWidget {
   const CameraTabBar({
@@ -76,43 +71,39 @@ class _CameraTabBarState extends State<CameraTabBar> {
               viewType: 'os2604/camera-tabs',
               onPlatformViewCreated: _created,
             )
-          : Theme(
-              // Dart フォールバックは従来のティール配色のまま（アプリテーマの影響を受けない）。
-              data: _fallbackTheme,
-              child: Center(
-                child: Material(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(40),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    child: SizedBox(
-                      width: 280,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _tab(
-                            0,
-                            '履歴',
-                            Icons.calendar_month_outlined,
-                            widget.onHistory,
-                          ),
-                          _tab(
-                            1,
-                            'カメラ',
-                            Icons.camera_alt_outlined,
-                            widget.onCamera ?? () {},
-                          ),
-                          _tab(
-                            2,
-                            '設定',
-                            Icons.settings_outlined,
-                            widget.onSettings,
-                          ),
-                        ],
-                      ),
+          : Center(
+              child: Material(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(40),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: SizedBox(
+                    width: 280,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _tab(
+                          0,
+                          '履歴',
+                          Icons.calendar_month_outlined,
+                          widget.onHistory,
+                        ),
+                        _tab(
+                          1,
+                          'カメラ',
+                          Icons.camera_alt_outlined,
+                          widget.onCamera ?? () {},
+                        ),
+                        _tab(
+                          2,
+                          '設定',
+                          Icons.settings_outlined,
+                          widget.onSettings,
+                        ),
+                      ],
                     ),
                   ),
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'navigation/app_routes.dart';
+import 'screens/history_detail_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/main_tabs_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -92,6 +93,13 @@ class MorningCheckApp extends StatelessWidget {
           );
         },
         AppRoutes.history: (_) => HistoryScreen(store: repository, now: now),
+        AppRoutes.historyDetail: (context) {
+          final id = ModalRoute.of(context)?.settings.arguments;
+          return HistoryDetailScreen(
+            store: repository,
+            recordId: id is String ? id : null,
+          );
+        },
         AppRoutes.settings: (_) => SettingsScreen(
           repository: repository,
           reminderService: reminderService,

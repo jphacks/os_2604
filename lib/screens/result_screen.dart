@@ -7,6 +7,7 @@ import '../services/ai/template_record_summary.dart';
 import '../services/analysis/history_baseline.dart';
 import '../services/db/health_record_repository.dart';
 import '../ui/asakao_style.dart';
+import '../ui/asakao_record_widgets.dart';
 import '../ui/asakao_widgets.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
@@ -453,13 +454,12 @@ class _ResultScreenState extends State<ResultScreen> {
         : usual
         ? 'いつもどおりの朝です'
         : '今日の記録ができました';
-    final hr = r.estimatedHeartRateBpm;
-    final showHr = hr != null && good;
-    final t = r.bodyTemperatureC;
-    final feature = r.faceColorFeature;
     return _page(
       children: [
-        Text(_dateHeader(r.measuredAt), style: AsakaoStyle.caption),
+        Text(
+          '${formatJaDate(r.measuredAt)} ${formatClock(r.measuredAt)}',
+          style: AsakaoStyle.caption,
+        ),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -485,52 +485,18 @@ class _ResultScreenState extends State<ResultScreen> {
           _baselineCard(baseline),
           const SizedBox(height: 12),
         ],
-        _qualityCard(r),
+        RecordQualityCard(r),
         const AsakaoSectionLabel('今日の記録'),
-        AsakaoCard(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              _RecordRow(
-                title: '体調',
-                subtitle: '自分で入力',
-                value: cond == null
-                    ? '未入力'
-                    : '$cond / 5 ${selfConditionLabel(cond)}',
-                caption: diff == null ? null : _comparison(diff),
-              ),
-              const Divider(),
-              _RecordRow(
-                title: '体温',
-                subtitle: t == null
-                    ? '体温計'
-                    : '体温計（${_source(r.temperatureSource)}）',
-                value: t == null ? '未入力' : '$t℃',
-              ),
-              if (showHr) ...[
-                const Divider(),
-                _RecordRow(
-                  title: '推定心拍',
-                  badge: '参考値',
-                  subtitle: r.heartRateSource == HeartRateSource.external
-                      ? '外部の記録'
-                      : 'カメラから推定（研究モード）',
-                  value: '${hr.round()} bpm',
-                ),
-              ],
-              if (feature != null) ...[
-                const Divider(),
-                _RecordRow(
-                  title: '顔色特徴量',
-                  subtitle: '研究モード',
-                  value: '$feature',
-                ),
-              ],
-            ],
-          ),
-        ),
+        RecordValuesCard(r, conditionDiff: diff),
         const AsakaoSectionLabel('今日のレポート'),
-        _reportCard(r),
+        RecordReportCard(
+          r,
+          missingText: 'レポートは未生成です。',
+          fallbackNote:
+              r.aiMode == ReportMode.template && _fallbackReason != null
+              ? _reasonText(_fallbackReason!)
+              : null,
+        ),
         const SizedBox(height: 12),
         const Text(
           '医療機器ではありません。値は目安です。診断目的ではありません。体温はカメラでは測定していません。',
@@ -599,102 +565,6 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  Widget _qualityCard(HealthCheckResult r) {
-    final level = switch (r.quality) {
-      MeasurementQuality.good => 4,
-      MeasurementQuality.poor => 1,
-      MeasurementQuality.interrupted => 0,
-    };
-    final color = switch (r.quality) {
-      MeasurementQuality.good => AsakaoStyle.goodInk,
-      MeasurementQuality.poor => AsakaoStyle.poorInk,
-      MeasurementQuality.interrupted => AsakaoStyle.muted,
-    };
-    return AsakaoCard(
-      child: Row(
-        children: [
-          ExcludeSemantics(
-            child: SizedBox(
-              height: 28,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  for (var i = 0; i < 4; i++)
-                    Container(
-                      width: 6,
-                      height: 8.0 + i * 6,
-                      margin: const EdgeInsets.only(right: 3),
-                      decoration: BoxDecoration(
-                        color: i < level ? color : AsakaoStyle.disabled,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      '計測品質',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AsakaoStyle.ink,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    AsakaoQualityChip(r.quality),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '顔検出：${r.faceDetected ? 'あり' : 'なし'}　計測時間 '
-                  '${(r.elapsed.inMilliseconds / 1000).toStringAsFixed(1)} 秒',
-                  style: AsakaoStyle.caption,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _reportCard(HealthCheckResult r) {
-    final text = r.reportText;
-    return AsakaoCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (text != null) ...[
-            Text(
-              r.aiMode == ReportMode.onDevice ? '端末内AIで作成' : '定型文',
-              style: AsakaoStyle.caption,
-            ),
-            if (r.aiMode == ReportMode.template && _fallbackReason != null)
-              Text(_reasonText(_fallbackReason!), style: AsakaoStyle.caption),
-            const SizedBox(height: 8),
-          ],
-          Text(text ?? 'レポートは未生成です。', style: AsakaoStyle.body),
-        ],
-      ),
-    );
-  }
-
-  static String _comparison(double diff) {
-    if (diff == 0) return '普段どおり';
-    final n = diff.abs() == diff.abs().roundToDouble()
-        ? diff.abs().round().toString()
-        : diff.abs().toString();
-    return '普段より ${diff > 0 ? '+' : '-'}$n';
-  }
-
   static String _reasonText(AiFallbackReason r) => switch (r) {
     AiFallbackReason.disabled => '端末内AIがオフのため、定型文で表示しています',
     AiFallbackReason.modelNotReady ||
@@ -712,20 +582,6 @@ class _ResultScreenState extends State<ResultScreen> {
     AiFallbackReason.unavailable ||
     AiFallbackReason.disposed => 'この端末では端末内AIを使えないため、定型文で表示しています',
   };
-
-  static const _weekdays = ['月', '火', '水', '木', '金', '土', '日'];
-
-  static String _dateHeader(DateTime d) {
-    final l = d.toLocal();
-    return '${l.month}月${l.day}日（${_weekdays[l.weekday - 1]}） '
-        '${l.hour}:${l.minute.toString().padLeft(2, '0')}';
-  }
-
-  static String _source(TemperatureSource s) => switch (s) {
-    TemperatureSource.manual => '手入力',
-    TemperatureSource.healthPlatform => 'ヘルスプラットフォーム',
-    TemperatureSource.none => '出典なし',
-  };
 }
 
 class _Centered extends StatelessWidget {
@@ -736,105 +592,4 @@ class _Centered extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text(text, style: style, textAlign: TextAlign.center);
-}
-
-class _RecordRow extends StatelessWidget {
-  const _RecordRow({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    this.badge,
-    this.caption,
-  });
-
-  final String title;
-  final String subtitle;
-  final String value;
-  final String? badge;
-  final String? caption;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AsakaoStyle.ink,
-                      ),
-                    ),
-                  ),
-                  if (badge != null) ...[
-                    const SizedBox(width: 8),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: AsakaoStyle.neutralBackground,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        child: Text(
-                          badge!,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: AsakaoStyle.muted,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(subtitle, style: AsakaoStyle.caption),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AsakaoStyle.ink,
-              ),
-            ),
-            if (caption != null)
-              Text(
-                caption!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AsakaoStyle.link,
-                ),
-              ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-String formatRecordDate(DateTime date) {
-  final local = date.toLocal();
-  String two(int value) => value.toString().padLeft(2, '0');
-  return '${local.year}/${two(local.month)}/${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
 }

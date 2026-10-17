@@ -90,8 +90,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('履歴'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('体調：4 / 5'), findsOneWidget);
-      await tester.tap(find.byTooltip('この記録を削除'));
+      final row = find.byKey(ValueKey('history-row-${first.id}'));
+      expect(
+        find.descendant(of: row, matching: find.text('4')),
+        findsOneWidget,
+      );
+      // 削除は履歴詳細から行う。
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('この記録を削除'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, '削除'));
       await tester.pumpAndSettle();
@@ -223,8 +230,16 @@ void main() {
       await tester.tap(find.text('履歴'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('品質：良好 / 体調：4 / 5'), findsOneWidget);
-      await tester.tap(find.textContaining('品質：良好 / 体調：4 / 5'));
+      final row = find.byKey(ValueKey('history-row-${updatedRecord.id}'));
+      expect(
+        find.descendant(of: row, matching: find.text('良好')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('4')),
+        findsOneWidget,
+      );
+      await tester.tap(row);
       await tester.pumpAndSettle();
       expect(find.text('68 bpm'), findsOneWidget);
       expect(find.text('1.224'), findsOneWidget);

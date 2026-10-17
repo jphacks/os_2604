@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../models/health_check_result.dart';
 import '../navigation/app_routes.dart';
 import '../services/analysis/history_baseline.dart';
+import '../services/db/health_record_store.dart';
+import '../ui/asakao_record_widgets.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
-import '../services/db/health_record_store.dart';
-import 'result_screen.dart';
+import '../widgets/history_trend_view.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({
@@ -29,25 +30,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   late Stream<List<HealthCheckResult>> _records = widget.store.watchAll();
-  bool _deleting = false;
-
-  Future<void> _delete(String id) async {
-    if (_deleting) return;
-    final confirmed = await confirmRecordDeletion(context, all: false);
-    if (!confirmed || !mounted) return;
-    setState(() => _deleting = true);
-    try {
-      await widget.store.deleteOne(id);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('削除できませんでした。再試行してください。')));
-      }
-    } finally {
-      if (mounted) setState(() => _deleting = false);
-    }
-  }
+  bool _graph = false;
 
   Widget _baselineCard(List<HealthCheckResult> records) {
     final b = calculateHistoryBaseline([
@@ -76,8 +59,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  static const _weekdays = ['月', '火', '水', '木', '金', '土', '日'];
-
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -92,7 +73,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   );
 
   void _open(HealthCheckResult record) =>
-      Navigator.of(context).pushNamed(AppRoutes.result, arguments: record.id);
+      Navigator.of(context)
+          .pushNamed(AppRoutes.historyDetail, arguments: record.id);
 
   Widget _today(List<HealthCheckResult> records) {
     final today = widget.now().toLocal();
@@ -123,7 +105,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '今日 · ${today.month}月${today.day}日（${_weekdays[today.weekday - 1]}）',
+                    '今日 · ${today.month}月${today.day}日（${asakaoWeekdays[today.weekday - 1]}）',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AsakaoStyle.muted,
@@ -219,7 +201,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     child: Column(
                       children: [
                         Text(
-                          _weekdays[days[i].weekday - 1],
+                          asakaoWeekdays[days[i].weekday - 1],
                           style: const TextStyle(
                             fontSize: 12,
                             color: AsakaoStyle.muted,
@@ -257,73 +239,151 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _record(HealthCheckResult record) {
     final at = record.measuredAt.toLocal();
-    final good = record.quality == MeasurementQuality.good;
+    final cond = record.selfCondition;
+    // 文字が大きいときは日付の列を省き、横幅を本文に回す。
+    final compact = MediaQuery.textScalerOf(context).scale(22) > 30;
     return _surface(
-      ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        leading: MediaQuery.textScalerOf(context).scale(22) > 30
-            ? null
-            : SizedBox(
-                width: 32,
-                child: Center(
-                  child: Text(
-                    '${at.day}',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AsakaoStyle.ink,
-                    ),
-                  ),
-                ),
-              ),
-        title: Text(
-          formatRecordDate(at),
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AsakaoStyle.ink,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      InkWell(
+        key: ValueKey('history-row-${record.id}'),
+        onTap: () => _open(record),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
             children: [
-              Text(
-                '品質：${asakaoQualityLabel(record.quality)} / 体調：${record.selfCondition == null ? '未入力' : '${record.selfCondition} / 5'}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: good ? AsakaoStyle.goodInk : AsakaoStyle.poorInk,
-                ),
-              ),
-              if (record.reportText != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  record.reportText!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AsakaoStyle.muted,
+              if (!compact)
+                SizedBox(
+                  width: 40,
+                  child: Column(
+                    children: [
+                      Text(
+                        '${at.day}',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AsakaoStyle.ink,
+                        ),
+                      ),
+                      Text(
+                        asakaoWeekdays[at.weekday - 1],
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AsakaoStyle.muted,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              if (!compact) const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        AsakaoQualityChip(record.quality),
+                        Text(
+                          formatClock(at),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AsakaoStyle.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      record.reportText ?? 'レポートは未作成です',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AsakaoStyle.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text('体調', style: AsakaoStyle.caption),
+                  Text(
+                    cond == null ? '未入力' : '$cond',
+                    style: cond == null
+                        ? const TextStyle(
+                            fontSize: 12,
+                            color: AsakaoStyle.muted,
+                          )
+                        : const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: AsakaoStyle.ink,
+                          ),
+                  ),
+                ],
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 22,
+                color: AsakaoStyle.muted,
+              ),
             ],
-          ),
-        ),
-        onTap: _deleting ? null : () => _open(record),
-        trailing: IconButton(
-          tooltip: 'この記録を削除',
-          onPressed: _deleting ? null : () => _delete(record.id),
-          icon: const Icon(
-            Icons.delete_outline,
-            size: 20,
-            color: AsakaoStyle.muted,
           ),
         ),
       ),
     );
   }
+
+  Widget _viewToggle() => Padding(
+    padding: const EdgeInsets.only(top: 16),
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: AsakaoStyle.neutralBackground,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Row(
+          children: [
+            for (final (label, graph) in const [('リスト', false), ('グラフ', true)])
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  selected: _graph == graph,
+                  excludeSemantics: true,
+                  label: label,
+                  onTap: () => setState(() => _graph = graph),
+                  child: Material(
+                    color: _graph == graph ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => setState(() => _graph = graph),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        child: Center(
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AsakaoStyle.ink,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -373,11 +433,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       _today(records),
                       _week(records),
                       _baselineCard(records),
+                      _viewToggle(),
                     ],
                   ),
                 ),
               ),
-              if (records.isEmpty)
+              if (_graph)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  sliver: SliverToBoxAdapter(
+                    child: HistoryTrendView(records: records, now: widget.now),
+                  ),
+                )
+              else if (records.isEmpty)
                 const SliverFillRemaining(
                   hasScrollBody: false,
                   child: Padding(
@@ -416,42 +484,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                 ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                sliver: SliverList.builder(
-                  itemCount: records.length,
-                  itemBuilder: (context, index) {
-                    final r = records[index];
-                    final date = r.measuredAt.toLocal();
-                    final previous = index == 0
-                        ? null
-                        : records[index - 1].measuredAt.toLocal();
-                    final monthStart =
-                        previous == null ||
-                        previous.year != date.year ||
-                        previous.month != date.month;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (monthStart)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Text(
-                              '${date.year}年${date.month}月',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AsakaoStyle.muted,
+              if (!_graph)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  sliver: SliverList.builder(
+                    itemCount: records.length,
+                    itemBuilder: (context, index) {
+                      final r = records[index];
+                      final date = r.measuredAt.toLocal();
+                      final previous = index == 0
+                          ? null
+                          : records[index - 1].measuredAt.toLocal();
+                      final monthStart =
+                          previous == null ||
+                          previous.year != date.year ||
+                          previous.month != date.month;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (monthStart)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Text(
+                                '${date.year}年${date.month}月',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AsakaoStyle.muted,
+                                ),
                               ),
                             ),
-                          ),
-                        _record(r),
-                        const SizedBox(height: 8),
-                      ],
-                    );
-                  },
+                          _record(r),
+                          const SizedBox(height: 8),
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
             ],
           );
         },

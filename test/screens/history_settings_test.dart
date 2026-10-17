@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:os_2604/app.dart';
 import 'package:os_2604/models/health_check_result.dart';
+import 'package:os_2604/navigation/app_routes.dart';
+import 'package:os_2604/screens/history_detail_screen.dart';
 import 'package:os_2604/screens/history_screen.dart';
 import 'package:os_2604/services/db/app_database.dart';
 import 'package:os_2604/services/db/health_record_repository.dart';
@@ -117,16 +119,38 @@ void main() {
       expect(find.text('基準値蓄積中（有効記録 0/3件）'), findsOneWidget);
     });
 
+    Finder row(String id) => find.byKey(ValueKey('history-row-$id'));
+
     tw('newest first, 未入力 for nulls', (tester) async {
       await repo.insert(_rec('old', DateTime(2026, 10, 15, 8), cond: 3));
       await repo.insert(_rec('new', DateTime(2026, 10, 16, 8), temp: 36.5));
       await pumpHistory(tester);
       expect(
-        tester.getTopLeft(find.text('2026/10/16 08:00')).dy,
-        lessThan(tester.getTopLeft(find.text('2026/10/15 08:00')).dy),
+        tester.getTopLeft(row('new')).dy,
+        lessThan(tester.getTopLeft(row('old')).dy),
       );
-      expect(find.textContaining('体調：未入力'), findsOneWidget);
-      expect(find.textContaining('体調：3 / 5'), findsOneWidget);
+      // 行の中身：日付の数字・曜日・時刻、体調（未入力は「未入力」）。
+      expect(
+        find.descendant(of: row('new'), matching: find.text('16')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row('new'), matching: find.text('金')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row('new'), matching: find.text('8:00')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row('new'), matching: find.text('未入力')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row('old'), matching: find.text('3')),
+        findsOneWidget,
+      );
+      expect(find.text('2026年10月'), findsOneWidget);
     });
 
     tw('shows the real quality label', (tester) async {
@@ -134,58 +158,71 @@ void main() {
         _rec('p', DateTime(2026, 10, 16, 8), q: MeasurementQuality.poor),
       );
       await pumpHistory(tester);
-      expect(find.textContaining('品質：不足'), findsOneWidget);
-      expect(find.textContaining('品質：良好'), findsNothing);
+      expect(
+        find.descendant(of: row('p'), matching: find.text('不足')),
+        findsOneWidget,
+      );
+      expect(find.text('良好'), findsNothing);
     });
 
-    tw('tap opens result for that id', (tester) async {
+    tw('tap opens the detail for that id', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
       await repo.updateReport('a', '保存済みレポート', ReportMode.template);
       await pumpApp(tester);
       await tester.tap(find.text('履歴'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('2026/10/16 08:00'));
+      await tester.tap(row('a'));
       await tester.pumpAndSettle();
-      // レポート済みの記録は、自己申告を挟まず結果をそのまま表示する。
-      expect(find.text('10月16日（金） 8:00'), findsOneWidget);
+      expect(find.text('8:00 に記録'), findsOneWidget);
+      expect(find.text('10月16日（金）'), findsOneWidget);
       expect(find.text('保存済みレポート'), findsOneWidget);
     });
+
+    Future<void> openDetailFromApp(WidgetTester tester, String id) async {
+      await pumpApp(tester);
+      await tester.tap(find.text('履歴'));
+      await tester.pumpAndSettle();
+      await tester.tap(row(id));
+      await tester.pumpAndSettle();
+    }
 
     tw('delete with confirm removes only that record', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 15, 8)));
       await repo.insert(_rec('b', DateTime(2026, 10, 16, 8)));
-      await pumpHistory(tester);
-      // 新しい順なので先頭（b）の削除ボタン。
-      await tester.tap(find.byTooltip('この記録を削除').first);
+      await openDetailFromApp(tester, 'b');
+      await tester.tap(find.text('この記録を削除'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, '削除'));
       await tester.pumpAndSettle();
       expect(await repo.findById('b'), isNull);
       expect(await repo.findById('a'), isNotNull);
-      expect(find.text('2026/10/16 08:00'), findsNothing);
+      // 詳細は閉じて履歴に戻り、削除した行だけ消える。
+      expect(row('b'), findsNothing);
+      expect(row('a'), findsOneWidget);
     });
 
     tw('cancel keeps the record', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
-      await pumpHistory(tester);
-      await tester.tap(find.byTooltip('この記録を削除'));
+      await openDetailFromApp(tester, 'a');
+      await tester.tap(find.text('この記録を削除'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('キャンセル'));
       await tester.pumpAndSettle();
       expect(await repo.findById('a'), isNotNull);
-      expect(find.text('2026/10/16 08:00'), findsOneWidget);
+      expect(find.text('10月16日（金）'), findsOneWidget);
     });
 
     tw('delete failure is shown as failure', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
       repo.fail = true;
-      await pumpHistory(tester);
-      await tester.tap(find.byTooltip('この記録を削除'));
+      await openDetailFromApp(tester, 'a');
+      await tester.tap(find.text('この記録を削除'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, '削除'));
       await tester.pumpAndSettle();
       expect(find.textContaining('削除できませんでした'), findsOneWidget);
       expect(await repo.findById('a'), isNotNull);
+      expect(find.text('10月16日（金）'), findsOneWidget);
     });
   });
 
@@ -213,7 +250,7 @@ void main() {
       expect(find.text('今日はまだチェックしていません'), findsOneWidget);
     });
 
-    tw('small screen with large text can scroll to and delete a record', (
+    tw('small screen with large text can open and delete a record', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(320, 480);
@@ -228,17 +265,23 @@ void main() {
                 .copyWith(textScaler: const TextScaler.linear(2)),
             child: child!,
           ),
+          routes: {
+            AppRoutes.historyDetail: (_) =>
+                HistoryDetailScreen(store: repo, recordId: 'a'),
+          },
           home: HistoryScreen(store: repo, now: () => now),
         ),
       );
       await tester.pumpAndSettle();
-      final deleteButton = find.widgetWithIcon(
-        IconButton,
-        Icons.delete_outline,
-      );
-      await tester.scrollUntilVisible(deleteButton, 160);
+      final rowFinder = find.byKey(const ValueKey('history-row-a'));
+      await tester.scrollUntilVisible(rowFinder, 160);
       await tester.pumpAndSettle();
-      await tester.tap(deleteButton);
+      await tester.tap(rowFinder);
+      await tester.pumpAndSettle();
+      final del = find.text('この記録を削除');
+      await tester.drag(find.byType(ListView), const Offset(0, -1500));
+      await tester.pumpAndSettle();
+      await tester.tap(del);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, '削除'));
       await tester.pumpAndSettle();
