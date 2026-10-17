@@ -40,7 +40,9 @@ class _MainTabsScreenState extends State<MainTabsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFFFFFDFC),
+    backgroundColor: _selected == 1
+        ? const Color(0xFFFFFDFC)
+        : Theme.of(context).scaffoldBackgroundColor,
     body: IndexedStack(
       index: _selected,
       children: [
