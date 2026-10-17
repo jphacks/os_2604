@@ -60,6 +60,7 @@ private struct CameraTabs: View {
   @ObservedObject var selection: CameraTabSelection
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   let onSelect: (Int) -> Void
+  private let accent = Color(red: 0.64, green: 0.31, blue: 0.16)
 
   var body: some View {
     GeometryReader { geometry in
@@ -71,13 +72,13 @@ private struct CameraTabs: View {
             Capsule()
               .fill(.clear)
               .frame(width: slot - 8, height: 64)
-              .glassEffect(.regular.tint(.white.opacity(0.15)).interactive(), in: .capsule)
+              .glassEffect(.regular.tint(accent.opacity(0.12)).interactive(), in: .capsule)
               .offset(x: CGFloat(selection.index) * slot + 4)
           }
           .allowsHitTesting(false)
         } else {
           Capsule()
-            .fill(.white.opacity(0.18))
+            .fill(accent.opacity(0.12))
             .frame(width: slot - 8, height: 64)
             .offset(x: CGFloat(selection.index) * slot + 4)
             .allowsHitTesting(false)
@@ -93,12 +94,12 @@ private struct CameraTabs: View {
       .background {
         Capsule()
           .fill(.ultraThinMaterial)
-          .overlay(Capsule().fill(.black.opacity(0.35)))
       }
-      .overlay(Capsule().strokeBorder(.white.opacity(0.16), lineWidth: 1))
+      .overlay(Capsule().strokeBorder(.white.opacity(0.8), lineWidth: 1))
       .clipShape(Capsule())
-      .environment(\.colorScheme, .dark)
+      .environment(\.colorScheme, .light)
     }
+    .frame(maxWidth: 280)
     .frame(height: 76)
     .padding(.horizontal, 16)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -113,16 +114,16 @@ private struct CameraTabs: View {
           Image(systemName: symbol)
             .font(.system(size: 27, weight: .semibold))
             .foregroundStyle(.black)
-            .frame(width: 60, height: 60)
+            .frame(width: 56, height: 56)
             .background(.white, in: Circle())
         } else {
           VStack(spacing: 4) {
             Image(systemName: symbol)
-              .font(.system(size: 24, weight: .medium))
+              .font(.system(size: 20, weight: .medium))
             Text(title)
-              .font(.caption)
+              .font(.caption2)
           }
-          .foregroundStyle(.white)
+          .foregroundStyle(index == selection.index ? accent : Color.primary)
         }
       }
       .frame(maxWidth: .infinity)
