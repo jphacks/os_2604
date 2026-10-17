@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
 
+import 'package:os_2604/features/scan/experimental_face_signals.dart';
 import 'package:os_2604/features/scan/health_scan_controller.dart';
 import 'package:os_2604/features/scan/scan_configuration.dart';
 import 'package:os_2604/features/scan/scan_frame_source.dart';
 import 'package:os_2604/features/scan/scan_permission_gate.dart';
+import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/models/scan_contract.dart';
 
 class FakeFrames implements ScanFrameSource {
@@ -35,8 +38,18 @@ class FakeFrames implements ScanFrameSource {
     await initializeGate?.future;
   }
 
-  void emit({ScanGuidance? issue, Duration? capturedAt}) => observation(
-    ScanObservation(capturedAt: capturedAt ?? now(), guidance: issue),
+  void emit({
+    ScanGuidance? issue,
+    Duration? capturedAt,
+    FaceRgbSample? rgbSample,
+    List<TimedFaceRgbSample> rgbSamples = const [],
+  }) => observation(
+    ScanObservation(
+      capturedAt: capturedAt ?? now(),
+      guidance: issue,
+      rgbSample: rgbSample,
+      rgbSamples: rgbSamples,
+    ),
   );
 
   @override
@@ -64,12 +77,15 @@ class FakePermissionGate implements ScanPermissionGate {
   }
 }
 
-void withScan(void Function(FakeAsync, FakeFrames, HealthScanController) body) {
+void withScan(
+  void Function(FakeAsync, FakeFrames, HealthScanController) body, {
+  ScanConfiguration? configuration,
+}) {
   fakeAsync((time) {
     final frames = FakeFrames();
     final scan = HealthScanController(
       source: frames,
-      configuration: ScanConfiguration.day1Trial(),
+      configuration: configuration ?? ScanConfiguration.day1Trial(),
       monotonicNow: () => time.elapsed,
       wallNow: () => DateTime.utc(2026, 10, 17).add(time.elapsed),
       createId: () => 'synthetic-scan',
@@ -509,5 +525,131 @@ void main() {
       time.flushMicrotasks();
       expect(rejected, isTrue);
     });
+  });
+
+  test(
+    'default P0/P1 configuration ignores RGB samples and keeps P2 fields null',
+    () {
+      withScan((time, frames, scan) {
+        ScanOutcome? outcome;
+        scan.startHealthScan().then((value) => outcome = value);
+        time.flushMicrotasks();
+        const sample = FaceRgbSample(red: 180, green: 130, blue: 90);
+        frames.emit(rgbSample: sample);
+        for (var i = 0; i < 155; i++) {
+          time.elapse(const Duration(milliseconds: 100));
+          frames.emit(rgbSample: sample);
+          time.flushMicrotasks();
+        }
+        final result = (outcome as ScanSuccess).result;
+        expect(result.estimatedHeartRateBpm, isNull);
+        expect(result.heartRateSource, HeartRateSource.none);
+        expect(result.faceColorFeature, isNull);
+        expect(scan.lastExperimentalEvaluation, isNull);
+      });
+    },
+  );
+
+  test('experimental P2 mode records decoupled 30fps RGB batches across 5Hz face detections', () {
+    withScan((time, frames, scan) {
+      ScanOutcome? outcome;
+      scan.startHealthScan().then((value) => outcome = value);
+      time.flushMicrotasks();
+      const prepSample = FaceRgbSample(red: 250, green: 20, blue: 20);
+      frames.emit(rgbSample: prepSample);
+      for (var i = 0; i < 2; i++) {
+        time.elapse(const Duration(milliseconds: 250));
+        frames.emit(rgbSample: prepSample);
+        time.flushMicrotasks();
+      }
+      // Now at t=500ms, measuring starts. Emit 75 face-detection observations
+      // every 200ms (5Hz), each carrying 6 RGB samples at 30fps (every ~33.3ms).
+      final measureStart = time.elapsed;
+      for (var cycle = 1; cycle <= 75; cycle++) {
+        final batch = <TimedFaceRgbSample>[];
+        for (var sub = 5; sub >= 0; sub--) {
+          final sampleIndex = cycle * 6 - sub;
+          final sampleTime =
+              measureStart +
+              Duration(microseconds: (sampleIndex * 1000000 / 30.0).round());
+          final tSec =
+              (sampleTime - measureStart).inMicroseconds /
+              Duration.microsecondsPerSecond;
+          final pulse = sin(2.0 * pi * (72.0 / 60.0) * tSec);
+          batch.add(
+            TimedFaceRgbSample(
+              capturedAt: sampleTime,
+              sample: FaceRgbSample(
+                red: 180.0 + 0.25 * pulse,
+                green: 120.0 + 1.4 * pulse,
+                blue: 100.0 + 0.45 * pulse,
+              ),
+            ),
+          );
+        }
+        time.elapse(const Duration(milliseconds: 200));
+        frames.emit(
+          capturedAt: time.elapsed,
+          rgbSample: batch.last.sample,
+          rgbSamples: batch,
+        );
+        time.flushMicrotasks();
+      }
+      final result = (outcome as ScanSuccess).result;
+      expect(result.quality, MeasurementQuality.good);
+      expect(result.faceColorFeature, closeTo(0.45, 0.01));
+      expect(result.estimatedHeartRateBpm, isNotNull);
+      expect(result.estimatedHeartRateBpm!, closeTo(72.0, 1.0));
+      expect(result.heartRateSource, HeartRateSource.rppgExperimental);
+      expect(
+        scan.lastExperimentalEvaluation?.shootingConditions?.sampleCount,
+        greaterThanOrEqualTo(450),
+      );
+      expect(
+        scan.lastExperimentalEvaluation?.shootingConditions?.effectiveFps,
+        closeTo(30.0, 0.5),
+      );
+    }, configuration: ScanConfiguration.day1Experimental());
+  });
+
+  test('poor rPPG signal quality in experimental mode still completes P0 scan with null BPM', () {
+    withScan((time, frames, scan) {
+      ScanOutcome? outcome;
+      scan.startHealthScan().then((value) => outcome = value);
+      time.flushMicrotasks();
+      const flatSample = FaceRgbSample(red: 180, green: 120, blue: 100);
+      frames.emit(rgbSample: flatSample);
+      for (var i = 0; i < 155; i++) {
+        time.elapse(const Duration(milliseconds: 100));
+        frames.emit(rgbSample: flatSample);
+        time.flushMicrotasks();
+      }
+      final result = (outcome as ScanSuccess).result;
+      expect(result.quality, MeasurementQuality.good);
+      expect(result.faceColorFeature, closeTo(0.45, 0.001));
+      expect(result.estimatedHeartRateBpm, isNull);
+      expect(result.heartRateSource, HeartRateSource.none);
+    }, configuration: ScanConfiguration.day1Experimental());
+  });
+
+  test('cleanup failure or cancellation in experimental mode clears evaluation state', () {
+    withScan((time, frames, scan) {
+      frames.failStop = true;
+      ScanOutcome? outcome;
+      scan.startHealthScan().then((value) => outcome = value);
+      time.flushMicrotasks();
+      const sample = FaceRgbSample(red: 180, green: 120, blue: 100);
+      frames.emit(rgbSample: sample);
+      for (var i = 0; i < 155; i++) {
+        time.elapse(const Duration(milliseconds: 100));
+        frames.emit(rgbSample: sample);
+        time.flushMicrotasks();
+      }
+      expect(
+        (outcome as ScanFailure).reason,
+        ScanFailureReason.processingFailed,
+      );
+      expect(scan.lastExperimentalEvaluation, isNull);
+    }, configuration: ScanConfiguration.day1Experimental());
   });
 }

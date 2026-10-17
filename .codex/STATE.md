@@ -1,5 +1,24 @@
 # 現在の作業状態
 
+## 2026-10-17 P2（30fps分離RGBサンプリング・rPPG・顔色特徴量）および B担当DB/履歴・P1 Swift Foundation Models 統合検証
+
+- 作業ブランチ：`rppg_accuracy_validation_integration`（`origin/c` `0e3d79a` を取り込み、BのDB/画面・カメラタブUI・P1 Swift Foundation ModelsブリッジとP2を統合）。
+- 実装内容：
+  1. **顔検出間引き（180ms）・4倍縮小検出バッファと分離した30fps RGBサンプリング**：
+     - `lib/features/scan/experimental_face_signals.dart` に `faceDetectionInterval: Duration(milliseconds: 180)`、`faceDetectionDownsampleFactor: 4`、`downsampleBgra8888ForDetection`、`stabilizeFaceRegion`（3%デッドバンド）、`ShootingConditionSummary.effectiveFps` を実装。
+     - `lib/features/scan/ios_camera_frame_source.dart` で ML Kit 実行中（`_busy`）および間引き間隔内のカメラフレームからフル解像度BGRAの内側皮膚ROI平均RGBを `_pendingRgbSamples` に30fpsで採取し、次の `ScanObservation.rgbSamples` で時系列順に `HealthScanController` へ引き渡す。P2有効時は `ExposureMode.locked` をベストエフォート適用。
+     - `lib/main.dart` の `_createSession` を `CameraScanService(configuration: ScanConfiguration.day1Experimental())` に接続。
+  2. **B担当DB・結果/履歴画面・P1オンデバイスAIとの統合テスト**：
+     - `test/bc_integration_test.dart` にP2推定値（`estimatedHeartRateBpm`・`HeartRateSource.rppgExperimental`・`faceColorFeature`）の計測直後DB保存、`ResultScreen` 表示（`心拍数は試験的な推定値です`・`顔色特徴量`）、`OnDeviceAiRunner`（`ReportMode.onDevice`）レポート生成、`HistoryScreen` 一覧から詳細再表示までの統合テストを追加。
+- 自動検証・実機導入結果：
+  - `dart format --output=none --set-exit-if-changed lib test`：73ファイル変更なし。
+  - `flutter analyze --no-pub`：指摘なし（0 issues）。
+  - `flutter test --no-pub`：全274件成功。
+  - 実機ビルド・導入：physical iPhone 17（`00008150-000268A03EC2401C`、iOS 27.0.1）へ統合版 iOS Release ビルド（61.0MB）をインストール・起動成功。
+- 実機手動確認結果（physical iPhone 17 / iOS 27.0.1 + Apple Watch 同時比較）：
+  1. **30fps分離RGBサンプリング＋間引き顔検出によるrPPG同時比較**：従来の同期 `FaceDetectorMode.accurate`（約6fps・約90サンプル）では `minRppgSamples: 120` により `null` フォールバックしていた問題が解消され、実機15秒計測で `minRppgSamples: 120` およびスペクトルSNR閾値をクリアして試験的心拍数推定値が表示されること、同時に計測した Apple Watch の基準値と近接した値（差6bpm程度）となることを確認（`AGENTS.md` のプライバシー規定に従い、個人の測定実数値はログ・Gitに含めない）。
+  2. **B担当DB保存・履歴画面およびP1レポート作成・保存の統合確認**：実機上で15秒計測後のDB保存、結果画面での表示、レポート作成と保存が正常に完了することを確認。
+
 ## 2026-10-17 B/C 最終統合（Foundation Models ブリッジ・過去比較・schema v4 実機移行確認・カメラタブUI）
 
 - 作業ブランチ：`manual_ui_testing_migration`（`origin/main` `6a70610` と `origin/codex/b-camera-tab-ui` `1be6191` を統合）。
