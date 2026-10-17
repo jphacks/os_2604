@@ -58,11 +58,23 @@ class FlakyRepository extends HealthRecordRepository {
   bool failInsert = false;
   bool failUpdate = false;
   bool failReport = false;
+  Completer<void>? reportGate;
 
   @override
   Future<void> insert(HealthCheckResult result) async {
     if (failInsert) throw StateError('insert failed');
     return super.insert(result);
+  }
+
+  Completer<void>? inputGate;
+  int inputWrites = 0;
+
+  @override
+  Future<bool> updateInputsAndReport(HealthCheckResult result) async {
+    inputWrites++;
+    await inputGate?.future;
+    if (failUpdate) throw StateError('update failed');
+    return super.updateInputsAndReport(result);
   }
 
   @override
@@ -83,6 +95,7 @@ class FlakyRepository extends HealthRecordRepository {
 
   @override
   Future<void> updateReport(String id, String text, ReportMode mode) async {
+    await reportGate?.future;
     if (failReport) throw StateError('report failed');
     return super.updateReport(id, text, mode);
   }

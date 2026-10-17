@@ -22,20 +22,28 @@ void main() {
     expect(find.text('外部の体温計による手入力'), findsOneWidget);
     expect(find.text('カメラでは体温を測定しません'), findsOneWidget);
     final field = find.byType(TextFormField);
-    for (final invalid in ['abc', 'NaN', 'Infinity', '-Infinity', '1e999']) {
+    for (final invalid in [
+      'abc',
+      'NaN',
+      'Infinity',
+      '-Infinity',
+      '1e999',
+      '0',
+      '-1',
+    ]) {
       await tester.enterText(field, invalid);
       await tester.pump();
       expect(valid, isFalse, reason: invalid);
       expect(value, isNull);
-      expect(find.text('有限の数値を入力してください'), findsOneWidget);
+      expect(find.text('0より大きい有限の数値を入力してください'), findsOneWidget);
       expect(tester.widget<TextFormField>(field).controller!.text, invalid);
     }
-    for (final finite in ['0', '-1', '1000', '36.7']) {
+    for (final finite in ['1000', '36.7']) {
       await tester.enterText(field, finite);
       await tester.pump();
       expect(valid, isTrue);
       expect(value, double.parse(finite));
-      expect(find.text('有限の数値を入力してください'), findsNothing);
+      expect(find.text('0より大きい有限の数値を入力してください'), findsNothing);
     }
     await tester.tap(find.text('入力を消す'));
     await tester.pump();
@@ -71,7 +79,7 @@ void main() {
     );
     expect(valid, isTrue);
     await tester.pump();
-    expect(find.text('有限の数値を入力してください'), findsNothing);
+    expect(find.text('0より大きい有限の数値を入力してください'), findsNothing);
     expect(received, isNull); // 外部値の反映は入力変更として再通知しない。
   });
 
