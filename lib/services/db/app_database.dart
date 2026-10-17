@@ -3,12 +3,24 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 import '../../models/health_check_result.dart';
 import '../settings/onboarding_store.dart';
+import '../settings/reminder_settings_store.dart';
 
 part 'app_database.g.dart';
 
 /// A singleton row exists only after the introductory explanation is completed.
 class OnboardingCompletions extends Table {
   IntColumn get id => integer().customConstraint('NOT NULL CHECK (id = 1)')();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// Singleton row (id = 1) for the morning reminder; absent means "off".
+class ReminderPreferences extends Table {
+  IntColumn get id => integer().customConstraint('NOT NULL CHECK (id = 1)')();
+  BoolColumn get enabled => boolean()();
+  IntColumn get hour => integer()();
+  IntColumn get minute => integer()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -51,14 +63,16 @@ class HealthRecords extends Table {
 }
 
 /// The application owns this connection and must await [close] on disposal.
-@DriftDatabase(tables: [OnboardingCompletions, HealthRecords])
+@DriftDatabase(
+  tables: [OnboardingCompletions, HealthRecords, ReminderPreferences],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   AppDatabase.production() : super(driftDatabase(name: 'os_2604'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -66,6 +80,8 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       // v1 -> v2 only adds the health record table; onboarding data is kept.
       if (from < 2) await m.createTable(healthRecords);
+      // v2 -> v3 only adds the reminder table; existing rows are untouched.
+      if (from < 3) await m.createTable(reminderPreferences);
     },
   );
 }
@@ -91,6 +107,40 @@ class DriftOnboardingStore implements OnboardingStore {
         .insert(
           const OnboardingCompletionsCompanion(id: Value(1)),
           mode: InsertMode.insertOrIgnore,
+        );
+  }
+}
+
+/// Uses the supplied database without taking ownership of its connection.
+class DriftReminderSettingsStore implements ReminderSettingsStore {
+  DriftReminderSettingsStore(this._database);
+
+  final AppDatabase _database;
+
+  @override
+  Future<ReminderSettings> load() async {
+    final row = await (_database.select(
+      _database.reminderPreferences,
+    )..where((row) => row.id.equals(1))).getSingleOrNull();
+    if (row == null) return const ReminderSettings();
+    return ReminderSettings(
+      enabled: row.enabled,
+      hour: row.hour,
+      minute: row.minute,
+    );
+  }
+
+  @override
+  Future<void> save(ReminderSettings settings) async {
+    await _database
+        .into(_database.reminderPreferences)
+        .insertOnConflictUpdate(
+          ReminderPreferencesCompanion.insert(
+            id: const Value(1),
+            enabled: settings.enabled,
+            hour: settings.hour,
+            minute: settings.minute,
+          ),
         );
   }
 }

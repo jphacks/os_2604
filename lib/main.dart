@@ -9,6 +9,7 @@ import 'services/ai/foundation_models_client.dart';
 import 'services/ai/on_device_ai_runner.dart';
 import 'services/db/app_database.dart';
 import 'services/db/health_record_repository.dart';
+import 'services/notifications/daily_reminder_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,11 @@ class _DatabaseHostState extends State<_DatabaseHost> {
     _database,
   );
 
+  late final DriftReminderSettingsStore _reminderStore =
+      DriftReminderSettingsStore(_database);
+  final LocalDailyReminderService _reminderService =
+      LocalDailyReminderService();
+
   final OnDeviceAiRunner _aiRunner = OnDeviceAiRunner(
     client: const FoundationModelsClient(),
     timeout: const Duration(seconds: 10),
@@ -45,7 +51,16 @@ class _DatabaseHostState extends State<_DatabaseHost> {
     repository: _repository,
     aiRunner: _aiRunner,
     createScanSession: _createSession,
+    reminderService: _reminderService,
+    reminderStore: _reminderStore,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    // 起動を待たせない。失敗しても通知なしでアプリは使える。
+    unawaited(restoreDailyReminder(_reminderStore, _reminderService));
+  }
 
   @override
   void dispose() {

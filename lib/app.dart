@@ -10,7 +10,9 @@ import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/ai/on_device_ai_runner.dart';
 import 'services/db/health_record_repository.dart';
+import 'services/notifications/daily_reminder_service.dart';
 import 'services/settings/onboarding_store.dart';
+import 'services/settings/reminder_settings_store.dart';
 import 'widgets/onboarding_gate.dart';
 
 class MorningCheckApp extends StatelessWidget {
@@ -20,12 +22,16 @@ class MorningCheckApp extends StatelessWidget {
     required this.repository,
     required this.aiRunner,
     required this.createScanSession,
+    required this.reminderService,
+    required this.reminderStore,
     this.now = DateTime.now,
   });
 
   final OnboardingStore onboardingStore;
   final HealthRecordRepository repository;
   final OnDeviceAiRunner aiRunner;
+  final DailyReminderService reminderService;
+  final ReminderSettingsStore reminderStore;
 
   /// 本日判定・履歴基準値に使う時計。テストでは固定する。
   final DateTime Function() now;
@@ -77,7 +83,11 @@ class MorningCheckApp extends StatelessWidget {
           );
         },
         AppRoutes.history: (_) => HistoryScreen(store: repository, now: now),
-        AppRoutes.settings: (_) => SettingsScreen(repository: repository),
+        AppRoutes.settings: (_) => SettingsScreen(
+          repository: repository,
+          reminderService: reminderService,
+          reminderStore: reminderStore,
+        ),
       },
     );
   }
