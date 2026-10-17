@@ -1,7 +1,7 @@
 import 'package:test/test.dart';
 
-import '../../../lib/models/health_check_result.dart';
-import '../../../lib/services/ai/template_record_summary.dart';
+import 'package:os_2604/models/health_check_result.dart';
+import 'package:os_2604/services/ai/template_record_summary.dart';
 
 void main() {
   const summary = TemplateRecordSummary();

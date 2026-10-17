@@ -1,8 +1,8 @@
 import 'package:test/test.dart';
 
-import '../../../lib/features/scan/face_geometry.dart';
-import '../../../lib/features/scan/scan_configuration.dart';
-import '../../../lib/models/scan_contract.dart';
+import 'package:os_2604/features/scan/face_geometry.dart';
+import 'package:os_2604/features/scan/scan_configuration.dart';
+import 'package:os_2604/models/scan_contract.dart';
 
 void main() {
   final configuration = ScanConfiguration.day1Trial();

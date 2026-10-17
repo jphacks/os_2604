@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:test/test.dart';
 
-import '../../../lib/features/scan/frame_luminance.dart';
+import 'package:os_2604/features/scan/frame_luminance.dart';
 
 void main() {
   double? sampleY(

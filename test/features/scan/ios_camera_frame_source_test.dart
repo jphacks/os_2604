@@ -5,10 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../lib/features/scan/ios_camera_frame_source.dart';
-import '../../../lib/features/scan/scan_configuration.dart';
-import '../../../lib/features/scan/scan_frame_source.dart';
-import '../../../lib/models/scan_contract.dart';
+import 'package:os_2604/features/scan/ios_camera_frame_source.dart';
+import 'package:os_2604/features/scan/scan_configuration.dart';
+import 'package:os_2604/features/scan/scan_frame_source.dart';
+import 'package:os_2604/models/scan_contract.dart';
 
 class FakeCamera extends CameraPlatform {
   final frames = StreamController<CameraImageData>.broadcast();

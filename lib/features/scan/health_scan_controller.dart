@@ -10,13 +10,12 @@ import 'scan_frame_source.dart';
 /// Owns the only measurement clock. B observes progress and persists success.
 class HealthScanController implements HealthScanService {
   HealthScanController({
-    required ScanFrameSource source,
-    required ScanConfiguration configuration,
+    required this._source,
+    required this._configuration,
     Duration Function()? monotonicNow,
     DateTime Function()? wallNow,
     String Function()? createId,
-  }) : _source = source,
-       _configuration = configuration {
+  }) {
     final stopwatch = Stopwatch()..start();
     _now = monotonicNow ?? () => stopwatch.elapsed;
     _wallNow = wallNow ?? DateTime.now;

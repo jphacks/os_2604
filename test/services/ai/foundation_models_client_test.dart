@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../lib/services/ai/foundation_models_client.dart';
-import '../../../lib/services/ai/on_device_ai_client.dart';
+import 'package:os_2604/services/ai/foundation_models_client.dart';
+import 'package:os_2604/services/ai/on_device_ai_client.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
