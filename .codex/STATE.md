@@ -1,5 +1,20 @@
 # 現在の作業状態
 
+## 2026-10-18 共有デザインへのUI反映
+
+- UI統合用の親 `codex/ui` をmain `247f552`から作成。最初の画面ブランチ `codex/ui-history` を親から作成。PR取り込み先は `codex/ui`、mainへのマージは人間が行う。
+- 参照：https://claude.ai/artifact/3whhpT5HvHAutGkch8W1zT#page-dcb81aee8d83 。Chromeで本文・配色・履歴画面を確認。
+- 初回対象：履歴の一覧／今日の記録／週間の花／記録なし。暖かい白 #FFF8F3、濃茶、コーラルのカードUIへ反映。表示は保存済み記録から算出。同日複数記録は1輪、未来日・品質不足は花の数に含めない。
+- 週間表示は日曜始まり。過去比較は現行の「今日を除く直近7日・有効3件以上」を維持し、デザインのサンプル値や7日蓄積条件は採用していない。
+- 維持：削除確認・エラー再試行・記録ごとの結果遷移、計測／AI／DB／通知。Liquid Glassタブバー本体（Swift・Dart）には基点からの差分なし。
+- キャラクター素材は共有ページから取得できず仮の花アイコン。グラフ切替は別の画面ブランチで実装するため、未実装の切替ボタンは置かない。
+- 検証：全276テスト成功、flutter analyze指摘なし。追加確認は週間の重複・未来日・品質不足の扱い、削除による状態更新、小画面320x480・文字2倍での削除操作。
+- テスト専用のメモリDBで390x844表示を画像化し、視覚確認。実測履歴にはサンプルを挿入していない。
+- iOSビルド：現状のXcode26.4では失敗。原因は基点mainにもあるAppDelegate.swiftのSystemLanguageModel.Error・LanguageModelError参照（iOS27向け）。UI側でCコードは変更していない。今回のUI実機導入は未実施。対応SDK／既存Swiftコードの互換性確認が別途必要。
+- 次の画面単位・現行仕様との相違点は docs/ui/implementation-plan.md 。親へ各PRを取り込んでから、次の子ブランチを親から切る。
+
+## 以下は基点mainからの過去記録
+
 ## 2026-10-17 P2（30fps分離RGBサンプリング・rPPG・顔色特徴量）および B担当DB/履歴・P1 Swift Foundation Models 統合検証
 
 - 作業ブランチ：`rppg_accuracy_validation_integration`（`origin/c` `0e3d79a` を取り込み、BのDB/画面・カメラタブUI・P1 Swift Foundation ModelsブリッジとP2を統合）。

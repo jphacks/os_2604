@@ -187,6 +187,64 @@ void main() {
     });
   });
 
+  group('history design', () {
+    tw('weekly flowers count valid days once and exclude future records', (
+      tester,
+    ) async {
+      await repo.insert(_rec('same-1', DateTime(2026, 10, 16, 7)));
+      await repo.insert(_rec('same-2', DateTime(2026, 10, 16, 8)));
+      await repo.insert(
+        _rec('poor', DateTime(2026, 10, 15, 8), q: MeasurementQuality.poor),
+      );
+      await repo.insert(_rec('future', DateTime(2026, 10, 18, 8)));
+      await repo.insert(_rec('previous-week', DateTime(2026, 10, 10, 8)));
+      await pumpHistory(tester);
+      expect(find.text('1輪'), findsOneWidget);
+      expect(find.text('今日はまだチェックしていません'), findsOneWidget);
+      await repo.insert(_rec('today', DateTime(2026, 10, 17, 7)));
+      await tester.pumpAndSettle();
+      expect(find.text('2輪'), findsOneWidget);
+      expect(find.text('今日のチェック完了'), findsOneWidget);
+      await repo.deleteOne('today');
+      await tester.pumpAndSettle();
+      expect(find.text('1輪'), findsOneWidget);
+      expect(find.text('今日はまだチェックしていません'), findsOneWidget);
+    });
+
+    tw('small screen with large text can scroll to and delete a record', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 480);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: HistoryScreen(store: repo, now: () => now),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final deleteButton = find.widgetWithIcon(
+        IconButton,
+        Icons.delete_outline,
+      );
+      await tester.scrollUntilVisible(deleteButton, 160);
+      await tester.pumpAndSettle();
+      await tester.tap(deleteButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, '削除'));
+      await tester.pumpAndSettle();
+      expect(await repo.findById('a'), isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('baseline', () {
     tw('fewer than 3 valid records in window accumulates', (tester) async {
       await repo.insert(_rec('1', DateTime(2026, 10, 16, 8), cond: 3));
