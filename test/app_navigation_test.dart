@@ -16,15 +16,18 @@ class CompletedOnboardingStore implements OnboardingStore {
 }
 
 void main() {
-  testWidgets('home opens scan screen, placeholders and explanation', (
+  late AppDatabase db;
+  setUp(() => db = AppDatabase(NativeDatabase.memory()));
+  tearDown(() async => db.close());
+
+  testWidgets('home opens scan, history, settings and explanation', (
     tester,
   ) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
     await tester.pumpWidget(
       MorningCheckApp(
         onboardingStore: CompletedOnboardingStore(),
         repository: HealthRecordRepository(db),
+        aiRunner: runnerOf(FakeAiClient()),
         createScanSession: () => sessionOf(FakeScanService()),
       ),
     );
@@ -39,7 +42,7 @@ void main() {
       await tester.tap(find.text(title));
       await tester.pumpAndSettle();
       expect(find.widgetWithText(AppBar, title), findsOneWidget);
-      expect(find.text('未実装の画面です。今後、担当機能を接続します。'), findsOneWidget);
+      expect(find.text('未実装の画面です。今後、担当機能を接続します。'), findsNothing);
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
     }
@@ -52,5 +55,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    // drift の watch() は購読解除後に Timer を残すため、画面を外して流す。
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
   });
 }

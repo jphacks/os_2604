@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/services/db/app_database.dart';
+import 'package:os_2604/services/db/health_record_repository.dart';
 
 HealthCheckResult record({
   int? condition,

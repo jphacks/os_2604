@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
+import '../navigation/app_routes.dart';
+import '../services/analysis/history_baseline.dart';
 import '../services/db/health_record_store.dart';
 import 'result_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key, required this.store});
+  const HistoryScreen({
+    super.key,
+    required this.store,
+    this.now = DateTime.now,
+  });
   final HealthRecordStore store;
+
+  /// 基準値の期間（今日を除く直近7日）の起点。テストでは固定時刻を渡す。
+  final DateTime Function() now;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -34,6 +43,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  Widget _baselineCard(List<HealthCheckResult> records) {
+    final b = calculateHistoryBaseline([
+      for (final r in records)
+        (
+          measuredAt: r.measuredAt,
+          isValid: r.quality == MeasurementQuality.good,
+          selfCondition: r.selfCondition,
+        ),
+    ], referenceDate: widget.now());
+    final text = b.selfConditionMedian != null
+        ? '直近7日間（今日を除く）の体調の中央値：${b.selfConditionMedian} / 5（有効記録 ${b.validRecordCount}件）'
+        : b.validRecordCount < 3
+        ? '基準値蓄積中（有効記録 ${b.validRecordCount}/3件）'
+        : '基準値蓄積中（体調の記録 ${b.selfConditionCount}/3件）';
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(padding: const EdgeInsets.all(16), child: Text(text)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('履歴')),
@@ -53,24 +82,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
         if (records == null) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (records.isEmpty) return const Center(child: Text('測定記録はまだありません。'));
+        if (records.isEmpty) {
+          return Column(
+            children: [
+              _baselineCard(records),
+              const Expanded(child: Center(child: Text('測定記録はまだありません。'))),
+            ],
+          );
+        }
         return ListView.builder(
-          itemCount: records.length,
+          itemCount: records.length + 1,
           itemBuilder: (context, index) {
-            final record = records[index];
+            if (index == 0) return _baselineCard(records);
+            final record = records[index - 1];
             return ListTile(
               title: Text(formatRecordDate(record.measuredAt)),
               subtitle: Text(
-                '品質：良好 / 体調：${record.selfCondition == null ? '未入力' : '${record.selfCondition} / 5'}',
+                '品質：${switch (record.quality) {
+                  MeasurementQuality.good => '良好',
+                  MeasurementQuality.poor => '不十分',
+                  MeasurementQuality.interrupted => '中断',
+                }} / 体調：${record.selfCondition == null ? '未入力' : '${record.selfCondition} / 5'}',
               ),
               onTap: _deleting
                   ? null
-                  : () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ResultScreen(store: widget.store, result: record),
-                      ),
-                    ),
+                  : () =>
+                        Navigator.of(context)
+                            .pushNamed(AppRoutes.result, arguments: record.id),
               trailing: IconButton(
                 tooltip: 'この記録を削除',
                 onPressed: _deleting ? null : () => _delete(record.id),

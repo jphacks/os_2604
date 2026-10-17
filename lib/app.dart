@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'foundation/scaffold_pages.dart';
 import 'navigation/app_routes.dart';
+import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/scan_screen.dart';
+import 'screens/settings_screen.dart';
+import 'services/ai/on_device_ai_runner.dart';
 import 'services/db/health_record_repository.dart';
 import 'services/settings/onboarding_store.dart';
 import 'widgets/onboarding_gate.dart';
@@ -16,16 +18,24 @@ class MorningCheckApp extends StatelessWidget {
     super.key,
     required this.onboardingStore,
     required this.repository,
+    required this.aiRunner,
     required this.createScanSession,
+    this.now = DateTime.now,
   });
 
   final OnboardingStore onboardingStore;
   final HealthRecordRepository repository;
+  final OnDeviceAiRunner aiRunner;
+
+  /// 本日判定・履歴基準値に使う時計。テストでは固定する。
+  final DateTime Function() now;
 
   /// 撮影画面ごとに1回呼ばれる。本番は CameraScanService、テストは偽物を返す。
   final ScanSession Function() createScanSession;
 
   Widget _home(BuildContext context) => HomeScreen(
+    repository: repository,
+    now: now,
     onStartCheck: () => Navigator.of(context).pushNamed(AppRoutes.scan),
     onOpenHistory: () => Navigator.of(context).pushNamed(AppRoutes.history),
     onOpenSettings: () => Navigator.of(context).pushNamed(AppRoutes.settings),
@@ -59,14 +69,15 @@ class MorningCheckApp extends StatelessWidget {
           final id = ModalRoute.of(context)?.settings.arguments;
           return ResultScreen(
             repository: repository,
+            aiRunner: aiRunner,
             recordId: id is String ? id : null,
             onBackToHome: () =>
                 Navigator.of(context)
                     .popUntil(ModalRoute.withName(AppRoutes.home)),
           );
         },
-        AppRoutes.history: (_) => const FoundationPlaceholderPage(title: '履歴'),
-        AppRoutes.settings: (_) => const FoundationPlaceholderPage(title: '設定'),
+        AppRoutes.history: (_) => HistoryScreen(store: repository, now: now),
+        AppRoutes.settings: (_) => SettingsScreen(repository: repository),
       },
     );
   }

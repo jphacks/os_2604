@@ -1,12 +1,14 @@
-import 'dart:async';
-
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:os_2604/app.dart';
 import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/models/scan_contract.dart';
+import 'package:os_2604/services/db/app_database.dart';
 import 'package:os_2604/services/db/health_record_store.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
+
+import 'support/fake_scan.dart';
 
 class _Onboarding implements OnboardingStore {
   @override
@@ -15,136 +17,46 @@ class _Onboarding implements OnboardingStore {
   Future<void> completeOnboarding() async {}
 }
 
-class _Scan implements HealthScanService {
-  int starts = 0;
-  final response = Completer<ScanOutcome>();
-  @override
-  ScanProgress get currentProgress => const ScanProgress(phase: ScanPhase.idle);
-  @override
-  Stream<ScanProgress> get progress => const Stream.empty();
-  @override
-  Future<ScanOutcome> startHealthScan() {
-    starts++;
-    return response.future;
-  }
-
-  @override
-  Future<void> cancelScan() async {
-    if (!response.isCompleted) {
-      response.complete(
-        const ScanFailure(
-          reason: ScanFailureReason.interrupted,
-          elapsed: Duration.zero,
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<void> dispose() => cancelScan();
-}
-
-class _RetryStore implements HealthRecordStore {
-  _RetryStore(this.delegate);
-  final HealthRecordStore delegate;
-  bool failNextInsert = true;
-  @override
-  Future<void> insert(HealthCheckResult result) async {
-    if (failNextInsert) {
-      failNextInsert = false;
-      throw StateError('synthetic failure');
-    }
-    await delegate.insert(result);
-  }
-
-  @override
-  Future<bool> updateInputsAndReport(HealthCheckResult result) =>
-      delegate.updateInputsAndReport(result);
-  @override
-  Future<List<HealthCheckResult>> loadAll() => delegate.loadAll();
-  @override
-  Stream<List<HealthCheckResult>> watchAll() => delegate.watchAll();
-  @override
-  Future<void> deleteOne(String id) => delegate.deleteOne(id);
-  @override
-  Future<void> deleteAll() => delegate.deleteAll();
-}
-
-HealthCheckResult _result() => HealthCheckResult(
-  id: 'synthetic-scan',
-  measuredAt: DateTime.utc(2026, 10, 17, 1),
-  elapsed: const Duration(seconds: 15),
-  faceDetected: true,
-  quality: MeasurementQuality.good,
-);
-
-class _MemoryStore implements HealthRecordStore {
-  final _rows = <String, HealthCheckResult>{};
-  final _changes = StreamController<List<HealthCheckResult>>.broadcast(
-    sync: true,
-  );
-  @override
-  Future<void> insert(HealthCheckResult result) async {
-    if (_rows.containsKey(result.id)) throw StateError('Duplicate ID');
-    _rows[result.id] = result;
-    _changes.add(_rows.values.toList());
-  }
-
-  @override
-  Future<bool> updateInputsAndReport(HealthCheckResult result) async {
-    if (!_rows.containsKey(result.id)) return false;
-    _rows[result.id] = result;
-    _changes.add(_rows.values.toList());
-    return true;
-  }
-
-  @override
-  Future<List<HealthCheckResult>> loadAll() async => _rows.values.toList();
-  @override
-  Stream<List<HealthCheckResult>> watchAll() async* {
-    yield _rows.values.toList();
-    yield* _changes.stream;
-  }
-
-  @override
-  Future<void> deleteOne(String id) async {
-    _rows.remove(id);
-    _changes.add(_rows.values.toList());
-  }
-
-  @override
-  Future<void> deleteAll() async {
-    _rows.clear();
-    _changes.add([]);
-  }
-}
-
 void main() {
-  late _MemoryStore records;
-  late _Scan scan;
-  setUp(() {
-    records = _MemoryStore();
-    scan = _Scan();
-  });
-  tearDown(() => records._changes.close());
+  late AppDatabase db;
+  late FlakyRepository repo;
+  late HealthRecordStore records;
+  late FakeScanService scan;
 
-  Future<void> start(WidgetTester tester, {HealthRecordStore? store}) async {
-    scan = _Scan();
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+    repo = FlakyRepository(db);
+    records = repo;
+    scan = FakeScanService();
+  });
+  tearDown(() async => db.close());
+
+  Future<void> start(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    scan = FakeScanService();
     await tester.pumpWidget(
       MorningCheckApp(
         onboardingStore: _Onboarding(),
-        recordStore: store ?? records,
-        scanServiceFactory: () => scan,
+        repository: repo,
+        aiRunner: runnerOf(FakeAiClient()),
+        createScanSession: () => sessionOf(scan),
       ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('チェック開始'));
     await tester.pumpAndSettle();
-    final button = find.text('計測開始 / 再試行');
-    await tester.ensureVisible(button);
-    await tester.tap(button);
+    await tester.tap(find.text('開始'));
     await tester.pump();
     expect(scan.starts, 1);
+  }
+
+  // drift の watch() が残す Timer を流すため、画面を外して時間を進める。
+  Future<void> unmount(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
   }
 
   testWidgets(
@@ -152,70 +64,76 @@ void main() {
     (tester) async {
       await start(tester);
       expect(await records.loadAll(), isEmpty);
-      scan.response.complete(ScanSuccess(_result()));
+      scan.finish(successOutcome());
       await tester.pumpAndSettle();
-      expect(find.text('計測結果は端末に保存済みです。'), findsOneWidget);
+      expect(find.text('記録は保存されました。'), findsOneWidget);
       final first = (await records.loadAll()).single;
-      expect(first.id, _result().id);
+      expect(first.id, 'rec-1');
       expect(first.selfCondition, isNull);
       expect(first.reportText, isNull);
-      await tester.tap(find.widgetWithText(ChoiceChip, '4'));
-      final save = find.text('任意入力とレポートを保存');
-      await tester.ensureVisible(save);
-      await tester.tap(save);
+      await tester.tap(find.text('4'));
+      await tester.pump();
+      await tester.tap(find.text('体調を保存'));
+      await tester.pumpAndSettle();
+      // 承認済みの挙動: レポートは入力後にボタンで生成する（自動生成しない）。
+      final report = find.text('レポートを作成');
+      await tester.ensureVisible(report);
+      await tester.tap(report);
       await tester.pumpAndSettle();
       final updated = (await records.loadAll()).single;
       expect(updated.id, first.id);
       expect(updated.selfCondition, 4);
       expect(updated.aiMode, ReportMode.template);
       expect(updated.bodyTemperatureC, isNull);
-      await tester.tap(find.byType(BackButton));
+      await tester.ensureVisible(find.text('ホームへ'));
+      await tester.tap(find.text('ホームへ'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('履歴'));
       await tester.pumpAndSettle();
       expect(find.textContaining('体調：4 / 5'), findsOneWidget);
       await tester.tap(find.byTooltip('この記録を削除'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('削除'));
+      await tester.tap(find.widgetWithText(TextButton, '削除'));
       await tester.pumpAndSettle();
       expect(await records.loadAll(), isEmpty);
       expect(find.text('測定記録はまだありません。'), findsOneWidget);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
+      await unmount(tester);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets('failed scan never creates a record', (tester) async {
     await start(tester);
-    scan.response.complete(
+    scan.finish(
       const ScanFailure(
         reason: ScanFailureReason.faceNotFound,
         elapsed: Duration(seconds: 2),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('顔が見つかりません'), findsOneWidget);
+    expect(find.textContaining('位置を調整'), findsOneWidget);
     expect(await records.loadAll(), isEmpty);
-    await tester.pumpWidget(const SizedBox.shrink());
+    await unmount(tester);
   });
 
   testWidgets(
     'failed insert keeps result for retry and does not show saved screen',
     (tester) async {
-      await start(tester, store: _RetryStore(records));
-      scan.response.complete(ScanSuccess(_result()));
+      repo.failInsert = true;
+      await start(tester);
+      scan.finish(successOutcome());
       await tester.pumpAndSettle();
-      expect(find.text('計測結果は端末に保存済みです。'), findsNothing);
+      expect(find.text('記録は保存されました。'), findsNothing);
+      expect(find.widgetWithText(AppBar, '結果'), findsNothing);
       expect(await records.loadAll(), isEmpty);
+      repo.failInsert = false;
       final retry = find.text('保存を再試行');
       await tester.ensureVisible(retry);
       await tester.tap(retry);
       await tester.pumpAndSettle();
-      expect((await records.loadAll()).single.id, _result().id);
-      expect(find.text('計測結果は端末に保存済みです。'), findsOneWidget);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
+      expect((await records.loadAll()).single.id, 'rec-1');
+      expect(find.text('記録は保存されました。'), findsOneWidget);
+      await unmount(tester);
     },
   );
 }
