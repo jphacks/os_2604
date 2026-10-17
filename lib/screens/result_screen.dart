@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
+import '../ui/asakao_widgets.dart';
 import '../services/ai/on_device_ai_client.dart';
 import '../services/ai/on_device_ai_runner.dart';
 import '../services/analysis/history_baseline.dart';
@@ -275,7 +276,7 @@ class _ResultScreenState extends State<ResultScreen> {
           '計測時間',
           '${(r.elapsed.inMilliseconds / 1000).toStringAsFixed(1)} 秒',
         ),
-        _row('品質', _quality(r.quality)),
+        _row('品質', asakaoQualityLabel(r.quality)),
         _row('顔検出', r.faceDetected ? 'あり' : 'なし'),
         _row('心拍数', showHr ? '${hr.round()} bpm' : '未測定'),
         if (showHr) const Text('心拍数は試験的な推定値です'),
@@ -389,12 +390,6 @@ class _ResultScreenState extends State<ResultScreen> {
 
   static String _fmt(DateTime d) =>
       '${d.year}/${_two(d.month)}/${_two(d.day)} ${_two(d.hour)}:${_two(d.minute)}';
-
-  static String _quality(MeasurementQuality q) => switch (q) {
-    MeasurementQuality.good => '良好',
-    MeasurementQuality.poor => '不十分',
-    MeasurementQuality.interrupted => '中断',
-  };
 
   static String _source(TemperatureSource s) => switch (s) {
     TemperatureSource.manual => '手入力',

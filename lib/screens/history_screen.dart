@@ -4,6 +4,7 @@ import '../models/health_check_result.dart';
 import '../navigation/app_routes.dart';
 import '../services/analysis/history_baseline.dart';
 import '../ui/asakao_style.dart';
+import '../ui/asakao_widgets.dart';
 import '../services/db/health_record_store.dart';
 import 'result_screen.dart';
 
@@ -79,12 +80,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
-
-  String _quality(HealthCheckResult r) => switch (r.quality) {
-    MeasurementQuality.good => '良好',
-    MeasurementQuality.poor => '不十分',
-    MeasurementQuality.interrupted => '中断',
-  };
 
   Widget _surface(Widget child) => Material(
     color: Colors.white,
@@ -295,7 +290,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '品質：${_quality(record)} / 体調：${record.selfCondition == null ? '未入力' : '${record.selfCondition} / 5'}',
+                '品質：${asakaoQualityLabel(record.quality)} / 体調：${record.selfCondition == null ? '未入力' : '${record.selfCondition} / 5'}',
                 style: TextStyle(
                   fontSize: 12,
                   color: good ? AsakaoStyle.goodInk : AsakaoStyle.poorInk,

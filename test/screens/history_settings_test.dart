@@ -134,7 +134,7 @@ void main() {
         _rec('p', DateTime(2026, 10, 16, 8), q: MeasurementQuality.poor),
       );
       await pumpHistory(tester);
-      expect(find.textContaining('品質：不十分'), findsOneWidget);
+      expect(find.textContaining('品質：不足'), findsOneWidget);
       expect(find.textContaining('品質：良好'), findsNothing);
     });
 

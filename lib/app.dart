@@ -13,6 +13,7 @@ import 'services/db/health_record_repository.dart';
 import 'services/notifications/daily_reminder_service.dart';
 import 'services/settings/onboarding_store.dart';
 import 'services/settings/reminder_settings_store.dart';
+import 'ui/asakao_style.dart';
 import 'widgets/onboarding_gate.dart';
 
 class MorningCheckApp extends StatelessWidget {
@@ -57,10 +58,7 @@ class MorningCheckApp extends StatelessWidget {
       locale: const Locale('ja'),
       supportedLocales: const [Locale('ja')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF246B63)),
-        useMaterial3: true,
-      ),
+      theme: asakaoTheme(),
       initialRoute: AppRoutes.home,
       routes: {
         AppRoutes.home: (_) =>
