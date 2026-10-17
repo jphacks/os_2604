@@ -1,5 +1,7 @@
 # サンプル（プロダクト名）
 
+開発状況：BからFlutter基盤の作成済み連絡があり、現在のcブランチにはまだ取り込んでいません。C担当の計測API・iOSカメラ接続・品質判定・ScanWidgetと、Bへの組み込み・検証手順は [C担当の接続メモ](docs/c-integration.md) を参照してください。Cのカメラ・計測の実機動作は未確認です。
+
 [![IMAGE ALT TEXT HERE](https://jphacks.com/wp-content/uploads/2026/07/IMG_5316.png)](https://www.youtube.com/watch?v=piaNsc6ilBI)
 
 ## 製品概要
