@@ -47,6 +47,189 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('condition 1..5 and clearing update the same record', (
+    tester,
+  ) async {
+    await open(tester);
+    for (var c = 1; c <= 5; c++) {
+      await press(tester, '$c');
+      await press(tester, '体調を保存');
+      await tester.pumpAndSettle();
+      expect((await repo.findById('rec-1'))!.selfCondition, c);
+    }
+    await press(tester, '選択を解除');
+    await press(tester, '体調を保存');
+    await tester.pumpAndSettle();
+    expect((await repo.findById('rec-1'))!.selfCondition, isNull);
+    expect(await repo.loadAll(), hasLength(1));
+    expect(find.text('体調を保存しました'), findsOneWidget);
+  });
+
+  testWidgets(
+    'temperature rejects invalid text and saves changes and null source',
+    (tester) async {
+      await open(tester);
+      final field = find.byType(TextFormField);
+      for (final text in ['abc', 'NaN', 'Infinity', '1e999', '0', '-1']) {
+        await tester.enterText(field, text);
+        await tester.pump();
+        expect(
+          tester
+              .widget<OutlinedButton>(
+                find.widgetWithText(OutlinedButton, '体温を保存'),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect((await repo.findById('rec-1'))!.bodyTemperatureC, isNull);
+      }
+      for (final t in [36.5, 37.0]) {
+        await tester.enterText(field, '$t');
+        await tester.pump();
+        await press(tester, '体温を保存');
+        await tester.pumpAndSettle();
+        expect((await repo.findById('rec-1'))!.bodyTemperatureC, t);
+        expect(
+          (await repo.findById('rec-1'))!.temperatureSource,
+          TemperatureSource.manual,
+        );
+        expect(find.text('$t ℃（手入力）'), findsOneWidget);
+      }
+      await press(tester, '入力を消す');
+      await press(tester, '体温を保存');
+      await tester.pumpAndSettle();
+      final saved = (await repo.findById('rec-1'))!;
+      expect(saved.bodyTemperatureC, isNull);
+      expect(saved.temperatureSource, TemperatureSource.none);
+    },
+  );
+
+  testWidgets('failed clear keeps draft and can retry', (tester) async {
+    await repo.updateSelfCondition('rec-1', 3);
+    await repo.updateTemperature('rec-1', 36.5, TemperatureSource.manual);
+    await open(tester);
+    repo.failUpdate = true;
+    await press(tester, '選択を解除');
+    await press(tester, '体調を保存');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('体調を保存できませんでした'), findsOneWidget);
+    expect(find.text('未選択'), findsOneWidget);
+    expect((await repo.findById('rec-1'))!.selfCondition, 3);
+    await press(tester, '入力を消す');
+    await press(tester, '体温を保存');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('体温を保存できませんでした'), findsOneWidget);
+    expect(
+      tester.widget<TextFormField>(find.byType(TextFormField)).controller!.text,
+      isEmpty,
+    );
+    repo.failUpdate = false;
+    await press(tester, '体調を保存');
+    await tester.pumpAndSettle();
+    await press(tester, '体温を保存');
+    await tester.pumpAndSettle();
+    expect((await repo.findById('rec-1'))!.selfCondition, isNull);
+    expect((await repo.findById('rec-1'))!.bodyTemperatureC, isNull);
+  });
+
+  testWidgets('pending save ignores repeat requests and keeps newer draft', (
+    tester,
+  ) async {
+    await open(tester);
+    await press(tester, '3');
+    repo.inputGate = Completer<void>();
+    final save = tester
+        .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '体調を保存'))
+        .onPressed!;
+    save();
+    save();
+    await tester.pump();
+    await press(tester, '4');
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'レポートを作成'),
+          )
+          .onPressed,
+      isNull,
+    );
+    repo.inputGate!.complete();
+    await tester.pumpAndSettle();
+    expect(repo.inputWrites, 1);
+    expect(find.text('選択中：4 / 5'), findsOneWidget);
+    expect(find.text('体調を保存しました'), findsNothing);
+    repo.inputGate = null;
+    await press(tester, '体調を保存');
+    await tester.pumpAndSettle();
+    expect((await repo.findById('rec-1'))!.selfCondition, 4);
+  });
+
+  testWidgets('deletion during save does not recreate record or show success', (
+    tester,
+  ) async {
+    await open(tester);
+    repo.inputGate = Completer<void>();
+    await press(tester, '4');
+    await press(tester, '体調を保存');
+    await repo.delete('rec-1');
+    repo.inputGate!.complete();
+    await tester.pumpAndSettle();
+    expect(await repo.findById('rec-1'), isNull);
+    expect(find.textContaining('体調を保存できませんでした'), findsOneWidget);
+  });
+
+  testWidgets('editing without saving discards pending generation', (
+    tester,
+  ) async {
+    ai.availability = AiAvailability.available;
+    ai.generationGate = Completer();
+    await open(tester);
+    await press(tester, 'レポートを作成');
+    await press(tester, '4');
+    ai.generationGate!.complete('reviewRecord');
+    await tester.pumpAndSettle();
+    expect((await repo.findById('rec-1'))!.reportText, isNull);
+    expect(find.text('選択中：4 / 5'), findsOneWidget);
+  });
+
+  testWidgets(
+    'report persistence blocks saves then input save clears stale report',
+    (tester) async {
+      repo.reportGate = Completer<void>();
+      await open(tester);
+      await press(tester, 'レポートを作成');
+      await tester.pump();
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, '体調を保存'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, '体温を保存'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester.widget<TextFormField>(find.byType(TextFormField)).enabled,
+        isFalse,
+      );
+      repo.reportGate!.complete();
+      await tester.pumpAndSettle();
+      expect((await repo.findById('rec-1'))!.reportText, isNotNull);
+      await press(tester, '4');
+      await press(tester, '体調を保存');
+      await tester.pumpAndSettle();
+      expect((await repo.findById('rec-1'))!.reportText, isNull);
+      expect(find.text('レポートは未生成です。'), findsOneWidget);
+    },
+  );
+
   testWidgets('template fallback is saved and labelled with a reason', (
     tester,
   ) async {

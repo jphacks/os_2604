@@ -1,5 +1,19 @@
 # 現在の作業状態
 
+## 2026-10-17 c：B/C統合と実機導入（手動確認待ち）
+
+- ユーザー合意：B/C統合確認→統合版の実機試験の順で進め、実機へのインストール・確認と `STATE.md` 更新・コミットを行う。
+- ブランチ `c` の `5e4d125`（Cの日時移行・権限待ち修正）へ、B修正がPR #6で取り込まれた `origin/main` `5d591c5` をマージし、Cの権限待ちキャンセル処理とBの画面解放処理（`ScanScreen._release`）の結合テスト `test/screens/scan_permission_flow_test.dart` を追加してコミット。`main` 自体は変更しない。
+- 実装ファイルは自動マージ成功。`STATE.md` だけ競合したため、この現在地と下記のC側記録を保持して解消。Bの結果表示更新・入力解除・古いレポート消去・保存競合防止と撮影画面の戻る/保存/キャンセル修正を含む。
+- 統合後の自動検証：`dart format --output=none --set-exit-if-changed lib test` は69ファイル変更なし、`git diff --check` 成功、`flutter analyze --no-pub` 指摘なし、`flutter test --no-pub --reporter expanded` 全252件成功（権限待ち中の `inactive` 待機からの「戻る」離脱、権限拒否後の再試行→許可を含む。ログ `/private/tmp/os2604-bc-integrated-tests.log`）。
+- ビルドと実機導入（physical iPhone 17 / iOS 27.0.1、`00008150-000268A03EC2401C`）：
+  1. 本体アプリ（`com.example.os2604`）：署名付きiOS Releaseビルド成功（`build/ios/iphoneos/Runner.app` 60.7MB、`/private/tmp/os2604-bc-integrated-build.log`）。ロック解除と更新前の空履歴をユーザー確認済みのため、データを消さずに `xcrun devicectl` で上書きインストール・プロセス起動成功。旧記録がないため、既存記録を保持したDB移行（schema v4）は今回は自動テストの結果と区別して扱う。
+  2. 初回許可ダイアログ確認用アプリ（`com.example.os2604.permissioncheck`、表示名「15秒チェック 権限試験」）：既存アプリの権限をリセットせず初回OS許可ダイアログを確認できるよう、一時コピー `/private/tmp/os2604-bc-permissioncheck-62oxv4fl` で別Bundle IDの署名付きReleaseビルド成功（`/private/tmp/os2604-bc-permissioncheck-build.log`）、実機へ `xcrun devicectl` でインストール・プロセス起動成功。
+- B側237テスト成功・iPhone 15へのインストール報告はBの記録として区別して保持。実機の画面操作はユーザー手動試験で行い、プロセス起動成功だけで手動試験合格と扱わない。
+- 次：実機での手動確認（`com.example.os2604.permissioncheck` での初回カメラ許可ダイアログ表示・待機・許可後の計測開始、および上書き更新した `com.example.os2604` での撮影中断・結果入力解除・保存・履歴・通知設定）。
+
+## 以下は5e4d125に含めた修正記録
+
 ## 2026-10-17 c：高優先の互換性・権限修正
 
 - ユーザー依頼：残課題の高優先から進め、cへ切替。現在のフェーズはユーザー回答でDay 1。

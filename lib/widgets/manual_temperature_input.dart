@@ -6,6 +6,7 @@ class ManualTemperatureInput extends StatefulWidget {
   const ManualTemperatureInput({
     super.key,
     required this.value,
+    this.enabled = true,
     required this.onChanged,
     required this.onValidityChanged,
   }) : assert(
@@ -13,6 +14,7 @@ class ManualTemperatureInput extends StatefulWidget {
              (value > double.negativeInfinity && value < double.infinity),
        );
 
+  final bool enabled;
   final double? value;
   final ValueChanged<double?> onChanged;
   final ValueChanged<bool> onValidityChanged;
@@ -66,7 +68,8 @@ class _ManualTemperatureInputState extends State<ManualTemperatureInput> {
   double? _parse(String text) => double.tryParse(text.trim());
 
   bool _isValid(String text) =>
-      text.trim().isEmpty || (_parse(text)?.isFinite ?? false);
+      text.trim().isEmpty ||
+      ((_parse(text)?.isFinite ?? false) && _parse(text)! > 0);
 
   void _report(String text) {
     _revision++;
@@ -89,13 +92,15 @@ class _ManualTemperatureInputState extends State<ManualTemperatureInput> {
         const SizedBox(height: 8),
         TextFormField(
           key: _fieldKey,
+          enabled: widget.enabled,
           controller: _controller,
           keyboardType: const TextInputType.numberWithOptions(
             decimal: true,
             signed: true,
           ),
           decoration: const InputDecoration(labelText: '体温', suffixText: '℃'),
-          validator: (text) => _isValid(text ?? '') ? null : '有限の数値を入力してください',
+          validator: (text) =>
+              _isValid(text ?? '') ? null : '0より大きい有限の数値を入力してください',
           onChanged: _report,
           onFieldSubmitted: _report,
         ),
@@ -103,14 +108,18 @@ class _ManualTemperatureInputState extends State<ManualTemperatureInput> {
           spacing: 8,
           children: [
             TextButton(
-              onPressed: () => _report(_controller.text),
+              onPressed: widget.enabled
+                  ? () => _report(_controller.text)
+                  : null,
               child: const Text('入力を確認'),
             ),
             TextButton(
-              onPressed: () {
-                _controller.clear();
-                _report('');
-              },
+              onPressed: !widget.enabled
+                  ? null
+                  : () {
+                      _controller.clear();
+                      _report('');
+                    },
               child: const Text('入力を消す'),
             ),
           ],
