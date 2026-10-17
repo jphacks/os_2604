@@ -25,6 +25,7 @@ class MorningCheckApp extends StatelessWidget {
     required this.createScanSession,
     required this.reminderService,
     required this.reminderStore,
+    this.requestCameraPermission = requestSystemCameraPermission,
     this.now = DateTime.now,
   });
 
@@ -33,6 +34,9 @@ class MorningCheckApp extends StatelessWidget {
   final OnDeviceAiRunner aiRunner;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
+
+  /// 初回設定でカメラ許可を求める。テストでは偽物に差し替える。
+  final Future<bool?> Function() requestCameraPermission;
 
   /// 本日判定・履歴基準値に使う時計。テストでは固定する。
   final DateTime Function() now;
@@ -61,10 +65,17 @@ class MorningCheckApp extends StatelessWidget {
       theme: asakaoTheme(),
       initialRoute: AppRoutes.home,
       routes: {
-        AppRoutes.home: (_) =>
-            OnboardingGate(store: onboardingStore, homeBuilder: _home),
-        AppRoutes.onboarding: (context) =>
-            OnboardingScreen(onContinue: () => Navigator.of(context).pop()),
+        AppRoutes.home: (_) => OnboardingGate(
+          store: onboardingStore,
+          homeBuilder: _home,
+          reminderService: reminderService,
+          reminderStore: reminderStore,
+          requestCameraPermission: requestCameraPermission,
+        ),
+        AppRoutes.onboarding: (context) => OnboardingScreen(
+          explanationOnly: true,
+          onFinish: () => Navigator.of(context).pop(),
+        ),
         AppRoutes.scan: (_) => ScanScreen(
           repository: repository,
           createSession: createScanSession,

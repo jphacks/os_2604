@@ -45,7 +45,12 @@ void main() {
     for (final (index, title) in [(0, '履歴'), (2, '設定')]) {
       await tester.tap(find.byKey(ValueKey('main-tab-$index')));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, title), findsOneWidget);
+      expect(
+        index == 2
+            ? find.byKey(const ValueKey('settings-title'))
+            : find.widgetWithText(AppBar, title),
+        findsOneWidget,
+      );
       expect(find.text('未実装の画面です。今後、担当機能を接続します。'), findsNothing);
       expect(find.byType(BackButton), findsNothing);
       expect(
@@ -63,9 +68,13 @@ void main() {
     await tester.ensureVisible(find.text('アプリの説明'));
     await tester.tap(find.text('アプリの説明'));
     await tester.pumpAndSettle();
-    final next = find.text('説明を確認して次へ');
-    await tester.ensureVisible(next);
-    await tester.tap(next);
+    // 再表示は説明だけ（権限や設定には触れない）。
+    expect(find.text('タップしてはじめる'), findsNothing);
+    await tester.tap(find.text('つづける'));
+    await tester.pumpAndSettle();
+    final close = find.text('閉じる');
+    await tester.ensureVisible(close);
+    await tester.tap(close);
     await tester.pumpAndSettle();
     expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
     expect(tester.takeException(), isNull);

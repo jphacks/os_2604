@@ -106,7 +106,7 @@ void main() {
   }
 
   Future<void> confirm(WidgetTester tester, String label) async {
-    await tester.tap(find.widgetWithText(FilledButton, label));
+    await tester.tap(find.text(label));
     await tester.pumpAndSettle();
   }
 
@@ -283,45 +283,98 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    tw('shows the sections, rows and privacy footnote', (tester) async {
+      await openSettings(tester);
+      expect(find.byKey(const ValueKey('settings-title')), findsOneWidget);
+      for (final text in [
+        '通知',
+        '毎朝の通知',
+        'オフ',
+        '情報',
+        'このアプリについて',
+        'データ',
+        '記録をすべて削除',
+        '画像は保存されません。記録はこの端末の中だけにあります。',
+      ]) {
+        expect(find.text(text), findsOneWidget, reason: text);
+      }
+      // 研究・実験モードの設定はこのアプリに無いので行も出さない。
+      expect(find.textContaining('研究'), findsNothing);
+      expect(find.textContaining('プライバシーポリシー'), findsNothing);
+    });
+
+    tw('reminder row shows the saved time', (tester) async {
+      reminderStore.value = const ReminderSettings(
+        enabled: true,
+        hour: 7,
+        minute: 30,
+      );
+      await openSettings(tester);
+      expect(find.text('7:30'), findsOneWidget);
+      expect(find.text('オフ'), findsNothing);
+    });
+
+    tw('about screen opens with disclaimer and data handling', (tester) async {
+      await openSettings(tester);
+      await tester.tap(find.text('このアプリについて'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(AppBar, 'このアプリについて'), findsOneWidget);
+      expect(find.text('あさかお'), findsOneWidget);
+      expect(find.text('免責事項'), findsOneWidget);
+      expect(find.textContaining('診断・治療・予防を目的としていません'), findsOneWidget);
+      expect(find.textContaining('119番'), findsOneWidget);
+      expect(find.textContaining('この端末の中だけに保存されます'), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('settings-title')), findsOneWidget);
+    });
+
     tw('delete all with confirm; onboarding is kept', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
       await repo.insert(_rec('b', DateTime(2026, 10, 15, 8)));
       await DriftOnboardingStore(db).completeOnboarding();
       await openSettings(tester);
-      expect(find.text('このアプリは診断目的ではありません'), findsOneWidget);
-      await tester.tap(find.text('すべての健康記録を削除'));
+      await tester.tap(find.text('記録をすべて削除'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('元に戻せません'), findsOneWidget);
+      expect(find.text('すべての記録を削除しますか？'), findsOneWidget);
+      expect(find.textContaining('取り消せません'), findsOneWidget);
       await confirm(tester, '削除する');
       expect(await repo.findInRange(DateTime(2000), DateTime(2100)), isEmpty);
-      expect(find.text('すべての健康記録を削除しました'), findsOneWidget);
+      expect(find.text('記録をすべて削除しました'), findsOneWidget);
       expect(await DriftOnboardingStore(db).hasCompletedOnboarding(), isTrue);
     });
 
     tw('cancel keeps records', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
       await openSettings(tester);
-      await tester.tap(find.text('すべての健康記録を削除'));
+      await tester.tap(find.text('記録をすべて削除'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('キャンセル'));
       await tester.pumpAndSettle();
       expect(await repo.findById('a'), isNotNull);
-      expect(find.text('すべての健康記録を削除しました'), findsNothing);
+      expect(find.text('すべての記録を削除しますか？'), findsNothing);
+      expect(find.text('記録をすべて削除しました'), findsNothing);
     });
 
     tw('failure is shown as failure', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
       repo.fail = true;
       await openSettings(tester);
-      await tester.tap(find.text('すべての健康記録を削除'));
+      await tester.tap(find.text('記録をすべて削除'));
       await tester.pumpAndSettle();
       await confirm(tester, '削除する');
       expect(find.textContaining('削除できませんでした'), findsOneWidget);
-      expect(find.text('すべての健康記録を削除しました'), findsNothing);
+      expect(find.text('記録をすべて削除しました'), findsNothing);
       expect(await repo.findById('a'), isNotNull);
     });
 
     group('reminder', () {
+      Future<void> openReminder(WidgetTester tester) async {
+        await openSettings(tester);
+        await tester.tap(find.text('毎朝の通知'));
+        await tester.pumpAndSettle();
+      }
+
       Future<void> toggle(WidgetTester tester) async {
         await tester.tap(find.byType(Switch));
         await tester.pumpAndSettle();
@@ -331,28 +384,28 @@ void main() {
           tester.widget<Switch>(find.byType(Switch));
 
       tw('is off by default; no notification before opt-in', (tester) async {
-        await openSettings(tester);
+        await openReminder(tester);
         expect(switchOf(tester).value, isFalse);
-        expect(find.text('08:00'), findsOneWidget);
+        expect(find.text('8:00'), findsOneWidget);
         expect(find.textContaining('今後追加予定'), findsNothing);
         expect(reminder.scheduled, isEmpty);
       });
 
       tw('enable: permission granted -> scheduled and saved', (tester) async {
-        await openSettings(tester);
+        await openReminder(tester);
         await toggle(tester);
         expect(reminder.permissionRequests, 1);
         expect(reminder.scheduled, [(8, 0)]);
         expect(reminderStore.value.enabled, isTrue);
         expect(switchOf(tester).value, isTrue);
-        expect(find.text('毎朝 08:00 にお知らせします'), findsOneWidget);
+        expect(find.text('毎朝 8:00 にお知らせします'), findsOneWidget);
       });
 
       tw('enable: permission denied stays off and saves nothing', (
         tester,
       ) async {
         reminder.grant = false;
-        await openSettings(tester);
+        await openReminder(tester);
         await toggle(tester);
         expect(find.text('通知が許可されていません。設定アプリから許可できます。'), findsOneWidget);
         expect(switchOf(tester).value, isFalse);
@@ -362,7 +415,7 @@ void main() {
 
       tw('enable: scheduling failure is shown and not saved', (tester) async {
         reminder.failSchedule = true;
-        await openSettings(tester);
+        await openReminder(tester);
         await toggle(tester);
         expect(find.textContaining('通知を設定できませんでした'), findsOneWidget);
         expect(switchOf(tester).value, isFalse);
@@ -375,8 +428,8 @@ void main() {
           hour: 7,
           minute: 30,
         );
-        await openSettings(tester);
-        expect(find.text('07:30'), findsOneWidget);
+        await openReminder(tester);
+        expect(find.text('7:30'), findsOneWidget);
         await tester.tap(find.text('通知時刻'));
         await tester.pumpAndSettle();
         // ダイヤル表示のまま OK で確定すると、現在の時刻が選ばれる。
@@ -389,7 +442,7 @@ void main() {
 
       tw('change time to a new value', (tester) async {
         reminderStore.value = const ReminderSettings(enabled: true);
-        await openSettings(tester);
+        await openReminder(tester);
         await tester.tap(find.text('通知時刻'));
         await tester.pumpAndSettle();
         await tester.tap(find.byIcon(Icons.keyboard_outlined));
@@ -402,12 +455,12 @@ void main() {
         expect(reminder.scheduled, [(6, 45)]);
         expect(reminderStore.value.hour, 6);
         expect(reminderStore.value.minute, 45);
-        expect(find.text('06:45'), findsOneWidget);
+        expect(find.text('6:45'), findsOneWidget);
       });
 
       tw('disable cancels and saves', (tester) async {
         reminderStore.value = const ReminderSettings(enabled: true);
-        await openSettings(tester);
+        await openReminder(tester);
         await toggle(tester);
         expect(reminder.cancels, 1);
         expect(reminderStore.value.enabled, isFalse);
