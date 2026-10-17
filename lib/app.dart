@@ -76,8 +76,7 @@ class MorningCheckApp extends StatelessWidget {
                     .popUntil(ModalRoute.withName(AppRoutes.home)),
           );
         },
-        AppRoutes.history: (_) =>
-            HistoryScreen(repository: repository, now: now),
+        AppRoutes.history: (_) => HistoryScreen(store: repository, now: now),
         AppRoutes.settings: (_) => SettingsScreen(repository: repository),
       },
     );

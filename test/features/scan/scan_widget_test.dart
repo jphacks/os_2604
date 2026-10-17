@@ -2,8 +2,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../lib/features/scan/scan_widget.dart';
-import '../../../lib/models/scan_contract.dart';
+import 'package:os_2604/features/scan/scan_widget.dart';
+import 'package:os_2604/models/scan_contract.dart';
 
 class FakeService implements HealthScanService {
   int cancels = 0;

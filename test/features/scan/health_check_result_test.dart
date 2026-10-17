@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 
-import '../../../lib/models/health_check_result.dart';
+import 'package:os_2604/models/health_check_result.dart';
 
 void main() {
   HealthCheckResult record({

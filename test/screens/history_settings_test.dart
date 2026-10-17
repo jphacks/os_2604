@@ -90,7 +90,7 @@ void main() {
   Future<void> pumpHistory(WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: HistoryScreen(repository: repo, now: () => now),
+        home: HistoryScreen(store: repo, now: () => now),
       ),
     );
     await tester.pumpAndSettle();
@@ -104,11 +104,11 @@ void main() {
   group('history', () {
     tw('empty state', (tester) async {
       await pumpHistory(tester);
-      expect(find.text('まだ記録がありません'), findsOneWidget);
+      expect(find.text('測定記録はまだありません。'), findsOneWidget);
       expect(find.text('基準値蓄積中（有効記録 0/3件）'), findsOneWidget);
     });
 
-    tw('newest first, 未測定 for nulls', (tester) async {
+    tw('newest first, 未入力 for nulls', (tester) async {
       await repo.insert(_rec('old', DateTime(2026, 10, 15, 8), cond: 3));
       await repo.insert(_rec('new', DateTime(2026, 10, 16, 8), temp: 36.5));
       await pumpHistory(tester);
@@ -116,9 +116,17 @@ void main() {
         tester.getTopLeft(find.text('2026/10/16 08:00')).dy,
         lessThan(tester.getTopLeft(find.text('2026/10/15 08:00')).dy),
       );
-      expect(find.textContaining('体調：未測定'), findsOneWidget);
-      expect(find.textContaining('体温：未測定'), findsOneWidget);
-      expect(find.textContaining('体温：36.5 ℃（手入力）'), findsOneWidget);
+      expect(find.textContaining('体調：未入力'), findsOneWidget);
+      expect(find.textContaining('体調：3 / 5'), findsOneWidget);
+    });
+
+    tw('shows the real quality label', (tester) async {
+      await repo.insert(
+        _rec('p', DateTime(2026, 10, 16, 8), q: MeasurementQuality.poor),
+      );
+      await pumpHistory(tester);
+      expect(find.textContaining('品質：不十分'), findsOneWidget);
+      expect(find.textContaining('品質：良好'), findsNothing);
     });
 
     tw('tap opens result for that id', (tester) async {
@@ -136,19 +144,20 @@ void main() {
       await repo.insert(_rec('a', DateTime(2026, 10, 15, 8)));
       await repo.insert(_rec('b', DateTime(2026, 10, 16, 8)));
       await pumpHistory(tester);
-      await tester.tap(find.byTooltip('2026/10/16 08:00 の記録を削除'));
+      // 新しい順なので先頭（b）の削除ボタン。
+      await tester.tap(find.byTooltip('この記録を削除').first);
       await tester.pumpAndSettle();
-      await confirm(tester, '削除する');
+      await tester.tap(find.widgetWithText(TextButton, '削除'));
+      await tester.pumpAndSettle();
       expect(await repo.findById('b'), isNull);
       expect(await repo.findById('a'), isNotNull);
-      expect(find.text('記録を削除しました'), findsOneWidget);
       expect(find.text('2026/10/16 08:00'), findsNothing);
     });
 
     tw('cancel keeps the record', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
       await pumpHistory(tester);
-      await tester.tap(find.byTooltip('2026/10/16 08:00 の記録を削除'));
+      await tester.tap(find.byTooltip('この記録を削除'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('キャンセル'));
       await tester.pumpAndSettle();
@@ -160,11 +169,11 @@ void main() {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
       repo.fail = true;
       await pumpHistory(tester);
-      await tester.tap(find.byTooltip('2026/10/16 08:00 の記録を削除'));
+      await tester.tap(find.byTooltip('この記録を削除'));
       await tester.pumpAndSettle();
-      await confirm(tester, '削除する');
+      await tester.tap(find.widgetWithText(TextButton, '削除'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('削除できませんでした'), findsOneWidget);
-      expect(find.text('記録を削除しました'), findsNothing);
       expect(await repo.findById('a'), isNotNull);
     });
   });
@@ -194,7 +203,7 @@ void main() {
       await repo.insert(_rec('3', DateTime(2026, 10, 10, 8), cond: 5));
       await pumpHistory(tester);
       expect(find.textContaining('中央値：4.0 / 5（有効記録 3件）'), findsOneWidget);
-      await repo.delete('3');
+      await repo.deleteOne('3');
       await tester.pumpAndSettle();
       expect(find.text('基準値蓄積中（有効記録 2/3件）'), findsOneWidget);
     });

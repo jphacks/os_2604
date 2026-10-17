@@ -32,8 +32,9 @@ class IosCameraFrameSource implements ScanFrameSource {
     required void Function(ScanObservation) onObservation,
     required void Function(ScanFailureReason) onFailure,
   }) async {
-    if (_disposed || _camera != null)
+    if (_disposed || _camera != null) {
       throw StateError('Camera is unavailable.');
+    }
     final generation = ++_generation;
     _previousFace = null;
     _busy = false;
@@ -104,8 +105,9 @@ class IosCameraFrameSource implements ScanFrameSource {
           );
         },
         (Object error, StackTrace stack) {
-          if (generation == _generation)
+          if (generation == _generation) {
             onFailure(ScanFailureReason.processingFailed);
+          }
         },
       );
       await streamStarted.future;
@@ -118,8 +120,9 @@ class IosCameraFrameSource implements ScanFrameSource {
         _ => ScanFailureReason.cameraUnavailable,
       });
     } on Object {
-      if (generation == _generation)
+      if (generation == _generation) {
         onFailure(ScanFailureReason.cameraUnavailable);
+      }
     }
   }
 
@@ -215,8 +218,9 @@ class IosCameraFrameSource implements ScanFrameSource {
         ScanObservation(capturedAt: capturedAt, guidance: guidance),
       );
     } on Object {
-      if (generation == _generation)
+      if (generation == _generation) {
         onFailure(ScanFailureReason.processingFailed);
+      }
     } finally {
       if (generation == _generation) _busy = false;
     }

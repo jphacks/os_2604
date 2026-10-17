@@ -3,11 +3,12 @@ import 'package:drift/drift.dart';
 import '../../models/health_check_result.dart';
 import '../analysis/history_baseline.dart';
 import 'app_database.dart';
+import 'health_record_store.dart';
 
 /// Persists [HealthCheckResult]s using the supplied database without taking
 /// ownership of its connection. Rows are rebuilt through the model
 /// constructor, so corrupt data surfaces as an error instead of a fake value.
-class HealthRecordRepository {
+class HealthRecordRepository implements HealthRecordStore {
   HealthRecordRepository(this._database);
 
   final AppDatabase _database;
@@ -15,6 +16,7 @@ class HealthRecordRepository {
   $HealthRecordsTable get _table => _database.healthRecords;
 
   /// Throws if a record with the same ID already exists.
+  @override
   Future<void> insert(HealthCheckResult result) async {
     await _database.into(_table).insert(_toCompanion(result));
   }
@@ -77,20 +79,61 @@ class HealthRecordRepository {
   ];
 
   /// All records, newest first, re-emitted on every change.
+  @override
   Stream<List<HealthCheckResult>> watchAll() =>
       (_database.select(_table)
             ..orderBy([(t) => OrderingTerm.desc(t.measuredAt)]))
           .watch()
           .map((rows) => rows.map(_fromRow).toList());
 
+  @override
+  Future<void> deleteOne(String id) => delete(id);
+
   Future<void> delete(String id) async {
     await (_database.delete(_table)..where((t) => t.id.equals(id))).go();
   }
 
   /// Leaves the onboarding table untouched.
+  @override
   Future<void> deleteAll() async {
     await _database.delete(_table).go();
   }
+
+  @override
+  Future<List<HealthCheckResult>> loadAll() async =>
+      (await (_database.select(
+            _table,
+          )..orderBy([(t) => OrderingTerm.desc(t.measuredAt)])).get())
+          .map(_fromRow)
+          .toList();
+
+  /// Replaces only the optional inputs and report of the row with the same ID.
+  /// Returns false, without recreating the row, if it was deleted meanwhile.
+  @override
+  Future<bool> updateInputsAndReport(HealthCheckResult result) =>
+      _database.transaction(() async {
+        final c = await findById(result.id);
+        if (c == null) return false;
+        final updated = HealthCheckResult(
+          id: c.id,
+          measuredAt: c.measuredAt,
+          elapsed: c.elapsed,
+          faceDetected: c.faceDetected,
+          quality: c.quality,
+          estimatedHeartRateBpm: c.estimatedHeartRateBpm,
+          heartRateSource: c.heartRateSource,
+          faceColorFeature: c.faceColorFeature,
+          selfCondition: result.selfCondition,
+          bodyTemperatureC: result.bodyTemperatureC,
+          temperatureSource: result.temperatureSource,
+          reportText: result.reportText,
+          aiMode: result.aiMode,
+        );
+        await (_database.update(
+          _table,
+        )..where((t) => t.id.equals(c.id))).write(_toCompanion(updated));
+        return true;
+      });
 
   Future<void> _update(
     String id,
@@ -159,4 +202,18 @@ class HealthRecordRepository {
     reportText: row.reportText,
     aiMode: row.aiMode,
   );
+}
+
+/// B/C-facing store: same storage as [HealthRecordRepository], but like the
+/// original interface contract it only accepts successful measurements.
+class DriftHealthRecordStore extends HealthRecordRepository {
+  DriftHealthRecordStore(super.database);
+
+  @override
+  Future<void> insert(HealthCheckResult result) async {
+    if (result.quality != MeasurementQuality.good) {
+      throw ArgumentError('Only successful measurements can be saved.');
+    }
+    await super.insert(result);
+  }
 }

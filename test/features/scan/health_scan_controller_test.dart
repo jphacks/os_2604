@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
 
-import '../../../lib/features/scan/health_scan_controller.dart';
-import '../../../lib/features/scan/scan_configuration.dart';
-import '../../../lib/features/scan/scan_frame_source.dart';
-import '../../../lib/models/scan_contract.dart';
+import 'package:os_2604/features/scan/health_scan_controller.dart';
+import 'package:os_2604/features/scan/scan_configuration.dart';
+import 'package:os_2604/features/scan/scan_frame_source.dart';
+import 'package:os_2604/models/scan_contract.dart';
 
 class FakeFrames implements ScanFrameSource {
   late void Function(ScanObservation) observation;

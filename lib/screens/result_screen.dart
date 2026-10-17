@@ -312,3 +312,9 @@ class _ResultScreenState extends State<ResultScreen> {
     TemperatureSource.none => '出典なし',
   };
 }
+
+String formatRecordDate(DateTime date) {
+  final local = date.toLocal();
+  String two(int value) => value.toString().padLeft(2, '0');
+  return '${local.year}/${two(local.month)}/${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
+}
