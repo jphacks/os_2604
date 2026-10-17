@@ -36,6 +36,10 @@ class OnboardingScreen extends StatelessWidget {
               const SizedBox(height: 16),
               const Text('このアプリは診断目的ではありません。病気の診断や治療判断には使用できません。'),
               const SizedBox(height: 16),
+              const Text(
+                '通常モードでは心拍・顔色の実験処理は行いません。撮影前に研究モードを選ぶと試験的に推定します。精度の保証はなく、健康状態の判定には使用できません。',
+              ),
+              const SizedBox(height: 16),
               const Text('撮影にはカメラ権限が必要です。この説明の後、カメラを使う際に許可を確認します。'),
               const SizedBox(height: 32),
               if (saveError != null) ...[

@@ -22,10 +22,12 @@ class ScanScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.createSession,
+    this.createResearchSession,
   });
 
   final HealthRecordRepository repository;
   final ScanSession Function() createSession;
+  final ScanSession Function()? createResearchSession;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -34,7 +36,9 @@ class ScanScreen extends StatefulWidget {
 enum _Stage { idle, running, saving, saveFailed, failed }
 
 class _ScanScreenState extends State<ScanScreen> {
-  late final ScanSession _session = widget.createSession();
+  late ScanSession _session = widget.createSession();
+  bool _researchMode = false;
+  bool _changingMode = false;
   _Stage _stage = _Stage.idle;
   ScanFailureReason? _failure;
   HealthCheckResult? _unsaved;
@@ -75,8 +79,40 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }();
 
+  Future<void> _setResearchMode(bool enabled) async {
+    final factory = enabled
+        ? widget.createResearchSession
+        : widget.createSession;
+    if (factory == null || _stage != _Stage.idle || _leaving || _changingMode) {
+      return;
+    }
+    setState(() => _changingMode = true);
+    try {
+      await _release();
+      if (!mounted || _leaving) return;
+      final next = factory();
+      setState(() {
+        _session = next;
+        _releasing = null;
+        _researchMode = enabled;
+      });
+    } catch (_) {
+      if (!mounted || _leaving) return;
+      setState(() {
+        _stage = _Stage.failed;
+        _failure = ScanFailureReason.processingFailed;
+      });
+    } finally {
+      if (mounted) setState(() => _changingMode = false);
+    }
+  }
+
   Future<void> _start() async {
-    if (_leaving || (_stage != _Stage.idle && _stage != _Stage.failed)) return;
+    if (_leaving ||
+        _changingMode ||
+        (_stage != _Stage.idle && _stage != _Stage.failed)) {
+      return;
+    }
     final retry = _stage == _Stage.failed;
     final attempt = ++_attempt;
     setState(() {
@@ -160,7 +196,10 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   Widget build(BuildContext context) {
     final busy =
-        _leaving || _stage == _Stage.running || _stage == _Stage.saving;
+        _leaving ||
+        _changingMode ||
+        _stage == _Stage.running ||
+        _stage == _Stage.saving;
     return PopScope(
       canPop: _canPop,
       onPopInvokedWithResult: (didPop, _) {
@@ -182,6 +221,22 @@ class _ScanScreenState extends State<ScanScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (widget.createResearchSession != null) ...[
+                  SwitchListTile(
+                    title: const Text('研究モード'),
+                    subtitle: Text(
+                      _researchMode
+                          ? '心拍・顔色を試験的に推定します。診断や健康判断には使用できません。'
+                          : '通常モード：心拍・顔色の実験処理は行いません。',
+                    ),
+                    value: _researchMode,
+                    onChanged: !busy && _stage == _Stage.idle
+                        ? _setResearchMode
+                        : null,
+                  ),
+                  const Text('開始前に選択してください。撮影画面を開くたびに通常モードへ戻ります。'),
+                  const SizedBox(height: 16),
+                ],
                 AspectRatio(
                   aspectRatio: 3 / 4,
                   child: ClipRRect(

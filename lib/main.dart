@@ -42,6 +42,11 @@ class _DatabaseHostState extends State<_DatabaseHost> {
   );
 
   static ScanSession _createSession() {
+    final service = CameraScanService();
+    return (service: service, preview: service.preview);
+  }
+
+  static ScanSession _createResearchSession() {
     final service = CameraScanService(
       configuration: ScanConfiguration.day1Experimental(),
     );
@@ -54,6 +59,7 @@ class _DatabaseHostState extends State<_DatabaseHost> {
     repository: _repository,
     aiRunner: _aiRunner,
     createScanSession: _createSession,
+    createResearchScanSession: _createResearchSession,
     reminderService: _reminderService,
     reminderStore: _reminderStore,
   );

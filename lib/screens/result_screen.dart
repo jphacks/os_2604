@@ -181,6 +181,7 @@ class _ResultScreenState extends State<ResultScreen> {
         elapsed: current.elapsed,
         faceDetected: current.faceDetected,
         quality: current.quality,
+        scanMode: current.scanMode,
         estimatedHeartRateBpm: current.estimatedHeartRateBpm,
         heartRateSource: current.heartRateSource,
         faceColorFeature: current.faceColorFeature,
@@ -270,6 +271,9 @@ class _ResultScreenState extends State<ResultScreen> {
       children: [
         const Text('記録は保存されました。'),
         const SizedBox(height: 16),
+        _row('計測モード', r.scanMode.label),
+        if (r.scanMode == ScanMode.research)
+          const Text('研究用の試験機能です。心拍・顔色を健康状態の判定に使用しないでください。'),
         _row('計測日時', _fmt(r.measuredAt)),
         _row(
           '計測時間',
@@ -278,11 +282,20 @@ class _ResultScreenState extends State<ResultScreen> {
         _row('品質', _quality(r.quality)),
         _row('顔検出', r.faceDetected ? 'あり' : 'なし'),
         _row('心拍数', showHr ? '${hr.round()} bpm' : '未測定'),
-        if (showHr) const Text('心拍数は試験的な推定値です'),
+        if (showHr)
+          Text(
+            r.heartRateSource == HeartRateSource.rppgExperimental
+                ? '心拍数は試験的な推定値です'
+                : '心拍数は外部由来の記録です',
+          ),
+        if (showHr && r.heartRateSource == HeartRateSource.rppgExperimental)
+          const Text('出典：rPPGによる試験的推定。医療的な実測値ではありません。'),
         _row(
           '顔色特徴量',
           r.faceColorFeature == null ? '未測定' : '${r.faceColorFeature}',
         ),
+        if (r.faceColorFeature != null)
+          const Text('顔色は外観の特徴量です。健康状態や体温の判定値ではありません。'),
         _row('体温', t == null ? '未測定' : '$t ℃（${_source(r.temperatureSource)}）'),
         const Text('体温はカメラで測定していません'),
         _row('体調', r.selfCondition == null ? '未測定' : '${r.selfCondition} / 5'),

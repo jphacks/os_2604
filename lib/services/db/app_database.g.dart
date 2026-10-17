@@ -197,6 +197,16 @@ class $HealthRecordsTable extends HealthRecords
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   ).withConverter<MeasurementQuality>($HealthRecordsTable.$converterquality);
+  @override
+  late final GeneratedColumnWithTypeConverter<ScanMode, String> scanMode =
+      GeneratedColumn<String>(
+        'scan_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('legacyUnknown'),
+      ).withConverter<ScanMode>($HealthRecordsTable.$converterscanMode);
   static const VerificationMeta _estimatedHeartRateBpmMeta =
       const VerificationMeta('estimatedHeartRateBpm');
   @override
@@ -292,6 +302,7 @@ class $HealthRecordsTable extends HealthRecords
     elapsedMicros,
     faceDetected,
     quality,
+    scanMode,
     estimatedHeartRateBpm,
     heartRateSource,
     faceColorFeature,
@@ -415,6 +426,12 @@ class $HealthRecordsTable extends HealthRecords
           data['${effectivePrefix}quality'],
         )!,
       ),
+      scanMode: $HealthRecordsTable.$converterscanMode.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}scan_mode'],
+        )!,
+      ),
       estimatedHeartRateBpm: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}estimated_heart_rate_bpm'],
@@ -468,6 +485,8 @@ class $HealthRecordsTable extends HealthRecords
   $converterquality = const EnumNameConverter<MeasurementQuality>(
     MeasurementQuality.values,
   );
+  static JsonTypeConverter2<ScanMode, String, String> $converterscanMode =
+      const EnumNameConverter<ScanMode>(ScanMode.values);
   static JsonTypeConverter2<HeartRateSource, String, String>
   $converterheartRateSource = const EnumNameConverter<HeartRateSource>(
     HeartRateSource.values,
@@ -488,6 +507,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
   final int elapsedMicros;
   final bool faceDetected;
   final MeasurementQuality quality;
+  final ScanMode scanMode;
   final double? estimatedHeartRateBpm;
   final HeartRateSource heartRateSource;
   final double? faceColorFeature;
@@ -502,6 +522,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     required this.elapsedMicros,
     required this.faceDetected,
     required this.quality,
+    required this.scanMode,
     this.estimatedHeartRateBpm,
     required this.heartRateSource,
     this.faceColorFeature,
@@ -525,6 +546,11 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     {
       map['quality'] = Variable<String>(
         $HealthRecordsTable.$converterquality.toSql(quality),
+      );
+    }
+    {
+      map['scan_mode'] = Variable<String>(
+        $HealthRecordsTable.$converterscanMode.toSql(scanMode),
       );
     }
     if (!nullToAbsent || estimatedHeartRateBpm != null) {
@@ -569,6 +595,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
       elapsedMicros: Value(elapsedMicros),
       faceDetected: Value(faceDetected),
       quality: Value(quality),
+      scanMode: Value(scanMode),
       estimatedHeartRateBpm: estimatedHeartRateBpm == null && nullToAbsent
           ? const Value.absent()
           : Value(estimatedHeartRateBpm),
@@ -605,6 +632,9 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
       quality: $HealthRecordsTable.$converterquality.fromJson(
         serializer.fromJson<String>(json['quality']),
       ),
+      scanMode: $HealthRecordsTable.$converterscanMode.fromJson(
+        serializer.fromJson<String>(json['scanMode']),
+      ),
       estimatedHeartRateBpm: serializer.fromJson<double?>(
         json['estimatedHeartRateBpm'],
       ),
@@ -633,6 +663,9 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
       'quality': serializer.toJson<String>(
         $HealthRecordsTable.$converterquality.toJson(quality),
       ),
+      'scanMode': serializer.toJson<String>(
+        $HealthRecordsTable.$converterscanMode.toJson(scanMode),
+      ),
       'estimatedHeartRateBpm': serializer.toJson<double?>(
         estimatedHeartRateBpm,
       ),
@@ -660,6 +693,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     int? elapsedMicros,
     bool? faceDetected,
     MeasurementQuality? quality,
+    ScanMode? scanMode,
     Value<double?> estimatedHeartRateBpm = const Value.absent(),
     HeartRateSource? heartRateSource,
     Value<double?> faceColorFeature = const Value.absent(),
@@ -674,6 +708,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     elapsedMicros: elapsedMicros ?? this.elapsedMicros,
     faceDetected: faceDetected ?? this.faceDetected,
     quality: quality ?? this.quality,
+    scanMode: scanMode ?? this.scanMode,
     estimatedHeartRateBpm: estimatedHeartRateBpm.present
         ? estimatedHeartRateBpm.value
         : this.estimatedHeartRateBpm,
@@ -704,6 +739,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
           ? data.faceDetected.value
           : this.faceDetected,
       quality: data.quality.present ? data.quality.value : this.quality,
+      scanMode: data.scanMode.present ? data.scanMode.value : this.scanMode,
       estimatedHeartRateBpm: data.estimatedHeartRateBpm.present
           ? data.estimatedHeartRateBpm.value
           : this.estimatedHeartRateBpm,
@@ -737,6 +773,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
           ..write('elapsedMicros: $elapsedMicros, ')
           ..write('faceDetected: $faceDetected, ')
           ..write('quality: $quality, ')
+          ..write('scanMode: $scanMode, ')
           ..write('estimatedHeartRateBpm: $estimatedHeartRateBpm, ')
           ..write('heartRateSource: $heartRateSource, ')
           ..write('faceColorFeature: $faceColorFeature, ')
@@ -756,6 +793,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     elapsedMicros,
     faceDetected,
     quality,
+    scanMode,
     estimatedHeartRateBpm,
     heartRateSource,
     faceColorFeature,
@@ -774,6 +812,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
           other.elapsedMicros == this.elapsedMicros &&
           other.faceDetected == this.faceDetected &&
           other.quality == this.quality &&
+          other.scanMode == this.scanMode &&
           other.estimatedHeartRateBpm == this.estimatedHeartRateBpm &&
           other.heartRateSource == this.heartRateSource &&
           other.faceColorFeature == this.faceColorFeature &&
@@ -790,6 +829,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
   final Value<int> elapsedMicros;
   final Value<bool> faceDetected;
   final Value<MeasurementQuality> quality;
+  final Value<ScanMode> scanMode;
   final Value<double?> estimatedHeartRateBpm;
   final Value<HeartRateSource> heartRateSource;
   final Value<double?> faceColorFeature;
@@ -805,6 +845,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     this.elapsedMicros = const Value.absent(),
     this.faceDetected = const Value.absent(),
     this.quality = const Value.absent(),
+    this.scanMode = const Value.absent(),
     this.estimatedHeartRateBpm = const Value.absent(),
     this.heartRateSource = const Value.absent(),
     this.faceColorFeature = const Value.absent(),
@@ -821,6 +862,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     required int elapsedMicros,
     required bool faceDetected,
     required MeasurementQuality quality,
+    this.scanMode = const Value.absent(),
     this.estimatedHeartRateBpm = const Value.absent(),
     required HeartRateSource heartRateSource,
     this.faceColorFeature = const Value.absent(),
@@ -843,6 +885,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     Expression<int>? elapsedMicros,
     Expression<bool>? faceDetected,
     Expression<String>? quality,
+    Expression<String>? scanMode,
     Expression<double>? estimatedHeartRateBpm,
     Expression<String>? heartRateSource,
     Expression<double>? faceColorFeature,
@@ -859,6 +902,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
       if (elapsedMicros != null) 'elapsed_micros': elapsedMicros,
       if (faceDetected != null) 'face_detected': faceDetected,
       if (quality != null) 'quality': quality,
+      if (scanMode != null) 'scan_mode': scanMode,
       if (estimatedHeartRateBpm != null)
         'estimated_heart_rate_bpm': estimatedHeartRateBpm,
       if (heartRateSource != null) 'heart_rate_source': heartRateSource,
@@ -878,6 +922,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     Value<int>? elapsedMicros,
     Value<bool>? faceDetected,
     Value<MeasurementQuality>? quality,
+    Value<ScanMode>? scanMode,
     Value<double?>? estimatedHeartRateBpm,
     Value<HeartRateSource>? heartRateSource,
     Value<double?>? faceColorFeature,
@@ -894,6 +939,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
       elapsedMicros: elapsedMicros ?? this.elapsedMicros,
       faceDetected: faceDetected ?? this.faceDetected,
       quality: quality ?? this.quality,
+      scanMode: scanMode ?? this.scanMode,
       estimatedHeartRateBpm:
           estimatedHeartRateBpm ?? this.estimatedHeartRateBpm,
       heartRateSource: heartRateSource ?? this.heartRateSource,
@@ -927,6 +973,11 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     if (quality.present) {
       map['quality'] = Variable<String>(
         $HealthRecordsTable.$converterquality.toSql(quality.value),
+      );
+    }
+    if (scanMode.present) {
+      map['scan_mode'] = Variable<String>(
+        $HealthRecordsTable.$converterscanMode.toSql(scanMode.value),
       );
     }
     if (estimatedHeartRateBpm.present) {
@@ -979,6 +1030,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
           ..write('elapsedMicros: $elapsedMicros, ')
           ..write('faceDetected: $faceDetected, ')
           ..write('quality: $quality, ')
+          ..write('scanMode: $scanMode, ')
           ..write('estimatedHeartRateBpm: $estimatedHeartRateBpm, ')
           ..write('heartRateSource: $heartRateSource, ')
           ..write('faceColorFeature: $faceColorFeature, ')
@@ -1453,6 +1505,7 @@ typedef $$HealthRecordsTableCreateCompanionBuilder =
       required int elapsedMicros,
       required bool faceDetected,
       required MeasurementQuality quality,
+      Value<ScanMode> scanMode,
       Value<double?> estimatedHeartRateBpm,
       required HeartRateSource heartRateSource,
       Value<double?> faceColorFeature,
@@ -1470,6 +1523,7 @@ typedef $$HealthRecordsTableUpdateCompanionBuilder =
       Value<int> elapsedMicros,
       Value<bool> faceDetected,
       Value<MeasurementQuality> quality,
+      Value<ScanMode> scanMode,
       Value<double?> estimatedHeartRateBpm,
       Value<HeartRateSource> heartRateSource,
       Value<double?> faceColorFeature,
@@ -1516,6 +1570,12 @@ class $$HealthRecordsTableFilterComposer
     column: $table.quality,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<ScanMode, ScanMode, String> get scanMode =>
+      $composableBuilder(
+        column: $table.scanMode,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<double> get estimatedHeartRateBpm => $composableBuilder(
     column: $table.estimatedHeartRateBpm,
@@ -1595,6 +1655,11 @@ class $$HealthRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get scanMode => $composableBuilder(
+    column: $table.scanMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get estimatedHeartRateBpm => $composableBuilder(
     column: $table.estimatedHeartRateBpm,
     builder: (column) => ColumnOrderings(column),
@@ -1666,6 +1731,9 @@ class $$HealthRecordsTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<MeasurementQuality, String> get quality =>
       $composableBuilder(column: $table.quality, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<ScanMode, String> get scanMode =>
+      $composableBuilder(column: $table.scanMode, builder: (column) => column);
 
   GeneratedColumn<double> get estimatedHeartRateBpm => $composableBuilder(
     column: $table.estimatedHeartRateBpm,
@@ -1744,6 +1812,7 @@ class $$HealthRecordsTableTableManager
                 Value<int> elapsedMicros = const Value.absent(),
                 Value<bool> faceDetected = const Value.absent(),
                 Value<MeasurementQuality> quality = const Value.absent(),
+                Value<ScanMode> scanMode = const Value.absent(),
                 Value<double?> estimatedHeartRateBpm = const Value.absent(),
                 Value<HeartRateSource> heartRateSource = const Value.absent(),
                 Value<double?> faceColorFeature = const Value.absent(),
@@ -1760,6 +1829,7 @@ class $$HealthRecordsTableTableManager
                 elapsedMicros: elapsedMicros,
                 faceDetected: faceDetected,
                 quality: quality,
+                scanMode: scanMode,
                 estimatedHeartRateBpm: estimatedHeartRateBpm,
                 heartRateSource: heartRateSource,
                 faceColorFeature: faceColorFeature,
@@ -1777,6 +1847,7 @@ class $$HealthRecordsTableTableManager
                 required int elapsedMicros,
                 required bool faceDetected,
                 required MeasurementQuality quality,
+                Value<ScanMode> scanMode = const Value.absent(),
                 Value<double?> estimatedHeartRateBpm = const Value.absent(),
                 required HeartRateSource heartRateSource,
                 Value<double?> faceColorFeature = const Value.absent(),
@@ -1792,6 +1863,7 @@ class $$HealthRecordsTableTableManager
                 elapsedMicros: elapsedMicros,
                 faceDetected: faceDetected,
                 quality: quality,
+                scanMode: scanMode,
                 estimatedHeartRateBpm: estimatedHeartRateBpm,
                 heartRateSource: heartRateSource,
                 faceColorFeature: faceColorFeature,

@@ -217,6 +217,9 @@ class HealthScanController implements HealthScanService {
           elapsed: elapsed,
           faceDetected: true,
           quality: MeasurementQuality.good,
+          scanMode: experimentalConfig == null
+              ? ScanMode.standard
+              : ScanMode.research,
           estimatedHeartRateBpm: heartRate,
           heartRateSource: heartRate == null
               ? HeartRateSource.none
