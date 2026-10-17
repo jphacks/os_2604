@@ -9,11 +9,13 @@ class TemplateRecordSummary {
 
   ReportMode get mode => ReportMode.template;
 
-  String format(HealthCheckResult scan) {
+  String format(HealthCheckResult scan) => '生成モード：定型文\n${formatRecord(scan)}';
+
+  /// Record facts without a generation label, for composing the actual mode.
+  String formatRecord(HealthCheckResult scan) {
     final condition = scan.selfCondition;
     final temperature = scan.bodyTemperatureC;
     return [
-      '生成モード：定型文',
       switch (scan.quality) {
         MeasurementQuality.good => '撮影品質：確認済み',
         MeasurementQuality.poor => '撮影品質：不足しています。再測定してください。',
