@@ -31,6 +31,9 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   HealthCheckResult? _record;
   bool _loading = true;
+  bool _saving = false;
+  bool _writingReport = false;
+  int _inputRevision = 0;
   bool _loadError = false;
   int? _condition;
   double? _temperature;
@@ -67,7 +70,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
   Future<void> _generateReport() async {
     final id = widget.recordId;
-    if (id == null || _generating) return;
+    if (id == null || _generating || _saving || _writingReport) return;
     final gen = ++_gen;
     setState(() {
       _generating = true;
@@ -80,6 +83,8 @@ class _ResultScreenState extends State<ResultScreen> {
       if (fresh == null) throw StateError('record missing');
       final outcome = await widget.aiRunner.generateReflection(fresh);
       if (!mounted || gen != _gen) return;
+      FocusScope.of(context).unfocus();
+      setState(() => _writingReport = true);
       await widget.repository.updateReport(id, outcome.text, outcome.mode);
       if (!mounted || gen != _gen) return;
       final updated = await widget.repository.findById(id);
@@ -91,7 +96,9 @@ class _ResultScreenState extends State<ResultScreen> {
     } catch (_) {
       failure = 'レポートを作成できませんでした（保存されていません）';
     }
-    if (!mounted || gen != _gen) return;
+    if (!mounted) return;
+    setState(() => _writingReport = false);
+    if (gen != _gen) return;
     setState(() {
       _generating = false;
       _reportMsg = failure;
@@ -122,36 +129,88 @@ class _ResultScreenState extends State<ResultScreen> {
     }
   }
 
-  Future<void> _saveCondition() async {
+  Future<void> _saveCondition() => _saveInputs(condition: true);
+
+  Future<void> _saveTemperature() => _saveInputs(condition: false);
+
+  Future<void> _saveInputs({required bool condition}) async {
+    final id = widget.recordId;
+    if (id == null ||
+        _saving ||
+        _writingReport ||
+        (!condition && !_temperatureValid)) {
+      return;
+    }
     final c = _condition;
-    if (c == null) return;
+    final t = _temperature;
+    final revision = _inputRevision;
     _invalidateGeneration();
+    setState(() {
+      _saving = true;
+      if (condition) {
+        _conditionMsg = null;
+      } else {
+        _temperatureMsg = null;
+      }
+    });
+    var success = false;
     try {
-      await widget.repository.updateSelfCondition(widget.recordId!, c);
+      final current = await widget.repository.findById(id);
+      if (current == null) throw StateError('record missing');
+      final updated = HealthCheckResult(
+        id: current.id,
+        measuredAt: current.measuredAt,
+        elapsed: current.elapsed,
+        faceDetected: current.faceDetected,
+        quality: current.quality,
+        estimatedHeartRateBpm: current.estimatedHeartRateBpm,
+        heartRateSource: current.heartRateSource,
+        faceColorFeature: current.faceColorFeature,
+        selfCondition: condition ? c : current.selfCondition,
+        bodyTemperatureC: condition ? current.bodyTemperatureC : t,
+        temperatureSource: condition
+            ? current.temperatureSource
+            : t == null
+            ? TemperatureSource.none
+            : TemperatureSource.manual,
+      );
+      if (!await widget.repository.updateInputsAndReport(updated)) {
+        throw StateError('record missing');
+      }
       if (!mounted) return;
-      setState(() => _conditionMsg = '体調を保存しました');
+      setState(() {
+        _record = updated;
+        _fallbackReason = null;
+        _reportMsg = null;
+      });
+      success = true;
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _conditionMsg = '体調を保存できませんでした（保存されていません）');
+      // Keep the draft, including invalid text, available for retry.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          if (revision == _inputRevision) {
+            final label = condition ? '体調' : '体温';
+            final message = success
+                ? '$labelを保存しました'
+                : '$labelを保存できませんでした（保存されていません）';
+            if (condition) {
+              _conditionMsg = message;
+            } else {
+              _temperatureMsg = message;
+            }
+          }
+        });
+      }
     }
   }
 
-  Future<void> _saveTemperature() async {
-    final t = _temperature;
-    if (t == null || !_temperatureValid) return;
+  void _inputChanged() {
+    _inputRevision++;
     _invalidateGeneration();
-    try {
-      await widget.repository.updateTemperature(
-        widget.recordId!,
-        t,
-        TemperatureSource.manual,
-      );
-      if (!mounted) return;
-      setState(() => _temperatureMsg = '体温を保存しました');
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _temperatureMsg = '体温を保存できませんでした（保存されていません）');
-    }
+    _conditionMsg = null;
+    _temperatureMsg = null;
   }
 
   @override
@@ -219,7 +278,9 @@ class _ResultScreenState extends State<ResultScreen> {
         ],
         const SizedBox(height: 8),
         OutlinedButton(
-          onPressed: _generating ? null : _generateReport,
+          onPressed: _generating || _saving || _writingReport
+              ? null
+              : _generateReport,
           child: Text(
             _generating
                 ? 'レポートを作成しています…'
@@ -230,29 +291,40 @@ class _ResultScreenState extends State<ResultScreen> {
         ),
         if (_reportMsg != null) Text(_reportMsg!),
         const Divider(height: 32),
-        SelfConditionInput(
-          value: _condition,
-          onChanged: (v) => setState(() {
-            _condition = v;
-            _conditionMsg = null;
-          }),
+        AbsorbPointer(
+          absorbing: _writingReport,
+          child: SelfConditionInput(
+            value: _condition,
+            onChanged: (v) => setState(() {
+              if (_writingReport) return;
+              _inputChanged();
+              _condition = v;
+              _conditionMsg = null;
+            }),
+          ),
         ),
         OutlinedButton(
-          onPressed: _condition == null ? null : _saveCondition,
+          onPressed: _saving || _writingReport ? null : _saveCondition,
           child: const Text('体調を保存'),
         ),
         if (_conditionMsg != null) Text(_conditionMsg!),
         const SizedBox(height: 24),
-        ManualTemperatureInput(
-          value: _temperature,
-          onChanged: (v) => setState(() {
-            _temperature = v;
-            _temperatureMsg = null;
-          }),
-          onValidityChanged: (v) => setState(() => _temperatureValid = v),
+        AbsorbPointer(
+          absorbing: _writingReport,
+          child: ManualTemperatureInput(
+            enabled: !_writingReport,
+            value: _temperature,
+            onChanged: (v) => setState(() {
+              if (_writingReport) return;
+              _inputChanged();
+              _temperature = v;
+              _temperatureMsg = null;
+            }),
+            onValidityChanged: (v) => setState(() => _temperatureValid = v),
+          ),
         ),
         OutlinedButton(
-          onPressed: _temperature == null || !_temperatureValid
+          onPressed: _saving || _writingReport || !_temperatureValid
               ? null
               : _saveTemperature,
           child: const Text('体温を保存'),
