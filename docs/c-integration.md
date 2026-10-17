@@ -1,5 +1,15 @@
 # C担当：計測APIとBへの組み込み手順
 
+## 2026-10-17 cブランチの追加修正
+
+最新main `0e4b1ff`を取り込み、`CameraScanService`の開始前にiOSカメラ権限の確認を追加した。`ios/Runner/AppDelegate.swift`に`jp.jphacks.os_2604/camera_permission`チャネルの`requestCameraPermission`を登録する。これはアプリ独自のチャネル名で、AppleのAPI名ではない。依存追加・権限用途文・音声権限の変更はない。
+
+許可ダイアログ中は`requestingPermission`を通知する。許可されても`resumed`になるまではカメラを開かない。`ScanWidget`はこの状態の`inactive`を待機として扱い、`hidden / paused / detached`や画面離脱はキャンセルする。計測中・カメラ準備中の`inactive`は従来どおり中断する。拒否・制限は`permissionDenied`、チャネル欠落や不正応答は`cameraUnavailable`。キャンセル後の遅い許可応答で再試行を開始しない。
+
+OSの許可回答は人間の操作待ちのため10秒で打ち切らない。キャンセルでローカルの待機・Observerを解放し、許可後にカメラ初期化の10秒制限と顔位置確認へ進む。ネイティブチャネルを含む再ビルドが必要。初回OSダイアログでの実機試験は未実施。
+
+根拠：[Flutterのライフサイクル状態](https://api.flutter.dev/flutter/dart-ui/AppLifecycleState.html)、[Appleのカメラ許可要求](https://developer.apple.com/documentation/avfoundation/avcapturedevice/requestaccess(for:completionhandler:))、採用中の`camera_avfoundation 0.10.3+1`の権限処理を確認した。以下の合意・B返信は初期実装時の記録であり、その後の統合状態・検証結果は`.codex/STATE.md`を参照する。
+
 ## 合意と現在地
 
 2026-10-17、ユーザーから「BがC側に合わせてよいと回答した」と共有されたため、Cが15秒の時計・進捗・キャンセルを持つ契約で実装した。全員iPhone 17 / iOS 27以降、Day 1開始。品質閾値もユーザーが実機調整用の暫定値として承認済み。
@@ -59,8 +69,8 @@ await scan.dispose();
 
 ### 計測と結果
 
-- `startHealthScan()` はカメラを初期化し、顔位置・品質の準備が連続して満たされた後に15秒を開始する。準備時間は計測に含めない。
-- `ScanProgress.phase` は `idle / preparing / measuring / completed / failed`。準備中の修正案内は `guidance`。失敗理由は `failureReason`。
+- `startHealthScan()` は権限確認と前面復帰の後にカメラを初期化し、顔位置・品質の準備が連続して満たされた後に15秒を開始する。権限待ち・準備時間は計測に含めない。
+- `ScanProgress.phase` は `idle / requestingPermission / preparing / measuring / completed / failed`。準備中の修正案内は `guidance`。失敗理由は `failureReason`。
 - 時間はCの単調時計が所有。壁時計の日時は計測開始時の `measuredAt` にだけ使う。
 - `durationSec` は目標の15秒、`elapsed` は有効な終端フレームまでの実観測時間。DBには実経過時間も残す。フレーム受信時刻はDart側で、非同期の顔検出より前に採る。
 - 15秒経過だけでは成功しない。終端まで連続した観測と、有効な終端フレームが必要。フレーム途絶、推論遅延、顔外れ、品質低下は失敗になる。
@@ -82,7 +92,7 @@ await scan.dispose();
 
 測定成功・失敗・キャンセル時にカメラと検出器を解放し、終端結果を返す。再試行ではセッション世代を変え、古い検出応答を無視する。二重開始・破棄済みサービスの使用はプログラムの誤用として `StateError`。ボタンは処理中に無効化する。
 
-初期化と後片付けには各10秒の技術的タイムアウトがある。解放に失敗したサービスはカメラ再使用の安全を確認できないため再起動しない。`dispose()` 後、新しい `CameraScanService` を作る。
+権限確認後の初期化と後片付けには各10秒の技術的タイムアウトがある。解放に失敗したサービスはカメラ再使用の安全を確認できないため再起動しない。`dispose()` 後、新しい `CameraScanService` を作る。
 
 ScanWidgetはアプリがforegroundを離れた時、取り外された時、サービスが差し替わった時にキャンセルする。復帰時に計測を自動再開しない。別ルートで覆うだけではWidgetが取り外されない場合があるため、その遷移前の `cancelScan()` はBが呼ぶ。
 

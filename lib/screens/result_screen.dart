@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/health_check_result.dart';
 import '../services/ai/on_device_ai_client.dart';
 import '../services/ai/on_device_ai_runner.dart';
+import '../services/analysis/history_baseline.dart';
 import '../services/db/health_record_repository.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
@@ -78,10 +79,27 @@ class _ResultScreenState extends State<ResultScreen> {
     });
     String? failure;
     try {
-      final fresh = await widget.repository.findById(id);
+      final referenceAt = (_record?.measuredAt ?? DateTime.now()).toLocal();
+      final today = DateTime(
+        referenceAt.year,
+        referenceAt.month,
+        referenceAt.day,
+      );
+      final start = DateTime(today.year, today.month, today.day - 7);
+      final (fresh, observations) = await (
+        widget.repository.findById(id),
+        widget.repository.baselineObservations(start, today),
+      ).wait;
       if (!mounted || gen != _gen) return;
       if (fresh == null) throw StateError('record missing');
-      final outcome = await widget.aiRunner.generateReflection(fresh);
+      final baseline = calculateHistoryBaseline(
+        observations,
+        referenceDate: fresh.measuredAt,
+      );
+      final outcome = await widget.aiRunner.generateReflection(
+        fresh,
+        baseline: baseline,
+      );
       if (!mounted || gen != _gen) return;
       FocusScope.of(context).unfocus();
       setState(() => _writingReport = true);

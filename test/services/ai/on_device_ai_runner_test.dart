@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/services/ai/on_device_ai_client.dart';
 import 'package:os_2604/services/ai/on_device_ai_runner.dart';
+import 'package:os_2604/services/analysis/history_baseline.dart';
 
 class FakeAiClient implements OnDeviceAiClient {
   AiAvailability availability = AiAvailability.available;
@@ -393,5 +394,47 @@ void main() {
       ),
       throwsArgumentError,
     );
+  });
+
+  test('baseline comparison is included in on-device and fallback reports', () {
+    withRunner((time, client, runner) {
+      const accumulating = HistoryBaseline(
+        validRecordCount: 2,
+        selfConditionCount: 2,
+        selfConditionMedian: null,
+      );
+      client.response = 'reviewHistoryComparison';
+      AiTextOutcome? result;
+      runner
+          .generateReflection(record(condition: 4), baseline: accumulating)
+          .then((value) => result = value);
+      time.flushMicrotasks();
+      expect(result?.mode, ReportMode.template);
+      expect(result?.fallbackReason, AiFallbackReason.invalidResponse);
+      expect(result?.text, contains('過去比較：基準値蓄積中（有効記録 2/3件）'));
+
+      const ready = HistoryBaseline(
+        validRecordCount: 3,
+        selfConditionCount: 3,
+        selfConditionMedian: 3,
+      );
+      runner
+          .generateReflection(record(condition: 4), baseline: ready)
+          .then((value) => result = value);
+      time.flushMicrotasks();
+      expect(result?.mode, ReportMode.onDevice);
+      expect(
+        result?.text,
+        contains('過去比較：直近7日間（今日を除く）の体調の中央値 3 / 5（今回 4 / 5、中央値より +1、有効記録 3件）'),
+      );
+      expect(result?.text, contains('補足：直近7日間の記録との差も、日々の振り返りに役立ててください。'));
+      final payload = jsonDecode(client.prompt ?? '') as Map<String, Object?>;
+      expect(payload['baselineAccumulating'], isFalse);
+      expect(payload['selfConditionMedian'], 3.0);
+      expect(
+        payload['allowedReflections'],
+        contains('reviewHistoryComparison'),
+      );
+    });
   });
 }

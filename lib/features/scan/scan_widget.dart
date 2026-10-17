@@ -42,6 +42,13 @@ class _ScanWidgetState extends State<ScanWidget> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The first permission dialog is inactive, not an interrupted measurement.
+    // Backgrounding still cancels, even while the user is deciding permission.
+    if (state == AppLifecycleState.inactive &&
+        widget.service.currentProgress.phase ==
+            ScanPhase.requestingPermission) {
+      return;
+    }
     if (state != AppLifecycleState.resumed) {
       unawaited(widget.service.cancelScan());
     }

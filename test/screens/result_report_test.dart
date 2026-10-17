@@ -329,4 +329,51 @@ void main() {
     expect(ai.cancellations, isNotEmpty);
     expect((await repo.findById('rec-1'))!.reportText, isNull);
   });
+
+  testWidgets(
+    'report includes accumulating status when past history is insufficient',
+    (tester) async {
+      await open(tester);
+      await press(tester, 'レポートを作成');
+      await tester.pumpAndSettle();
+      final saved = (await repo.findById('rec-1'))!;
+      expect(saved.reportText, contains('過去比較：基準値蓄積中（有効記録 0/3件）'));
+      expect(find.textContaining('過去比較：基準値蓄積中（有効記録 0/3件）'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'report connects past 7-day baseline median when 3 valid records exist',
+    (tester) async {
+      for (final (id, day, condition) in [
+        ('past-1', 14, 2),
+        ('past-2', 15, 3),
+        ('past-3', 16, 5),
+      ]) {
+        await repo.insert(
+          HealthCheckResult(
+            id: id,
+            measuredAt: DateTime(2026, 10, day, 8, 0),
+            elapsed: const Duration(seconds: 15),
+            faceDetected: true,
+            quality: MeasurementQuality.good,
+            selfCondition: condition,
+          ),
+        );
+      }
+      await repo.updateSelfCondition('rec-1', 4);
+      ai.availability = AiAvailability.available;
+      ai.response = 'reviewHistoryComparison';
+      await open(tester);
+      await press(tester, 'レポートを作成');
+      await tester.pumpAndSettle();
+      final saved = (await repo.findById('rec-1'))!;
+      expect(saved.aiMode, ReportMode.onDevice);
+      expect(
+        saved.reportText,
+        contains('過去比較：直近7日間（今日を除く）の体調の中央値 3 / 5（今回 4 / 5、中央値より +1、有効記録 3件）'),
+      );
+      expect(saved.reportText, contains('補足：直近7日間の記録との差も、日々の振り返りに役立ててください。'));
+    },
+  );
 }

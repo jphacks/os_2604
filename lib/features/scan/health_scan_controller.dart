@@ -6,12 +6,14 @@ import '../../models/health_check_result.dart';
 import '../../models/scan_contract.dart';
 import 'scan_configuration.dart';
 import 'scan_frame_source.dart';
+import 'scan_permission_gate.dart';
 
 /// Owns the only measurement clock. B observes progress and persists success.
 class HealthScanController implements HealthScanService {
   HealthScanController({
     required this._source,
     required this._configuration,
+    this._permissionGate,
     Duration Function()? monotonicNow,
     DateTime Function()? wallNow,
     String Function()? createId,
@@ -24,6 +26,7 @@ class HealthScanController implements HealthScanService {
 
   final ScanFrameSource _source;
   final ScanConfiguration _configuration;
+  final ScanPermissionGate? _permissionGate;
   late final Duration Function() _now;
   late final DateTime Function() _wallNow;
   late final String Function() _createId;
@@ -72,18 +75,41 @@ class HealthScanController implements HealthScanService {
     _measurementStart = null;
     _measuredAt = null;
     _finishing = null;
-    _emit(const ScanProgress(phase: ScanPhase.preparing));
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) => _tick());
-    final launch = Future<void>.microtask(() {
-      if (_active != generation) return Future<void>.value();
-      return _source.start(
-        monotonicNow: _now,
-        onObservation: (observation) => _observe(generation, observation),
-        onFailure: (reason) {
-          if (_active == generation) _fail(reason);
-        },
+    _emit(
+      ScanProgress(
+        phase: _permissionGate == null
+            ? ScanPhase.preparing
+            : ScanPhase.requestingPermission,
+      ),
+    );
+    final launch = Future<void>.microtask(() async {
+      if (_active != generation) return;
+      final permissionGate = _permissionGate;
+      if (permissionGate != null) {
+        // Human permission decisions are not camera initialization timeouts.
+        final granted = await permissionGate.request();
+        if (_active != generation) return;
+        if (!granted) {
+          _fail(ScanFailureReason.permissionDenied);
+          return;
+        }
+      }
+      if (_active != generation) return;
+      _emit(const ScanProgress(phase: ScanPhase.preparing));
+      _timer = Timer.periodic(
+        const Duration(milliseconds: 100),
+        (_) => _tick(),
       );
-    }).timeout(const Duration(seconds: 10));
+      await _source
+          .start(
+            monotonicNow: _now,
+            onObservation: (observation) => _observe(generation, observation),
+            onFailure: (reason) {
+              if (_active == generation) _fail(reason);
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+    });
     _launch = launch;
     unawaited(
       launch.then<void>(
@@ -213,6 +239,7 @@ class HealthScanController implements HealthScanService {
   Future<void> _finish(ScanOutcome outcome) {
     if (_active == null) return _finishing ?? Future<void>.value();
     _active = null; // Invalidate callbacks before the first await.
+    _permissionGate?.cancel();
     _timer?.cancel();
     _timer = null;
     final result = _result;
