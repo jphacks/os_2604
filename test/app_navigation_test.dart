@@ -27,6 +27,7 @@ void main() {
       MorningCheckApp(
         onboardingStore: CompletedOnboardingStore(),
         repository: HealthRecordRepository(db),
+        aiRunner: runnerOf(FakeAiClient()),
         createScanSession: () => sessionOf(FakeScanService()),
       ),
     );

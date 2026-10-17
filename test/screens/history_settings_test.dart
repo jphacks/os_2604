@@ -81,6 +81,7 @@ void main() {
         onboardingStore: _Done(),
         repository: repo,
         createScanSession: () => sessionOf(FakeScanService()),
+        aiRunner: runnerOf(FakeAiClient()),
       ),
     );
     await tester.pumpAndSettle();

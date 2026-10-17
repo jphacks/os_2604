@@ -8,6 +8,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/ai/on_device_ai_runner.dart';
 import 'services/db/health_record_repository.dart';
 import 'services/settings/onboarding_store.dart';
 import 'widgets/onboarding_gate.dart';
@@ -17,12 +18,14 @@ class MorningCheckApp extends StatelessWidget {
     super.key,
     required this.onboardingStore,
     required this.repository,
+    required this.aiRunner,
     required this.createScanSession,
     this.now = DateTime.now,
   });
 
   final OnboardingStore onboardingStore;
   final HealthRecordRepository repository;
+  final OnDeviceAiRunner aiRunner;
 
   /// 本日判定・履歴基準値に使う時計。テストでは固定する。
   final DateTime Function() now;
@@ -66,6 +69,7 @@ class MorningCheckApp extends StatelessWidget {
           final id = ModalRoute.of(context)?.settings.arguments;
           return ResultScreen(
             repository: repository,
+            aiRunner: aiRunner,
             recordId: id is String ? id : null,
             onBackToHome: () =>
                 Navigator.of(context)

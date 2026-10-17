@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
+import '../services/ai/on_device_ai_client.dart';
+import '../services/ai/on_device_ai_runner.dart';
 import '../services/db/health_record_repository.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
@@ -10,11 +12,15 @@ class ResultScreen extends StatefulWidget {
   const ResultScreen({
     super.key,
     required this.repository,
+    required this.aiRunner,
     required this.recordId,
     required this.onBackToHome,
   });
 
   final HealthRecordRepository repository;
+
+  /// アプリ共通の1つだけを受け取る。破棄は所有者（main）が行う。
+  final OnDeviceAiRunner aiRunner;
   final String? recordId;
   final VoidCallback onBackToHome;
 
@@ -32,10 +38,64 @@ class _ResultScreenState extends State<ResultScreen> {
   String? _conditionMsg;
   String? _temperatureMsg;
 
+  // 世代番号。新しい生成要求・体調/体温の保存・破棄で進め、古い結果を捨てる。
+  int _gen = 0;
+  bool _generating = false;
+  String? _reportMsg;
+  AiFallbackReason? _fallbackReason;
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _invalidateGeneration();
+    super.dispose();
+  }
+
+  /// 実行中の生成結果を無効にする（書き込まない）。
+  void _invalidateGeneration() {
+    _gen++;
+    if (_generating) {
+      _generating = false;
+      widget.aiRunner.cancel();
+    }
+  }
+
+  Future<void> _generateReport() async {
+    final id = widget.recordId;
+    if (id == null || _generating) return;
+    final gen = ++_gen;
+    setState(() {
+      _generating = true;
+      _reportMsg = null;
+    });
+    String? failure;
+    try {
+      final fresh = await widget.repository.findById(id);
+      if (!mounted || gen != _gen) return;
+      if (fresh == null) throw StateError('record missing');
+      final outcome = await widget.aiRunner.generateReflection(fresh);
+      if (!mounted || gen != _gen) return;
+      await widget.repository.updateReport(id, outcome.text, outcome.mode);
+      if (!mounted || gen != _gen) return;
+      final updated = await widget.repository.findById(id);
+      if (!mounted || gen != _gen) return;
+      setState(() {
+        _record = updated;
+        _fallbackReason = outcome.fallbackReason;
+      });
+    } catch (_) {
+      failure = 'レポートを作成できませんでした（保存されていません）';
+    }
+    if (!mounted || gen != _gen) return;
+    setState(() {
+      _generating = false;
+      _reportMsg = failure;
+    });
   }
 
   Future<void> _load() async {
@@ -65,6 +125,7 @@ class _ResultScreenState extends State<ResultScreen> {
   Future<void> _saveCondition() async {
     final c = _condition;
     if (c == null) return;
+    _invalidateGeneration();
     try {
       await widget.repository.updateSelfCondition(widget.recordId!, c);
       if (!mounted) return;
@@ -78,6 +139,7 @@ class _ResultScreenState extends State<ResultScreen> {
   Future<void> _saveTemperature() async {
     final t = _temperature;
     if (t == null || !_temperatureValid) return;
+    _invalidateGeneration();
     try {
       await widget.repository.updateTemperature(
         widget.recordId!,
@@ -149,11 +211,24 @@ class _ResultScreenState extends State<ResultScreen> {
         _row('体調', r.selfCondition == null ? '未測定' : '${r.selfCondition} / 5'),
         const SizedBox(height: 16),
         Text('レポート', style: Theme.of(context).textTheme.titleMedium),
-        Text(
-          r.reportText == null
-              ? 'レポートは未生成です。'
-              : '${r.reportText}\n（生成方法：${r.aiMode == ReportMode.onDevice ? '端末内AI' : '定型文'}）',
+        Text(r.reportText ?? 'レポートは未生成です。'),
+        if (r.reportText != null) ...[
+          Text(r.aiMode == ReportMode.onDevice ? '端末内AIで作成' : '定型文で作成'),
+          if (r.aiMode == ReportMode.template && _fallbackReason != null)
+            Text(_reasonText(_fallbackReason!)),
+        ],
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: _generating ? null : _generateReport,
+          child: Text(
+            _generating
+                ? 'レポートを作成しています…'
+                : r.reportText == null
+                ? 'レポートを作成'
+                : 'レポートを作り直す',
+          ),
         ),
+        if (_reportMsg != null) Text(_reportMsg!),
         const Divider(height: 32),
         SelfConditionInput(
           value: _condition,
@@ -201,6 +276,24 @@ class _ResultScreenState extends State<ResultScreen> {
       ],
     ),
   );
+
+  static String _reasonText(AiFallbackReason r) => switch (r) {
+    AiFallbackReason.disabled => '端末内AIがオフのため、定型文で表示しています',
+    AiFallbackReason.modelNotReady ||
+    AiFallbackReason.initializing => '端末内AIの準備ができていないため、定型文で表示しています',
+    AiFallbackReason.timedOut => '作成に時間がかかったため、定型文で表示しています',
+    AiFallbackReason.busy => '端末内AIが別の処理中のため、定型文で表示しています',
+    AiFallbackReason.availabilityCheckFailed ||
+    AiFallbackReason.generationFailed ||
+    AiFallbackReason.invalidResponse => '端末内AIで作成できなかったため、定型文で表示しています',
+    AiFallbackReason.invalidScan => '測定品質が十分でないため、定型文で表示しています',
+    AiFallbackReason.unsupported ||
+    AiFallbackReason.restricted ||
+    AiFallbackReason.bridgeUnavailable ||
+    AiFallbackReason.unavailable ||
+    AiFallbackReason.cancelled ||
+    AiFallbackReason.disposed => 'この端末では端末内AIを使えないため、定型文で表示しています',
+  };
 
   static String _two(int n) => n.toString().padLeft(2, '0');
 

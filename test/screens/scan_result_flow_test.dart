@@ -45,6 +45,7 @@ void main() {
       MorningCheckApp(
         onboardingStore: _Done(),
         repository: repo,
+        aiRunner: runnerOf(FakeAiClient()),
         createScanSession: () => sessionOf(scan),
       ),
     );
