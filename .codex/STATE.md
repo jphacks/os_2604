@@ -1,41 +1,52 @@
 # 現在の作業状態
 
-## 2026-10-17 B-05 通知・B-06 デモ手順書（作業ブランチ）
+## 2026-10-17 c：高優先の互換性・権限修正
 
-- ブランチ：`add/20261017-add-local-notifications-and-demo-guide`（origin/main 955f1bb から。PR #4 はマージ済み）
-- B-05 ローカル通知（実装済み・実機未確認）：
-  - 設定画面（`lib/screens/settings_screen.dart`）に「毎朝の通知」スイッチ（初期オフ）と「通知時刻」タイル（HH:mm、時刻ピッカー、オフ中は無効）。オンでiOS許可を要求。拒否→オフのまま「通知が許可されていません。設定アプリから許可できます。」。登録失敗→「通知を設定できませんでした（設定は変更されていません）」
-  - 時刻変更で再登録（固定ID1つ）、オフで取消。Driftに保存（schema v3、テーブル ReminderPreferences、マイグレーションはテーブル追加のみ）。アプリ起動時に保存済み設定を非ブロックで再登録
-  - 通知：タイトル「15秒チェック」、本文「おはようございます。今日の記録をつけましょう。」、payloadなし、タップでアプリ起動
-  - パッケージ：flutter_local_notifications ^22.3.2、timezone ^0.11.2、flutter_timezone ^5.1.1。ネイティブ：`ios/Runner/AppDelegate.swift`（UNUserNotificationCenter delegate）、Androidはdesugaring＋AndroidManifestのreceiver（Androidは正式対象外、inexact scheduling）
-  - **`pod install` 未実行**（Macのディスク空きがほぼ無い）。次のiOSビルド前に必要。ネイティブは未コンパイル
-- B-06 デモ手順書：`docs/demo-guide.md` を作成。**要確認**：ShiFtのReleaseビルド／devicectlの具体コマンド、カメラ許可ダイアログが出る時点、中断メッセージの文言（実装との一致）、履歴比較のデモ方法（当日の記録は基準値から除外されるため）、A-03（A担当のデモ手順・スクリーンショット）との分担
-- 環境：Macのディスク空きが約1〜4GBしかなく、シミュレータ／実機ビルドができなかった
-- 決定事項：Swift の Foundation Models ブリッジは分業書どおり C 担当。os_2604 ではフェーズごとの Codex レビューは行わない（ユーザー指示）
-- Cの方針：AI出力は固定短文のキー選択のみ（自由文は捨てる）。Cが時計・進捗・キャンセルを所有。詳細は `docs/c-ai-integration.md`、`docs/c-integration.md`
-- 参考（マージ済みの履歴・Cレポート接続）：HealthRecordRepository が ShiFt の HealthRecordStore 契約を実装。履歴は今日を除く直近7暦日・有効3件以上で基準値、不足時は「基準値蓄積中」。結果画面の「レポートを作成」で生成（タイムアウト10秒）。撮影後は insert 成功時のみ遷移、失敗計測は保存しない
+- ユーザー依頼：残課題の高優先から進め、cへ切替。現在のフェーズはユーザー回答でDay 1。
+- 現在地：/Users/shindenfuta/JPHACKS、ブランチc。origin/c 47578c3から作成後、origin/main 0e4b1ffへfast-forward。main・リモートへのpush/マージなし。ユーザーから今回の修正を一旦コミットする依頼を受領。本STATEを含む修正を1コミットにまとめる。pushは依頼されていない。
+- 保護：元のcodex/bc-device-checkの未コミットSTATEはstash「preserve bc device verification state before switching to c」に保存して保持。未追跡Word/PDF4文書、Git除外の個人署名設定、別worktreeの未コミットSTATEは変更していない。
+- 前回の実機試験の正本：/Users/shindenfuta/.codex/worktrees/latest-main-device-check/JPHACKS/.codex/STATE.md（955f1bb）。通常計測/即保存/任意入力/定型文/履歴/個別全件削除/再起動保持/顔外れ/離脱/権限OFF/暗所/オフラインはユーザー手動確認済み。今回の変更後や通知追加版の実機合格へ読み替えない。
+
+## 今回の変更・合意
+
+- DB：schema v4。ユーザーは「2026年の秒値だけ変換する」と承認。UTC 2026-01-01以上・2027-01-01未満に相当するUnix秒値だけを100万倍し、その他の値は保持。v2/v3の秒・マイクロ秒混在、二重変換を防ぐ。
+- 移行はテーブル追加・日時変換を同一トランザクションで実行。失敗は伝播し、DB削除/再作成なし。ID・NULL・実経過・出典・入力・レポート・説明確認・既存通知設定を保護する。単位情報がなく、対象外期間の旧秒値や同じ整数になる1970年付近のマイクロ秒値は完全判別できない。対象範囲の追加は別途判断。
+- カメラ：iOS権限確認を初期化より前に分離。AppDelegateに独自camera_permissionチャネルを登録。ScanPhase.requestingPermissionと撮影画面の確認中表示を追加。
+- 許可ダイアログ中のinactiveは待機。許可とresumedの両方を確認してからカメラ初期化。OS回答待ちは初期化の10秒制限・計測の15秒に含めない。背景化/画面離脱/計測中のinactiveは中断。拒否はpermissionDenied、チャネル失敗はcameraUnavailable。キャンセル後の遅い応答は破棄する。
+- iOS AppDelegate変更の対象・理由・影響をユーザーへ提示済み。依存・権限用途文・音声権限・main.dartは変更なし。
+- 重複回避：origin/codex/b-result-inputs 4bbc022とorigin/codex/b-scan-navigation e6a0a53にB側の修正がある。結果入力と撮影ナビゲーション競合は重複実装せず、今回のscan_screen変更は進捗表示1行だけ。
+- 通知：PR #5がmain 0e4b1ffへ統合済みでcにも含む。前の「通知未実装」という一覧は古い。今回pod installと通知依存を含むiOSビルドが成功。配信の実機試験は未実施。
+
+## 変更ファイル
+
+- lib/services/db/app_database.dart（schema v4・限定日時移行）
+- lib/features/scan/camera_scan_service.dart、health_scan_controller.dart、scan_widget.dart、新規scan_permission_gate.dart・ios_camera_permission_gate.dart
+- lib/models/scan_contract.dart、lib/screens/scan_screen.dart、ios/Runner/AppDelegate.swift
+- 新規test/services/db/legacy_timestamp_migration_test.dart、health_record_store_test.dart（v1 fixtureを本来の単一テーブルへ修正）
+- test/features/scan/health_scan_controller_test.dart、scan_widget_test.dart、新規ios_camera_permission_gate_test.dart
+- README.md、docs/implementation-decisions.md、docs/c-integration.md、このSTATE
 
 ## 検証
 
-- B-05後：dart format OK、flutter test 217件成功、flutter analyze 指摘なし
-- 実機未確認：通知の許可ダイアログ、設定時刻の配信、毎日の繰り返し、タップ起動、iOS/Androidネイティブコンパイル
-- Swift ブリッジ未実装のため、現状のレポートは常に定型文（bridgeUnavailable）
+- Flutter 3.47.7 / Dart 3.13.5。最新mainの通知依存が一時キャッシュに不足したためpub getで解決。pubspec/lockfile差分なし。
+- dart format --output=none --set-exit-if-changed lib test：67ファイル、変更なし。git diff --check成功。
+- flutter analyze --no-pub：指摘なし。
+- flutter test --no-pub --reporter expanded：全230件成功。ログ /private/tmp/os2604-c-priority-all-tests.log。
+- 追加試験：v2/v3混在DB移行、年境界/対象外保持、全フィールド/設定保持、再open/順序/期間検索/中央値、失敗のロールバックと再試行。権限待ち30秒→許可→準備後の15秒、拒否/技術エラー、中断/再試行、前面復帰待ち、キャンセル後の遅い応答、計測中の離脱を合成入力/偽ネイティブ応答で検証。
+- 初回テストはsandboxのlocalhostソケット制限で起動不可。昇格再実行で解決。権限チャネル試験のWidget仮想時刻との待ち合わせ失敗/停止は実イベントループの単体テストに直して解消。既存assertionの削除/skip/ダミー成功への変更なし。
+- iOS Release（署名なし）：tool/flutter_with_xcode.sh build ios --release --no-codesign --no-pub 成功。Runner.app 60.2MB、Xcode build 27.0秒。pod install成功、Podfile.lock差分なし。ログ /private/tmp/os2604-c-priority-ios-build.log。実機へのインストールや端末DB変更は行っていない。
+- ML KitのSPM非対応とApple Silicon Simulator向けarm64非対応の警告あり。実機向けビルドは成功。シミュレータでカメラ/AIの実機試験を代替しない。
+- 差分と利用側を自己レビュー。以前のSTATEにある「os_2604でフェーズごとのCodexレビューはしない」というユーザー指示を引き継ぎ。
 
-## 実機確認（ShiFt、マージ前の統合版）
+## 残課題・次の手順
 
-- iPhone 17 / iOS 27.0.1 をFlutterで検出。署名付きReleaseビルド成功（Runner.app 59.5MB）、devicectlでインストール・起動成功（com.example.os2604）
-- ユーザーが実機で15秒計測 → 結果画面 → 再起動後の履歴保持まで確認。通常動線は確認済み
-- 未確認（通常動線の成功から合格扱いにしない）：権限拒否・暗所・計測中の顔外れ・アプリ離脱・削除・機内モードの実機試験。Swift AIの実機動作も未確認
+1. 今回の版で初回カメラ許可/拒否/復帰と、旧秒形式記録を保持したアップデートを実機確認。アプリ/DB削除を自動実行しない。
+2. B側の結果入力・撮影ナビゲーション修正の統合確認。古い入力を含む既存レポートの扱いも残る。
+3. 過去比較のレポート接続と、十分な履歴を使う実機試験。
+4. Swift Foundation Modelsブリッジと実機AI生成。現状AIは定型文切替のみ。通知配信/変更/拒否/タップ起動も実機未確認。
+5. 最終版でオフラインデモ2回。rPPG/顔色特徴量/Android計測経路は後続。公開対応は別タスク。
 
-## 環境メモ
+## 環境
 
-- SDK /private/tmp/os2604-c-flutter、PUB_CACHE=/private/tmp/os2604-c-dart/pub-cache、XDG_CONFIG_HOME=/private/tmp/os2604-c-config
-- CocoaPods 1.16.2 は /private/tmp/os2604-c-gems。利用時は GEM_HOME/GEM_PATH を同ディレクトリ、RUBYOPT=-rlogger、bin を PATH に追加。システムRuby/Xcode選択は変更しない
-- 署名は Git除外の ios/Flutter/LocalSigning.xcconfig。既存Word/PDF4文書は未追跡のままPR対象外
-
-## 次
-
-1. `pod install` → 実機ビルド（まずMacのディスク空きを確保）
-2. 実機で T01〜T08 と通知配信（設定時刻に届く／タップ起動／時刻変更）を確認
-3. Aと手順書（`docs/demo-guide.md`）の分担を確認（A-03）
-4. C の Swift ブリッジ
+- SDK /private/tmp/os2604-c-flutter、PUB_CACHE=/private/tmp/os2604-c-dart/pub-cache、XDG_CONFIG_HOME=/private/tmp/os2604-c-config。
+- CocoaPods /private/tmp/os2604-c-gems。GEM_HOME/GEM_PATH同ディレクトリ、RUBYOPT=-rlogger、binをPATHへ追加。tool/flutter_with_xcode.shでコマンド限定Xcode選択。システム設定は変更しない。

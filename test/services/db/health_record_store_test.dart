@@ -125,6 +125,7 @@ void main() {
         await DriftOnboardingStore(old).completeOnboarding();
         // Reconstruct B's v1 schema: only the onboarding table and version 1.
         await old.customStatement('DROP TABLE health_records');
+        await old.customStatement('DROP TABLE reminder_preferences');
         await old.customStatement('PRAGMA user_version = 1');
         await old.close();
         opened = AppDatabase(NativeDatabase(file));

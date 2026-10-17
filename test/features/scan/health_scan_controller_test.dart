@@ -6,6 +6,7 @@ import 'package:test/test.dart';
 import 'package:os_2604/features/scan/health_scan_controller.dart';
 import 'package:os_2604/features/scan/scan_configuration.dart';
 import 'package:os_2604/features/scan/scan_frame_source.dart';
+import 'package:os_2604/features/scan/scan_permission_gate.dart';
 import 'package:os_2604/models/scan_contract.dart';
 
 class FakeFrames implements ScanFrameSource {
@@ -51,6 +52,18 @@ class FakeFrames implements ScanFrameSource {
   }
 }
 
+class FakePermissionGate implements ScanPermissionGate {
+  Completer<bool> pending = Completer<bool>();
+
+  @override
+  Future<bool> request() => pending.future;
+
+  @override
+  void cancel() {
+    if (!pending.isCompleted) pending.complete(false);
+  }
+}
+
 void withScan(void Function(FakeAsync, FakeFrames, HealthScanController) body) {
   fakeAsync((time) {
     final frames = FakeFrames();
@@ -82,6 +95,105 @@ void prepare(FakeAsync time, FakeFrames frames) {
 }
 
 void main() {
+  test('permission wait is excluded from startup timeout and 15 seconds', () {
+    fakeAsync((time) {
+      final frames = FakeFrames();
+      final permission = FakePermissionGate();
+      final scan = HealthScanController(
+        source: frames,
+        configuration: ScanConfiguration.day1Trial(),
+        permissionGate: permission,
+        monotonicNow: () => time.elapsed,
+        wallNow: () => DateTime.utc(2026, 10, 17).add(time.elapsed),
+      );
+      ScanOutcome? outcome;
+      scan.startHealthScan().then((value) => outcome = value);
+      time.flushMicrotasks();
+      time.elapse(const Duration(seconds: 30));
+      expect(scan.currentProgress.phase, ScanPhase.requestingPermission);
+      expect(scan.currentProgress.elapsed, Duration.zero);
+      expect(frames.starts, 0);
+      expect(outcome, isNull);
+      permission.pending.complete(true);
+      prepare(time, frames);
+      goodFrames(time, frames, 15000);
+      final result = (outcome as ScanSuccess).result;
+      expect(result.elapsed, const Duration(seconds: 15));
+      expect(result.measuredAt, DateTime.utc(2026, 10, 17, 0, 0, 30, 500));
+      unawaited(scan.dispose());
+      time.flushMicrotasks();
+    });
+  });
+
+  test(
+    'permission denial and permission errors have distinct failure reasons',
+    () {
+      for (final denied in [true, false]) {
+        fakeAsync((time) {
+          final frames = FakeFrames();
+          final permission = FakePermissionGate();
+          final scan = HealthScanController(
+            source: frames,
+            configuration: ScanConfiguration.day1Trial(),
+            permissionGate: permission,
+          );
+          ScanOutcome? outcome;
+          scan.startHealthScan().then((value) => outcome = value);
+          time.flushMicrotasks();
+          if (denied) {
+            permission.pending.complete(false);
+          } else {
+            permission.pending.completeError(
+              StateError('Synthetic bridge failure'),
+            );
+          }
+          time.flushMicrotasks();
+          expect(
+            (outcome as ScanFailure).reason,
+            denied
+                ? ScanFailureReason.permissionDenied
+                : ScanFailureReason.cameraUnavailable,
+          );
+          expect((outcome as ScanFailure).elapsed, Duration.zero);
+          expect(frames.starts, 0);
+          unawaited(scan.dispose());
+          time.flushMicrotasks();
+        });
+      }
+    },
+  );
+
+  test(
+    'cancel during permission wait finishes immediately and retry works',
+    () {
+      fakeAsync((time) {
+        final frames = FakeFrames();
+        final permission = FakePermissionGate();
+        final scan = HealthScanController(
+          source: frames,
+          configuration: ScanConfiguration.day1Trial(),
+          permissionGate: permission,
+          monotonicNow: () => time.elapsed,
+        );
+        ScanOutcome? first;
+        scan.startHealthScan().then((value) => first = value);
+        time.flushMicrotasks();
+        unawaited(scan.cancelScan());
+        time.flushMicrotasks();
+        expect((first as ScanFailure).reason, ScanFailureReason.interrupted);
+        expect(frames.starts, 0);
+        permission.pending = Completer<bool>()..complete(true);
+        ScanOutcome? second;
+        scan.startHealthScan().then((value) => second = value);
+        prepare(time, frames);
+        goodFrames(time, frames, 15000);
+        expect(second, isA<ScanSuccess>());
+        unawaited(scan.dispose());
+        time.flushMicrotasks();
+      });
+    },
+  );
+
   test('preparation is excluded; success requires 15 seconds and release', () {
     withScan((time, frames, scan) {
       ScanOutcome? outcome;

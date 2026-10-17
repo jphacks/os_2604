@@ -72,17 +72,30 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.production() : super(driftDatabase(name: 'os_2604'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
-    onUpgrade: (m, from, to) async {
+    onUpgrade: (m, from, to) => transaction(() async {
       // v1 -> v2 only adds the health record table; onboarding data is kept.
       if (from < 2) await m.createTable(healthRecords);
       // v2 -> v3 only adds the reminder table; existing rows are untouched.
       if (from < 3) await m.createTable(reminderPreferences);
-    },
+      if (from < 4) {
+        // Both legacy seconds and current microseconds used schema v2/v3.
+        // The user approved converting only seconds in UTC year 2026. Do not
+        // guess the unit of other values, or multiply current microseconds.
+        await customStatement(
+          'UPDATE health_records SET measured_at = measured_at * 1000000 '
+          'WHERE measured_at >= ? AND measured_at < ?',
+          [
+            DateTime.utc(2026).millisecondsSinceEpoch ~/ 1000,
+            DateTime.utc(2027).millisecondsSinceEpoch ~/ 1000,
+          ],
+        );
+      }
+    }),
   );
 }
 

@@ -182,6 +182,7 @@ class _ScanScreenState extends State<ScanScreen> {
   Widget _progress(BuildContext context, ScanProgress p) {
     final style = Theme.of(context).textTheme.titleMedium;
     final text = switch (p.phase) {
+      ScanPhase.requestingPermission => 'カメラの許可を確認しています',
       ScanPhase.preparing =>
         p.guidance == null ? '顔の位置を確認しています' : _guidance(p.guidance!),
       ScanPhase.measuring =>

@@ -9,7 +9,14 @@ enum ScanFailureReason {
   processingFailed,
 }
 
-enum ScanPhase { idle, preparing, measuring, completed, failed }
+enum ScanPhase {
+  idle,
+  requestingPermission,
+  preparing,
+  measuring,
+  completed,
+  failed,
+}
 
 enum ScanGuidance {
   faceNotFound,
