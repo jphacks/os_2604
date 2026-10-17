@@ -60,14 +60,15 @@ runner.dispose();
 | `reviewRecord` | 有効記録 | 記録した内容を振り返ってください。 |
 | `reviewSelfCondition` | 自己申告あり | 自己申告の体調も、記録を振り返る手がかりになります。 |
 | `reviewTemperature` | 外部由来の体温あり | 体温は表示された出典と合わせて振り返ってください。 |
+| `reviewHistoryComparison` | 直近7日間の基準値あり（有効記録3件以上かつ体調3件以上） | 直近7日間の記録との差も、日々の振り返りに役立ててください。 |
 
-成功時は `onDevice` とし、本文にも「端末内AI（短文選択）」と明示する。現在記録の数値・出典はDartが表示し、AIから数値を受け取らない。プロンプトへ保存用ID・既存レポート・実体温・顔画像は渡さず、自己申告と項目の有無・選択可能キーだけを渡す。
+成功時は `onDevice` とし、本文にも「端末内AI（短文選択）」と明示する。現在記録の数値・出典はDartが表示し、AIから数値を受け取らない。プロンプトへ保存用ID・既存レポート・実体温・顔画像は渡さず、自己申告と項目の有無・直近7日間の基準値集計・選択可能キーだけを渡す。
 
-履歴比較の文章は未実装。Bの集計結果と共有レポートAPIが決まった後に接続する。
+過去比較は `HistoryBaseline`（今日を除く直近7暦日の有効記録3件以上・体調入力3件以上で中央値を算出、不足時は「基準値蓄積中」）をDart側で計算し、`OnDeviceAiRunner.generateReflection(scan, baseline: baseline)` と `TemplateRecordSummary` の両方へ接続済み。
 
-## ネイティブ側へ提案するチャネル
+## ネイティブ側チャネル実装（`ios/Runner/AppDelegate.swift`）
 
-チャネル名：`jp.jphacks.os_2604/on_device_ai`。以下は**アプリ独自の通信形式**であり、AppleのAPI名・全エラー列挙を表していない。Bが管理するSwift登録・iOS設定への変更対象として共有し、採用時に合わせる。
+チャネル名：`jp.jphacks.os_2604/on_device_ai`。`AppDelegate.didInitializeImplicitFlutterEngine` で `OnDeviceAiBridge` を登録済み。
 
 | メソッド | 引数 | 正常な戻り値 |
 | --- | --- | --- |
@@ -87,22 +88,19 @@ runner.dispose();
 | `restricted` | restricted（アプリ側で区別する制限状態） |
 | `unavailable`、将来の未知の値 | unavailable |
 
-文字列以外の戻り値は不正な応答として扱う。`MissingPluginException` はブリッジ未接続。生成用FlutterErrorのcode案は `unsupported / disabled / modelNotReady / initializing / restricted / rateLimited / refused / timeout / cancelled`。未知のエラーは利用可否確認ならavailabilityCheckFailed、生成ならgenerationFailedへ戻す。自由形式のエラー文を表示用に使用しない。
+文字列以外の戻り値は不正な応答として扱う。`MissingPluginException` はブリッジ未接続。生成用FlutterErrorのcodeは `unsupported / disabled / modelNotReady / initializing / restricted / rateLimited / refused / timeout / cancelled`。未知のエラーは利用可否確認ならavailabilityCheckFailed、生成ならgenerationFailedへ戻す。自由形式のエラー文を表示用に使用しない。
 
-ネイティブ側は、requestIdごとにTaskとFlutter結果コールバックを管理する。キャンセル時も元の生成Futureが終了するようにし、同じ結果コールバックを二重に呼ばない。利用可否確認とモデル生成は端末内のみ。モデル・言語・地域・制限の確認結果が出るまでは利用可能と返さない。
+ネイティブ側は、requestIdごとにTaskと単発完了ラッパー（`PendingGeneration`）を管理する。キャンセル時も元の生成Futureが終了するようにし、同じ結果コールバックを二重に呼ばない。利用可否確認とモデル生成は端末内のみ。モデル・言語・地域・制限の確認結果が出るまでは利用可能と返さない。
 
 ## Apple APIの確認
 
-2026-10-17に公式資料を読み、ローカルXcode 27のFoundationModels.swiftinterfaceでも型名を照合した。Swift実装のコンパイルやAI実行はまだ行っていない。
+2026-10-17に公式資料を読み、ローカルXcode 27のFoundationModels.swiftinterfaceで型名を照合し、`ios/Runner/AppDelegate.swift` に実装した。
 
 - [SystemLanguageModel.Availability](https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel/availability-swift.enum) で利用可否を確認する。
 - [UnavailableReason](https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel/availability-swift.enum/unavailablereason) の公開理由は `deviceNotEligible / appleIntelligenceNotEnabled / modelNotReady`。上記のinitializing・restrictedはアプリ側の通信区分。
-- iOS 27では [LanguageModelError](https://developer.apple.com/documentation/foundationmodels/languagemodelerror) にrateLimited・refusal・timeout等がある。iOS 26の [LanguageModelSession.GenerationError](https://developer.apple.com/documentation/foundationmodels/languagemodelsession/generationerror) と分けて扱う。Bが使用するSDKが27未満なら、27専用型を直接参照する前にSDK更新方針を確認する。
-
-正式対象はiPhone 17 / iOS 27以降だが、BのDeployment Targetと使用SDKは別に確認する。機種名・OSバージョンだけでApple Intelligence有効・モデル準備済みと判定しない。
+- iOS 27では [LanguageModelError](https://developer.apple.com/documentation/foundationmodels/languagemodelerror) にrateLimited・refusal・timeout等がある。iOS 26の [LanguageModelSession.GenerationError](https://developer.apple.com/documentation/foundationmodels/languagemodelsession/generationerror) と分けて扱う。
 
 ## 検証結果と残り
 
-一時Flutter環境で静的解析は指摘なし、全121テスト成功（既存66＋実行管理30＋チャネル25）。端末非対応・未準備・初期化中・制限・チャネル欠落・不正な応答・例外・タイムアウト・二重要求・キャンセル失敗・遅い応答・破棄を合成入力と偽のネイティブ応答で検証した。新しい依存追加はない。
-
-残りは、Bとの共有レポートAPI・タイムアウト秒数、Swiftブリッジ登録、正確なOS・Apple Intelligence設定・モデル準備・実際の生成、保存後の追記と削除競合の統合確認。実機でのAI成功やオフライン動作の合格はまだ報告できない。
+- 自動テスト：過去比較（基準値蓄積中／直近7日間の中央値との差）の定型文・オンデバイスAIレポート接続を含め、全257テスト成功、`flutter analyze` 指摘なし。
+- 実機確認待ち：実機でのApple Intelligence設定・モデル準備・実際のAI生成、オフライン動作、および手動UI確認。

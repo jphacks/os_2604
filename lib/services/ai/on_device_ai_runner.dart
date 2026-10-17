@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import '../../models/health_check_result.dart';
+import '../analysis/history_baseline.dart';
 import 'on_device_ai_client.dart';
 import 'template_record_summary.dart';
 
@@ -32,15 +33,26 @@ class OnDeviceAiRunner {
   /// Can remain true after timeout until the native future actually settles.
   bool get isNativeBusy => _busy;
 
-  Future<AiTextOutcome> generateReflection(HealthCheckResult scan) {
+  Future<AiTextOutcome> generateReflection(
+    HealthCheckResult scan, {
+    HistoryBaseline? baseline,
+  }) {
     if (_disposed) {
-      return Future.value(_fallback(scan, AiFallbackReason.disposed));
+      return Future.value(
+        _fallback(scan, AiFallbackReason.disposed, baseline: baseline),
+      );
     }
-    if (_busy) return Future.value(_fallback(scan, AiFallbackReason.busy));
+    if (_busy) {
+      return Future.value(
+        _fallback(scan, AiFallbackReason.busy, baseline: baseline),
+      );
+    }
     if (scan.quality != MeasurementQuality.good) {
-      return Future.value(_fallback(scan, AiFallbackReason.invalidScan));
+      return Future.value(
+        _fallback(scan, AiFallbackReason.invalidScan, baseline: baseline),
+      );
     }
-    final pending = _Pending(scan, _requestId());
+    final pending = _Pending(scan, baseline, _requestId());
     _active = pending;
     _busy = true;
     pending.timer = Timer(_timeout, () {
@@ -71,11 +83,14 @@ class OnDeviceAiRunner {
         });
         return;
       }
+      final baseline = pending.baseline;
       final allowed = [
         _Reflection.reviewRecord,
         if (pending.scan.selfCondition != null) _Reflection.reviewSelfCondition,
         if (pending.scan.bodyTemperatureC != null)
           _Reflection.reviewTemperature,
+        if (baseline != null && !baseline.isAccumulating)
+          _Reflection.reviewHistoryComparison,
       ];
       pending.generating = true;
       final output = await _client.generateReflection(
@@ -88,6 +103,11 @@ class OnDeviceAiRunner {
           'quality': pending.scan.quality.name,
           'selfCondition': pending.scan.selfCondition,
           'hasTemperature': pending.scan.bodyTemperatureC != null,
+          if (baseline != null) ...{
+            'baselineAccumulating': baseline.isAccumulating,
+            if (!baseline.isAccumulating)
+              'selfConditionMedian': baseline.selfConditionMedian,
+          },
           'allowedReflections': allowed.map((value) => value.name).toList(),
         }),
       );
@@ -103,7 +123,7 @@ class OnDeviceAiRunner {
       }
       final text =
           '生成モード：端末内AI（短文選択）\n'
-          '${_summary.formatRecord(pending.scan)}\n補足：${matches.single.text}';
+          '${_summary.formatRecord(pending.scan, baseline: pending.baseline)}\n補足：${matches.single.text}';
       _complete(pending, AiTextOutcome._(text, ReportMode.onDevice, null));
     } on AiClientFailure catch (error) {
       _finishFallback(pending, error.reason);
@@ -119,11 +139,23 @@ class OnDeviceAiRunner {
     }
   }
 
-  AiTextOutcome _fallback(HealthCheckResult scan, AiFallbackReason reason) =>
-      AiTextOutcome._(_summary.format(scan), ReportMode.template, reason);
+  AiTextOutcome _fallback(
+    HealthCheckResult scan,
+    AiFallbackReason reason, {
+    HistoryBaseline? baseline,
+  }) => AiTextOutcome._(
+    _summary.format(scan, baseline: baseline),
+    ReportMode.template,
+    reason,
+  );
 
   void _finishFallback(_Pending pending, AiFallbackReason reason) {
-    if (_active == pending) _complete(pending, _fallback(pending.scan, reason));
+    if (_active == pending) {
+      _complete(
+        pending,
+        _fallback(pending.scan, reason, baseline: pending.baseline),
+      );
+    }
   }
 
   void _complete(_Pending pending, AiTextOutcome outcome) {
@@ -169,8 +201,9 @@ class OnDeviceAiRunner {
 }
 
 class _Pending {
-  _Pending(this.scan, this.requestId);
+  _Pending(this.scan, this.baseline, this.requestId);
   final HealthCheckResult scan;
+  final HistoryBaseline? baseline;
   final String requestId;
   final result = Completer<AiTextOutcome>();
   Timer? timer;
@@ -183,7 +216,8 @@ class _Pending {
 enum _Reflection {
   reviewRecord('記録した内容を振り返ってください。'),
   reviewSelfCondition('自己申告の体調も、記録を振り返る手がかりになります。'),
-  reviewTemperature('体温は表示された出典と合わせて振り返ってください。');
+  reviewTemperature('体温は表示された出典と合わせて振り返ってください。'),
+  reviewHistoryComparison('直近7日間の記録との差も、日々の振り返りに役立ててください。');
 
   const _Reflection(this.text);
   final String text;

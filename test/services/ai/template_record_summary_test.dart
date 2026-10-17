@@ -2,6 +2,7 @@ import 'package:test/test.dart';
 
 import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/services/ai/template_record_summary.dart';
+import 'package:os_2604/services/analysis/history_baseline.dart';
 
 void main() {
   const summary = TemplateRecordSummary();
@@ -121,5 +122,67 @@ void main() {
     expect(text, isNot(contains('中央値')));
     expect(text, isNot(contains('保存しました')));
     expect(text, contains('診断目的ではありません'));
+  });
+
+  test('renders accumulating baseline without inventing a median', () {
+    final fewValid = summary.format(
+      record(condition: 4),
+      baseline: const HistoryBaseline(
+        validRecordCount: 2,
+        selfConditionCount: 2,
+        selfConditionMedian: null,
+      ),
+    );
+    expect(fewValid, contains('過去比較：基準値蓄積中（有効記録 2/3件）'));
+    expect(fewValid, isNot(contains('中央値')));
+
+    final fewCondition = summary.format(
+      record(condition: 4),
+      baseline: const HistoryBaseline(
+        validRecordCount: 4,
+        selfConditionCount: 2,
+        selfConditionMedian: null,
+      ),
+    );
+    expect(fewCondition, contains('過去比較：基準値蓄積中（体調の記録 2/3件）'));
+    expect(fewCondition, isNot(contains('中央値')));
+  });
+
+  test('renders past 7-day median comparison when baseline is available', () {
+    const baseline = HistoryBaseline(
+      validRecordCount: 4,
+      selfConditionCount: 3,
+      selfConditionMedian: 3.5,
+    );
+    final higher = summary.format(record(condition: 4), baseline: baseline);
+    expect(
+      higher,
+      contains('過去比較：直近7日間（今日を除く）の体調の中央値 3.5 / 5（今回 4 / 5、中央値より +0.5、有効記録 4件）'),
+    );
+
+    final lower = summary.format(record(condition: 2), baseline: baseline);
+    expect(
+      lower,
+      contains('過去比較：直近7日間（今日を除く）の体調の中央値 3.5 / 5（今回 2 / 5、中央値より -1.5、有効記録 4件）'),
+    );
+
+    final same = summary.format(
+      record(condition: 3),
+      baseline: const HistoryBaseline(
+        validRecordCount: 3,
+        selfConditionCount: 3,
+        selfConditionMedian: 3,
+      ),
+    );
+    expect(
+      same,
+      contains('過去比較：直近7日間（今日を除く）の体調の中央値 3 / 5（今回 3 / 5、中央値と同じ、有効記録 3件）'),
+    );
+
+    final unentered = summary.format(record(), baseline: baseline);
+    expect(
+      unentered,
+      contains('過去比較：直近7日間（今日を除く）の体調の中央値 3.5 / 5（有効記録 4件、今回の体調：未入力）'),
+    );
   });
 }

@@ -1,4 +1,5 @@
 import '../../models/health_check_result.dart';
+import '../analysis/history_baseline.dart';
 
 /// Deterministic current-record text for a future template-report service.
 ///
@@ -9,10 +10,11 @@ class TemplateRecordSummary {
 
   ReportMode get mode => ReportMode.template;
 
-  String format(HealthCheckResult scan) => '生成モード：定型文\n${formatRecord(scan)}';
+  String format(HealthCheckResult scan, {HistoryBaseline? baseline}) =>
+      '生成モード：定型文\n${formatRecord(scan, baseline: baseline)}';
 
   /// Record facts without a generation label, for composing the actual mode.
-  String formatRecord(HealthCheckResult scan) {
+  String formatRecord(HealthCheckResult scan, {HistoryBaseline? baseline}) {
     final condition = scan.selfCondition;
     final temperature = scan.bodyTemperatureC;
     return [
@@ -22,6 +24,7 @@ class TemplateRecordSummary {
         MeasurementQuality.interrupted => '撮影は中断されました。再測定してください。',
       },
       '体調（自己申告）：${condition == null ? '未入力' : '$condition / 5'}',
+      if (baseline != null) _baselineComparison(scan, baseline),
       _heartRate(scan),
       temperature == null
           ? '体温：未測定'
@@ -29,6 +32,29 @@ class TemplateRecordSummary {
       '体温はカメラで測定していません。',
       'この記録は診断目的ではありません。',
     ].join('\n');
+  }
+
+  String _baselineComparison(HealthCheckResult scan, HistoryBaseline baseline) {
+    final median = baseline.selfConditionMedian;
+    if (median == null) {
+      return baseline.validRecordCount < 3
+          ? '過去比較：基準値蓄積中（有効記録 ${baseline.validRecordCount}/3件）'
+          : '過去比較：基準値蓄積中（体調の記録 ${baseline.selfConditionCount}/3件）';
+    }
+    final medianText = _number(median);
+    final current = scan.selfCondition;
+    if (current == null) {
+      return '過去比較：直近7日間（今日を除く）の体調の中央値 $medianText / 5'
+          '（有効記録 ${baseline.validRecordCount}件、今回の体調：未入力）';
+    }
+    final diff = current - median;
+    final diffText = diff == 0
+        ? '中央値と同じ'
+        : diff > 0
+        ? '中央値より +${_number(diff)}'
+        : '中央値より ${_number(diff)}';
+    return '過去比較：直近7日間（今日を除く）の体調の中央値 $medianText / 5'
+        '（今回 $current / 5、$diffText、有効記録 ${baseline.validRecordCount}件）';
   }
 
   String _heartRate(HealthCheckResult scan) {
