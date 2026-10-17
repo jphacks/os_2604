@@ -44,6 +44,6 @@
 
 ## Gitと引き継ぎ
 
-自動実装の成果は作業ブランチでレビュー可能に保ち、mainへはマージしない。Bへの今回のマージも自動実行しない。コミット・push・レビュー状況の実際の成否はGit履歴と最終報告で確認する。
+実装コミット361a608をcodex/b-coordinationへpush済み。B向けDraft PR #1：https://github.com/jphacks/os_2604/pull/1 を作成し、このチャットへ添付済み。Bはfb6878bのまま、mainも未変更。最後のリモート確認でもcはf3ffa16で、本体取得待ち。状態記録の更新を追加コミットしてpushし、継続可能なクリーン状態を保つ。
 
 関連資料：docs/b-team-plan.md、b-storage-plan.md、b-verification-plan.md、implementation-decisions.md、c-integration-status.md、README。
