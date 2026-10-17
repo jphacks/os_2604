@@ -15,5 +15,8 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CameraTabBar") {
+      registrar.register(CameraTabBarFactory(messenger: registrar.messenger()), withId: "os2604/camera-tabs")
+    }
   }
 }

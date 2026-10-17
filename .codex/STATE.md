@@ -1,5 +1,17 @@
 # 現在の作業状態
 
+## 2026-10-17 カメラタブUIとSwiftUI Liquid Glass
+
+- ブランチ：`codex/b-camera-tab-ui`、main `cc33313` から作成。サブエージェント不使用。
+- AのFigJamをChromeで確認。白背景・オレンジ・下部の履歴／カメラ／設定を参考に、HomeScreenをカメラタブの入口として変更。本文はデザイン未確定のため既存の開始・保存済み状態・説明導線を維持。
+- iOSの下部メニューはFlutter UiKitView + UIHostingControllerでSwiftUIを埋め込む。iOS 26以降は純正glassEffect、旧iOSはultraThinMaterial。iOS以外はFlutter部品。履歴・設定は既存の画面遷移を使用し、この段階では各遷移先への共通タブ化はしない。
+- 変更：lib/screens/home_screen.dart、lib/widgets/camera_tab_bar.dart、ios/Runner/CameraTabBar.swift、AppDelegate.swift、Runner.xcodeproj。Cの計測・AI内部、DB、通知のロジックは変更なし。
+- 確認：整形65ファイル変更なし、flutter analyze指摘なし、全237テスト成功（画面遷移・小画面／文字拡大含む）、署名付きiOS Releaseビルド成功60.5MB。
+- iPhone 15 / iOS 26.6.2へインストール・起動成功。ネイティブメニューの見た目・タップのユーザー確認は未実施。iPhone17も未確認。
+- 次：実機で下部メニューの表示・履歴／設定へ移動・戻る・チェック開始を確認し、Aのデザインに合わせて調整。mainへは未マージ。
+
+## 以下は前回の確認記録
+
 ## 2026-10-17 B 受け入れ確認
 
 - ブランチ：`codex/b-acceptance-checks`。基点 main `5d591c5`（PR #6 最終統合済み）。iPhoneに導入した統合版とのコード差分なし。
