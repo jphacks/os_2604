@@ -58,51 +58,76 @@ private final class CameraTabSelection: ObservableObject {
 
 private struct CameraTabs: View {
   @ObservedObject var selection: CameraTabSelection
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   let onSelect: (Int) -> Void
-  private let accent = Color(red: 0.64, green: 0.31, blue: 0.16)
 
   var body: some View {
-    Group {
-      if #available(iOS 26.0, *) {
-        tabs
-          .glassEffect(.regular.interactive(), in: .capsule)
-      } else {
-        tabs
-          .background(.ultraThinMaterial, in: Capsule())
+    GeometryReader { geometry in
+      let slot = geometry.size.width / 3
+      ZStack(alignment: .leading) {
+        // One glass surface moves continuously; it is not recreated per tab.
+        if #available(iOS 26.0, *) {
+          GlassEffectContainer {
+            Capsule()
+              .fill(.clear)
+              .frame(width: slot - 8, height: 64)
+              .glassEffect(.regular.tint(.white.opacity(0.15)).interactive(), in: .capsule)
+              .offset(x: CGFloat(selection.index) * slot + 4)
+          }
+          .allowsHitTesting(false)
+        } else {
+          Capsule()
+            .fill(.white.opacity(0.18))
+            .frame(width: slot - 8, height: 64)
+            .offset(x: CGFloat(selection.index) * slot + 4)
+            .allowsHitTesting(false)
+        }
+        HStack(spacing: 0) {
+          item("履歴", symbol: "calendar", index: 0)
+          item("カメラ", symbol: "camera.fill", index: 1)
+          item("設定", symbol: "gearshape", index: 2)
+        }
       }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82), value: selection.index)
+      .background {
+        Capsule()
+          .fill(.ultraThinMaterial)
+          .overlay(Capsule().fill(.black.opacity(0.35)))
+      }
+      .overlay(Capsule().strokeBorder(.white.opacity(0.16), lineWidth: 1))
+      .clipShape(Capsule())
+      .environment(\.colorScheme, .dark)
     }
+    .frame(height: 76)
     .padding(.horizontal, 16)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-  }
-
-  private var tabs: some View {
-    HStack(spacing: 10) {
-      item("履歴", symbol: "calendar", index: 0)
-      item("カメラ", symbol: "camera.fill", index: 1)
-      item("設定", symbol: "gearshape", index: 2)
-    }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 6)
   }
 
   private func item(_ title: String, symbol: String, index: Int) -> some View {
     Button {
       onSelect(index)
     } label: {
-      VStack(spacing: 3) {
-        Image(systemName: symbol)
-          .font(.system(size: index == 1 ? 23 : 19, weight: .medium))
-        Text(title)
-          .font(.caption2)
-      }
-      .frame(minWidth: 52, minHeight: 48)
-      .foregroundStyle(index == selection.index ? accent : Color.primary)
-      .background {
-        if index == selection.index {
-          Capsule().fill(accent.opacity(0.12))
+      Group {
+        if index == 1 {
+          Image(systemName: symbol)
+            .font(.system(size: 27, weight: .semibold))
+            .foregroundStyle(.black)
+            .frame(width: 60, height: 60)
+            .background(.white, in: Circle())
+        } else {
+          VStack(spacing: 4) {
+            Image(systemName: symbol)
+              .font(.system(size: 24, weight: .medium))
+            Text(title)
+              .font(.caption)
+          }
+          .foregroundStyle(.white)
         }
       }
-      .contentShape(Capsule())
+      .frame(maxWidth: .infinity)
+      .frame(height: 76)
+      .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .accessibilityLabel(title)
