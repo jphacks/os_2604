@@ -5,11 +5,9 @@ import 'foundation/scaffold_pages.dart';
 import 'navigation/app_routes.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
-import 'screens/scan_unavailable_screen.dart';
+import 'screens/result_screen.dart';
 import 'screens/scan_screen.dart';
-import 'screens/history_screen.dart';
-import 'services/db/health_record_store.dart';
-import 'models/scan_contract.dart';
+import 'services/db/health_record_repository.dart';
 import 'services/settings/onboarding_store.dart';
 import 'widgets/onboarding_gate.dart';
 
@@ -17,13 +15,15 @@ class MorningCheckApp extends StatelessWidget {
   const MorningCheckApp({
     super.key,
     required this.onboardingStore,
-    this.recordStore,
-    this.scanServiceFactory,
+    required this.repository,
+    required this.createScanSession,
   });
 
   final OnboardingStore onboardingStore;
-  final HealthRecordStore? recordStore;
-  final HealthScanService Function()? scanServiceFactory;
+  final HealthRecordRepository repository;
+
+  /// 撮影画面ごとに1回呼ばれる。本番は CameraScanService、テストは偽物を返す。
+  final ScanSession Function() createScanSession;
 
   Widget _home(BuildContext context) => HomeScreen(
     onStartCheck: () => Navigator.of(context).pushNamed(AppRoutes.scan),
@@ -31,7 +31,6 @@ class MorningCheckApp extends StatelessWidget {
     onOpenSettings: () => Navigator.of(context).pushNamed(AppRoutes.settings),
     onShowExplanation: () =>
         Navigator.of(context).pushNamed(AppRoutes.onboarding),
-    recordStore: recordStore,
   );
 
   @override
@@ -52,21 +51,22 @@ class MorningCheckApp extends StatelessWidget {
             OnboardingGate(store: onboardingStore, homeBuilder: _home),
         AppRoutes.onboarding: (context) =>
             OnboardingScreen(onContinue: () => Navigator.of(context).pop()),
-        AppRoutes.scan: (context) => recordStore == null
-            ? ScanUnavailableScreen(
-                onBackToHome: () => Navigator.of(context).pop(),
-              )
-            : ScanScreen(
-                store: recordStore!,
-                serviceFactory: scanServiceFactory,
-              ),
-        AppRoutes.result: (_) => const FoundationPlaceholderPage(title: '結果'),
-        AppRoutes.history: (_) => recordStore == null
-            ? const FoundationPlaceholderPage(title: '履歴')
-            : HistoryScreen(store: recordStore!),
-        AppRoutes.settings: (_) => recordStore == null
-            ? const FoundationPlaceholderPage(title: '設定')
-            : RecordSettingsScreen(store: recordStore!),
+        AppRoutes.scan: (_) => ScanScreen(
+          repository: repository,
+          createSession: createScanSession,
+        ),
+        AppRoutes.result: (context) {
+          final id = ModalRoute.of(context)?.settings.arguments;
+          return ResultScreen(
+            repository: repository,
+            recordId: id is String ? id : null,
+            onBackToHome: () =>
+                Navigator.of(context)
+                    .popUntil(ModalRoute.withName(AppRoutes.home)),
+          );
+        },
+        AppRoutes.history: (_) => const FoundationPlaceholderPage(title: '履歴'),
+        AppRoutes.settings: (_) => const FoundationPlaceholderPage(title: '設定'),
       },
     );
   }

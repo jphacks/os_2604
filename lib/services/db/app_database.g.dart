@@ -140,7 +140,7 @@ class OnboardingCompletionsCompanion
 }
 
 class $HealthRecordsTable extends HealthRecords
-    with TableInfo<$HealthRecordsTable, StoredHealthRecord> {
+    with TableInfo<$HealthRecordsTable, HealthRecord> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -154,17 +154,15 @@ class $HealthRecordsTable extends HealthRecords
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _measuredAtMeta = const VerificationMeta(
-    'measuredAt',
-  );
   @override
-  late final GeneratedColumn<DateTime> measuredAt = GeneratedColumn<DateTime>(
-    'measured_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
+  late final GeneratedColumnWithTypeConverter<DateTime, int> measuredAt =
+      GeneratedColumn<int>(
+        'measured_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($HealthRecordsTable.$convertermeasuredAt);
   static const VerificationMeta _elapsedMicrosMeta = const VerificationMeta(
     'elapsedMicros',
   );
@@ -190,17 +188,15 @@ class $HealthRecordsTable extends HealthRecords
       'CHECK ("face_detected" IN (0, 1))',
     ),
   );
-  static const VerificationMeta _qualityMeta = const VerificationMeta(
-    'quality',
-  );
   @override
-  late final GeneratedColumn<String> quality = GeneratedColumn<String>(
+  late final GeneratedColumnWithTypeConverter<MeasurementQuality, String>
+  quality = GeneratedColumn<String>(
     'quality',
     aliasedName,
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-  );
+  ).withConverter<MeasurementQuality>($HealthRecordsTable.$converterquality);
   static const VerificationMeta _estimatedHeartRateBpmMeta =
       const VerificationMeta('estimatedHeartRateBpm');
   @override
@@ -212,17 +208,18 @@ class $HealthRecordsTable extends HealthRecords
         type: DriftSqlType.double,
         requiredDuringInsert: false,
       );
-  static const VerificationMeta _heartRateSourceMeta = const VerificationMeta(
-    'heartRateSource',
-  );
   @override
-  late final GeneratedColumn<String> heartRateSource = GeneratedColumn<String>(
-    'heart_rate_source',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
+  late final GeneratedColumnWithTypeConverter<HeartRateSource, String>
+  heartRateSource =
+      GeneratedColumn<String>(
+        'heart_rate_source',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<HeartRateSource>(
+        $HealthRecordsTable.$converterheartRateSource,
+      );
   static const VerificationMeta _faceColorFeatureMeta = const VerificationMeta(
     'faceColorFeature',
   );
@@ -256,17 +253,17 @@ class $HealthRecordsTable extends HealthRecords
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _temperatureSourceMeta = const VerificationMeta(
-    'temperatureSource',
-  );
   @override
-  late final GeneratedColumn<String> temperatureSource =
+  late final GeneratedColumnWithTypeConverter<TemperatureSource, String>
+  temperatureSource =
       GeneratedColumn<String>(
         'temperature_source',
         aliasedName,
         false,
         type: DriftSqlType.string,
         requiredDuringInsert: true,
+      ).withConverter<TemperatureSource>(
+        $HealthRecordsTable.$convertertemperatureSource,
       );
   static const VerificationMeta _reportTextMeta = const VerificationMeta(
     'reportText',
@@ -279,15 +276,15 @@ class $HealthRecordsTable extends HealthRecords
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _aiModeMeta = const VerificationMeta('aiMode');
   @override
-  late final GeneratedColumn<String> aiMode = GeneratedColumn<String>(
-    'ai_mode',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
+  late final GeneratedColumnWithTypeConverter<ReportMode?, String> aiMode =
+      GeneratedColumn<String>(
+        'ai_mode',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<ReportMode?>($HealthRecordsTable.$converteraiModen);
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -311,7 +308,7 @@ class $HealthRecordsTable extends HealthRecords
   static const String $name = 'health_records';
   @override
   VerificationContext validateIntegrity(
-    Insertable<StoredHealthRecord> instance, {
+    Insertable<HealthRecord> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -320,14 +317,6 @@ class $HealthRecordsTable extends HealthRecords
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
-    }
-    if (data.containsKey('measured_at')) {
-      context.handle(
-        _measuredAtMeta,
-        measuredAt.isAcceptableOrUnknown(data['measured_at']!, _measuredAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_measuredAtMeta);
     }
     if (data.containsKey('elapsed_micros')) {
       context.handle(
@@ -351,14 +340,6 @@ class $HealthRecordsTable extends HealthRecords
     } else if (isInserting) {
       context.missing(_faceDetectedMeta);
     }
-    if (data.containsKey('quality')) {
-      context.handle(
-        _qualityMeta,
-        quality.isAcceptableOrUnknown(data['quality']!, _qualityMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_qualityMeta);
-    }
     if (data.containsKey('estimated_heart_rate_bpm')) {
       context.handle(
         _estimatedHeartRateBpmMeta,
@@ -367,17 +348,6 @@ class $HealthRecordsTable extends HealthRecords
           _estimatedHeartRateBpmMeta,
         ),
       );
-    }
-    if (data.containsKey('heart_rate_source')) {
-      context.handle(
-        _heartRateSourceMeta,
-        heartRateSource.isAcceptableOrUnknown(
-          data['heart_rate_source']!,
-          _heartRateSourceMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_heartRateSourceMeta);
     }
     if (data.containsKey('face_color_feature')) {
       context.handle(
@@ -406,27 +376,10 @@ class $HealthRecordsTable extends HealthRecords
         ),
       );
     }
-    if (data.containsKey('temperature_source')) {
-      context.handle(
-        _temperatureSourceMeta,
-        temperatureSource.isAcceptableOrUnknown(
-          data['temperature_source']!,
-          _temperatureSourceMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_temperatureSourceMeta);
-    }
     if (data.containsKey('report_text')) {
       context.handle(
         _reportTextMeta,
         reportText.isAcceptableOrUnknown(data['report_text']!, _reportTextMeta),
-      );
-    }
-    if (data.containsKey('ai_mode')) {
-      context.handle(
-        _aiModeMeta,
-        aiMode.isAcceptableOrUnknown(data['ai_mode']!, _aiModeMeta),
       );
     }
     return context;
@@ -435,17 +388,19 @@ class $HealthRecordsTable extends HealthRecords
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  StoredHealthRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+  HealthRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return StoredHealthRecord(
+    return HealthRecord(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
-      measuredAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}measured_at'],
-      )!,
+      measuredAt: $HealthRecordsTable.$convertermeasuredAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}measured_at'],
+        )!,
+      ),
       elapsedMicros: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}elapsed_micros'],
@@ -454,18 +409,22 @@ class $HealthRecordsTable extends HealthRecords
         DriftSqlType.bool,
         data['${effectivePrefix}face_detected'],
       )!,
-      quality: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}quality'],
-      )!,
+      quality: $HealthRecordsTable.$converterquality.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}quality'],
+        )!,
+      ),
       estimatedHeartRateBpm: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}estimated_heart_rate_bpm'],
       ),
-      heartRateSource: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}heart_rate_source'],
-      )!,
+      heartRateSource: $HealthRecordsTable.$converterheartRateSource.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}heart_rate_source'],
+        )!,
+      ),
       faceColorFeature: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}face_color_feature'],
@@ -478,17 +437,22 @@ class $HealthRecordsTable extends HealthRecords
         DriftSqlType.double,
         data['${effectivePrefix}body_temperature_c'],
       ),
-      temperatureSource: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}temperature_source'],
-      )!,
+      temperatureSource: $HealthRecordsTable.$convertertemperatureSource
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}temperature_source'],
+            )!,
+          ),
       reportText: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}report_text'],
       ),
-      aiMode: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}ai_mode'],
+      aiMode: $HealthRecordsTable.$converteraiModen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}ai_mode'],
+        ),
       ),
     );
   }
@@ -497,24 +461,42 @@ class $HealthRecordsTable extends HealthRecords
   $HealthRecordsTable createAlias(String alias) {
     return $HealthRecordsTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<DateTime, int> $convertermeasuredAt =
+      const _MicrosecondsConverter();
+  static JsonTypeConverter2<MeasurementQuality, String, String>
+  $converterquality = const EnumNameConverter<MeasurementQuality>(
+    MeasurementQuality.values,
+  );
+  static JsonTypeConverter2<HeartRateSource, String, String>
+  $converterheartRateSource = const EnumNameConverter<HeartRateSource>(
+    HeartRateSource.values,
+  );
+  static JsonTypeConverter2<TemperatureSource, String, String>
+  $convertertemperatureSource = const EnumNameConverter<TemperatureSource>(
+    TemperatureSource.values,
+  );
+  static JsonTypeConverter2<ReportMode, String, String> $converteraiMode =
+      const EnumNameConverter<ReportMode>(ReportMode.values);
+  static JsonTypeConverter2<ReportMode?, String?, String?> $converteraiModen =
+      JsonTypeConverter2.asNullable($converteraiMode);
 }
 
-class StoredHealthRecord extends DataClass
-    implements Insertable<StoredHealthRecord> {
+class HealthRecord extends DataClass implements Insertable<HealthRecord> {
   final String id;
   final DateTime measuredAt;
   final int elapsedMicros;
   final bool faceDetected;
-  final String quality;
+  final MeasurementQuality quality;
   final double? estimatedHeartRateBpm;
-  final String heartRateSource;
+  final HeartRateSource heartRateSource;
   final double? faceColorFeature;
   final int? selfCondition;
   final double? bodyTemperatureC;
-  final String temperatureSource;
+  final TemperatureSource temperatureSource;
   final String? reportText;
-  final String? aiMode;
-  const StoredHealthRecord({
+  final ReportMode? aiMode;
+  const HealthRecord({
     required this.id,
     required this.measuredAt,
     required this.elapsedMicros,
@@ -533,14 +515,26 @@ class StoredHealthRecord extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['measured_at'] = Variable<DateTime>(measuredAt);
+    {
+      map['measured_at'] = Variable<int>(
+        $HealthRecordsTable.$convertermeasuredAt.toSql(measuredAt),
+      );
+    }
     map['elapsed_micros'] = Variable<int>(elapsedMicros);
     map['face_detected'] = Variable<bool>(faceDetected);
-    map['quality'] = Variable<String>(quality);
+    {
+      map['quality'] = Variable<String>(
+        $HealthRecordsTable.$converterquality.toSql(quality),
+      );
+    }
     if (!nullToAbsent || estimatedHeartRateBpm != null) {
       map['estimated_heart_rate_bpm'] = Variable<double>(estimatedHeartRateBpm);
     }
-    map['heart_rate_source'] = Variable<String>(heartRateSource);
+    {
+      map['heart_rate_source'] = Variable<String>(
+        $HealthRecordsTable.$converterheartRateSource.toSql(heartRateSource),
+      );
+    }
     if (!nullToAbsent || faceColorFeature != null) {
       map['face_color_feature'] = Variable<double>(faceColorFeature);
     }
@@ -550,12 +544,20 @@ class StoredHealthRecord extends DataClass
     if (!nullToAbsent || bodyTemperatureC != null) {
       map['body_temperature_c'] = Variable<double>(bodyTemperatureC);
     }
-    map['temperature_source'] = Variable<String>(temperatureSource);
+    {
+      map['temperature_source'] = Variable<String>(
+        $HealthRecordsTable.$convertertemperatureSource.toSql(
+          temperatureSource,
+        ),
+      );
+    }
     if (!nullToAbsent || reportText != null) {
       map['report_text'] = Variable<String>(reportText);
     }
     if (!nullToAbsent || aiMode != null) {
-      map['ai_mode'] = Variable<String>(aiMode);
+      map['ai_mode'] = Variable<String>(
+        $HealthRecordsTable.$converteraiModen.toSql(aiMode),
+      );
     }
     return map;
   }
@@ -590,27 +592,34 @@ class StoredHealthRecord extends DataClass
     );
   }
 
-  factory StoredHealthRecord.fromJson(
+  factory HealthRecord.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return StoredHealthRecord(
+    return HealthRecord(
       id: serializer.fromJson<String>(json['id']),
       measuredAt: serializer.fromJson<DateTime>(json['measuredAt']),
       elapsedMicros: serializer.fromJson<int>(json['elapsedMicros']),
       faceDetected: serializer.fromJson<bool>(json['faceDetected']),
-      quality: serializer.fromJson<String>(json['quality']),
+      quality: $HealthRecordsTable.$converterquality.fromJson(
+        serializer.fromJson<String>(json['quality']),
+      ),
       estimatedHeartRateBpm: serializer.fromJson<double?>(
         json['estimatedHeartRateBpm'],
       ),
-      heartRateSource: serializer.fromJson<String>(json['heartRateSource']),
+      heartRateSource: $HealthRecordsTable.$converterheartRateSource.fromJson(
+        serializer.fromJson<String>(json['heartRateSource']),
+      ),
       faceColorFeature: serializer.fromJson<double?>(json['faceColorFeature']),
       selfCondition: serializer.fromJson<int?>(json['selfCondition']),
       bodyTemperatureC: serializer.fromJson<double?>(json['bodyTemperatureC']),
-      temperatureSource: serializer.fromJson<String>(json['temperatureSource']),
+      temperatureSource: $HealthRecordsTable.$convertertemperatureSource
+          .fromJson(serializer.fromJson<String>(json['temperatureSource'])),
       reportText: serializer.fromJson<String?>(json['reportText']),
-      aiMode: serializer.fromJson<String?>(json['aiMode']),
+      aiMode: $HealthRecordsTable.$converteraiModen.fromJson(
+        serializer.fromJson<String?>(json['aiMode']),
+      ),
     );
   }
   @override
@@ -621,35 +630,45 @@ class StoredHealthRecord extends DataClass
       'measuredAt': serializer.toJson<DateTime>(measuredAt),
       'elapsedMicros': serializer.toJson<int>(elapsedMicros),
       'faceDetected': serializer.toJson<bool>(faceDetected),
-      'quality': serializer.toJson<String>(quality),
+      'quality': serializer.toJson<String>(
+        $HealthRecordsTable.$converterquality.toJson(quality),
+      ),
       'estimatedHeartRateBpm': serializer.toJson<double?>(
         estimatedHeartRateBpm,
       ),
-      'heartRateSource': serializer.toJson<String>(heartRateSource),
+      'heartRateSource': serializer.toJson<String>(
+        $HealthRecordsTable.$converterheartRateSource.toJson(heartRateSource),
+      ),
       'faceColorFeature': serializer.toJson<double?>(faceColorFeature),
       'selfCondition': serializer.toJson<int?>(selfCondition),
       'bodyTemperatureC': serializer.toJson<double?>(bodyTemperatureC),
-      'temperatureSource': serializer.toJson<String>(temperatureSource),
+      'temperatureSource': serializer.toJson<String>(
+        $HealthRecordsTable.$convertertemperatureSource.toJson(
+          temperatureSource,
+        ),
+      ),
       'reportText': serializer.toJson<String?>(reportText),
-      'aiMode': serializer.toJson<String?>(aiMode),
+      'aiMode': serializer.toJson<String?>(
+        $HealthRecordsTable.$converteraiModen.toJson(aiMode),
+      ),
     };
   }
 
-  StoredHealthRecord copyWith({
+  HealthRecord copyWith({
     String? id,
     DateTime? measuredAt,
     int? elapsedMicros,
     bool? faceDetected,
-    String? quality,
+    MeasurementQuality? quality,
     Value<double?> estimatedHeartRateBpm = const Value.absent(),
-    String? heartRateSource,
+    HeartRateSource? heartRateSource,
     Value<double?> faceColorFeature = const Value.absent(),
     Value<int?> selfCondition = const Value.absent(),
     Value<double?> bodyTemperatureC = const Value.absent(),
-    String? temperatureSource,
+    TemperatureSource? temperatureSource,
     Value<String?> reportText = const Value.absent(),
-    Value<String?> aiMode = const Value.absent(),
-  }) => StoredHealthRecord(
+    Value<ReportMode?> aiMode = const Value.absent(),
+  }) => HealthRecord(
     id: id ?? this.id,
     measuredAt: measuredAt ?? this.measuredAt,
     elapsedMicros: elapsedMicros ?? this.elapsedMicros,
@@ -672,8 +691,8 @@ class StoredHealthRecord extends DataClass
     reportText: reportText.present ? reportText.value : this.reportText,
     aiMode: aiMode.present ? aiMode.value : this.aiMode,
   );
-  StoredHealthRecord copyWithCompanion(HealthRecordsCompanion data) {
-    return StoredHealthRecord(
+  HealthRecord copyWithCompanion(HealthRecordsCompanion data) {
+    return HealthRecord(
       id: data.id.present ? data.id.value : this.id,
       measuredAt: data.measuredAt.present
           ? data.measuredAt.value
@@ -712,7 +731,7 @@ class StoredHealthRecord extends DataClass
 
   @override
   String toString() {
-    return (StringBuffer('StoredHealthRecord(')
+    return (StringBuffer('HealthRecord(')
           ..write('id: $id, ')
           ..write('measuredAt: $measuredAt, ')
           ..write('elapsedMicros: $elapsedMicros, ')
@@ -749,7 +768,7 @@ class StoredHealthRecord extends DataClass
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is StoredHealthRecord &&
+      (other is HealthRecord &&
           other.id == this.id &&
           other.measuredAt == this.measuredAt &&
           other.elapsedMicros == this.elapsedMicros &&
@@ -765,20 +784,20 @@ class StoredHealthRecord extends DataClass
           other.aiMode == this.aiMode);
 }
 
-class HealthRecordsCompanion extends UpdateCompanion<StoredHealthRecord> {
+class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
   final Value<String> id;
   final Value<DateTime> measuredAt;
   final Value<int> elapsedMicros;
   final Value<bool> faceDetected;
-  final Value<String> quality;
+  final Value<MeasurementQuality> quality;
   final Value<double?> estimatedHeartRateBpm;
-  final Value<String> heartRateSource;
+  final Value<HeartRateSource> heartRateSource;
   final Value<double?> faceColorFeature;
   final Value<int?> selfCondition;
   final Value<double?> bodyTemperatureC;
-  final Value<String> temperatureSource;
+  final Value<TemperatureSource> temperatureSource;
   final Value<String?> reportText;
-  final Value<String?> aiMode;
+  final Value<ReportMode?> aiMode;
   final Value<int> rowid;
   const HealthRecordsCompanion({
     this.id = const Value.absent(),
@@ -801,13 +820,13 @@ class HealthRecordsCompanion extends UpdateCompanion<StoredHealthRecord> {
     required DateTime measuredAt,
     required int elapsedMicros,
     required bool faceDetected,
-    required String quality,
+    required MeasurementQuality quality,
     this.estimatedHeartRateBpm = const Value.absent(),
-    required String heartRateSource,
+    required HeartRateSource heartRateSource,
     this.faceColorFeature = const Value.absent(),
     this.selfCondition = const Value.absent(),
     this.bodyTemperatureC = const Value.absent(),
-    required String temperatureSource,
+    required TemperatureSource temperatureSource,
     this.reportText = const Value.absent(),
     this.aiMode = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -818,9 +837,9 @@ class HealthRecordsCompanion extends UpdateCompanion<StoredHealthRecord> {
        quality = Value(quality),
        heartRateSource = Value(heartRateSource),
        temperatureSource = Value(temperatureSource);
-  static Insertable<StoredHealthRecord> custom({
+  static Insertable<HealthRecord> custom({
     Expression<String>? id,
-    Expression<DateTime>? measuredAt,
+    Expression<int>? measuredAt,
     Expression<int>? elapsedMicros,
     Expression<bool>? faceDetected,
     Expression<String>? quality,
@@ -858,15 +877,15 @@ class HealthRecordsCompanion extends UpdateCompanion<StoredHealthRecord> {
     Value<DateTime>? measuredAt,
     Value<int>? elapsedMicros,
     Value<bool>? faceDetected,
-    Value<String>? quality,
+    Value<MeasurementQuality>? quality,
     Value<double?>? estimatedHeartRateBpm,
-    Value<String>? heartRateSource,
+    Value<HeartRateSource>? heartRateSource,
     Value<double?>? faceColorFeature,
     Value<int?>? selfCondition,
     Value<double?>? bodyTemperatureC,
-    Value<String>? temperatureSource,
+    Value<TemperatureSource>? temperatureSource,
     Value<String?>? reportText,
-    Value<String?>? aiMode,
+    Value<ReportMode?>? aiMode,
     Value<int>? rowid,
   }) {
     return HealthRecordsCompanion(
@@ -895,7 +914,9 @@ class HealthRecordsCompanion extends UpdateCompanion<StoredHealthRecord> {
       map['id'] = Variable<String>(id.value);
     }
     if (measuredAt.present) {
-      map['measured_at'] = Variable<DateTime>(measuredAt.value);
+      map['measured_at'] = Variable<int>(
+        $HealthRecordsTable.$convertermeasuredAt.toSql(measuredAt.value),
+      );
     }
     if (elapsedMicros.present) {
       map['elapsed_micros'] = Variable<int>(elapsedMicros.value);
@@ -904,7 +925,9 @@ class HealthRecordsCompanion extends UpdateCompanion<StoredHealthRecord> {
       map['face_detected'] = Variable<bool>(faceDetected.value);
     }
     if (quality.present) {
-      map['quality'] = Variable<String>(quality.value);
+      map['quality'] = Variable<String>(
+        $HealthRecordsTable.$converterquality.toSql(quality.value),
+      );
     }
     if (estimatedHeartRateBpm.present) {
       map['estimated_heart_rate_bpm'] = Variable<double>(
@@ -912,7 +935,11 @@ class HealthRecordsCompanion extends UpdateCompanion<StoredHealthRecord> {
       );
     }
     if (heartRateSource.present) {
-      map['heart_rate_source'] = Variable<String>(heartRateSource.value);
+      map['heart_rate_source'] = Variable<String>(
+        $HealthRecordsTable.$converterheartRateSource.toSql(
+          heartRateSource.value,
+        ),
+      );
     }
     if (faceColorFeature.present) {
       map['face_color_feature'] = Variable<double>(faceColorFeature.value);
@@ -924,13 +951,19 @@ class HealthRecordsCompanion extends UpdateCompanion<StoredHealthRecord> {
       map['body_temperature_c'] = Variable<double>(bodyTemperatureC.value);
     }
     if (temperatureSource.present) {
-      map['temperature_source'] = Variable<String>(temperatureSource.value);
+      map['temperature_source'] = Variable<String>(
+        $HealthRecordsTable.$convertertemperatureSource.toSql(
+          temperatureSource.value,
+        ),
+      );
     }
     if (reportText.present) {
       map['report_text'] = Variable<String>(reportText.value);
     }
     if (aiMode.present) {
-      map['ai_mode'] = Variable<String>(aiMode.value);
+      map['ai_mode'] = Variable<String>(
+        $HealthRecordsTable.$converteraiModen.toSql(aiMode.value),
+      );
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -1119,15 +1152,15 @@ typedef $$HealthRecordsTableCreateCompanionBuilder =
       required DateTime measuredAt,
       required int elapsedMicros,
       required bool faceDetected,
-      required String quality,
+      required MeasurementQuality quality,
       Value<double?> estimatedHeartRateBpm,
-      required String heartRateSource,
+      required HeartRateSource heartRateSource,
       Value<double?> faceColorFeature,
       Value<int?> selfCondition,
       Value<double?> bodyTemperatureC,
-      required String temperatureSource,
+      required TemperatureSource temperatureSource,
       Value<String?> reportText,
-      Value<String?> aiMode,
+      Value<ReportMode?> aiMode,
       Value<int> rowid,
     });
 typedef $$HealthRecordsTableUpdateCompanionBuilder =
@@ -1136,15 +1169,15 @@ typedef $$HealthRecordsTableUpdateCompanionBuilder =
       Value<DateTime> measuredAt,
       Value<int> elapsedMicros,
       Value<bool> faceDetected,
-      Value<String> quality,
+      Value<MeasurementQuality> quality,
       Value<double?> estimatedHeartRateBpm,
-      Value<String> heartRateSource,
+      Value<HeartRateSource> heartRateSource,
       Value<double?> faceColorFeature,
       Value<int?> selfCondition,
       Value<double?> bodyTemperatureC,
-      Value<String> temperatureSource,
+      Value<TemperatureSource> temperatureSource,
       Value<String?> reportText,
-      Value<String?> aiMode,
+      Value<ReportMode?> aiMode,
       Value<int> rowid,
     });
 
@@ -1162,10 +1195,11 @@ class $$HealthRecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get measuredAt => $composableBuilder(
-    column: $table.measuredAt,
-    builder: (column) => ColumnFilters(column),
-  );
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get measuredAt =>
+      $composableBuilder(
+        column: $table.measuredAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<int> get elapsedMicros => $composableBuilder(
     column: $table.elapsedMicros,
@@ -1177,9 +1211,10 @@ class $$HealthRecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get quality => $composableBuilder(
+  ColumnWithTypeConverterFilters<MeasurementQuality, MeasurementQuality, String>
+  get quality => $composableBuilder(
     column: $table.quality,
-    builder: (column) => ColumnFilters(column),
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<double> get estimatedHeartRateBpm => $composableBuilder(
@@ -1187,9 +1222,10 @@ class $$HealthRecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get heartRateSource => $composableBuilder(
+  ColumnWithTypeConverterFilters<HeartRateSource, HeartRateSource, String>
+  get heartRateSource => $composableBuilder(
     column: $table.heartRateSource,
-    builder: (column) => ColumnFilters(column),
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<double> get faceColorFeature => $composableBuilder(
@@ -1207,9 +1243,10 @@ class $$HealthRecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get temperatureSource => $composableBuilder(
+  ColumnWithTypeConverterFilters<TemperatureSource, TemperatureSource, String>
+  get temperatureSource => $composableBuilder(
     column: $table.temperatureSource,
-    builder: (column) => ColumnFilters(column),
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<String> get reportText => $composableBuilder(
@@ -1217,10 +1254,11 @@ class $$HealthRecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get aiMode => $composableBuilder(
-    column: $table.aiMode,
-    builder: (column) => ColumnFilters(column),
-  );
+  ColumnWithTypeConverterFilters<ReportMode?, ReportMode, String> get aiMode =>
+      $composableBuilder(
+        column: $table.aiMode,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 }
 
 class $$HealthRecordsTableOrderingComposer
@@ -1237,7 +1275,7 @@ class $$HealthRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get measuredAt => $composableBuilder(
+  ColumnOrderings<int> get measuredAt => $composableBuilder(
     column: $table.measuredAt,
     builder: (column) => ColumnOrderings(column),
   );
@@ -1310,10 +1348,11 @@ class $$HealthRecordsTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get measuredAt => $composableBuilder(
-    column: $table.measuredAt,
-    builder: (column) => column,
-  );
+  GeneratedColumnWithTypeConverter<DateTime, int> get measuredAt =>
+      $composableBuilder(
+        column: $table.measuredAt,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<int> get elapsedMicros => $composableBuilder(
     column: $table.elapsedMicros,
@@ -1325,7 +1364,7 @@ class $$HealthRecordsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get quality =>
+  GeneratedColumnWithTypeConverter<MeasurementQuality, String> get quality =>
       $composableBuilder(column: $table.quality, builder: (column) => column);
 
   GeneratedColumn<double> get estimatedHeartRateBpm => $composableBuilder(
@@ -1333,7 +1372,8 @@ class $$HealthRecordsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get heartRateSource => $composableBuilder(
+  GeneratedColumnWithTypeConverter<HeartRateSource, String>
+  get heartRateSource => $composableBuilder(
     column: $table.heartRateSource,
     builder: (column) => column,
   );
@@ -1353,7 +1393,8 @@ class $$HealthRecordsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get temperatureSource => $composableBuilder(
+  GeneratedColumnWithTypeConverter<TemperatureSource, String>
+  get temperatureSource => $composableBuilder(
     column: $table.temperatureSource,
     builder: (column) => column,
   );
@@ -1363,7 +1404,7 @@ class $$HealthRecordsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get aiMode =>
+  GeneratedColumnWithTypeConverter<ReportMode?, String> get aiMode =>
       $composableBuilder(column: $table.aiMode, builder: (column) => column);
 }
 
@@ -1372,21 +1413,17 @@ class $$HealthRecordsTableTableManager
         RootTableManager<
           _$AppDatabase,
           $HealthRecordsTable,
-          StoredHealthRecord,
+          HealthRecord,
           $$HealthRecordsTableFilterComposer,
           $$HealthRecordsTableOrderingComposer,
           $$HealthRecordsTableAnnotationComposer,
           $$HealthRecordsTableCreateCompanionBuilder,
           $$HealthRecordsTableUpdateCompanionBuilder,
           (
-            StoredHealthRecord,
-            BaseReferences<
-              _$AppDatabase,
-              $HealthRecordsTable,
-              StoredHealthRecord
-            >,
+            HealthRecord,
+            BaseReferences<_$AppDatabase, $HealthRecordsTable, HealthRecord>,
           ),
-          StoredHealthRecord,
+          HealthRecord,
           PrefetchHooks Function()
         > {
   $$HealthRecordsTableTableManager(_$AppDatabase db, $HealthRecordsTable table)
@@ -1406,15 +1443,16 @@ class $$HealthRecordsTableTableManager
                 Value<DateTime> measuredAt = const Value.absent(),
                 Value<int> elapsedMicros = const Value.absent(),
                 Value<bool> faceDetected = const Value.absent(),
-                Value<String> quality = const Value.absent(),
+                Value<MeasurementQuality> quality = const Value.absent(),
                 Value<double?> estimatedHeartRateBpm = const Value.absent(),
-                Value<String> heartRateSource = const Value.absent(),
+                Value<HeartRateSource> heartRateSource = const Value.absent(),
                 Value<double?> faceColorFeature = const Value.absent(),
                 Value<int?> selfCondition = const Value.absent(),
                 Value<double?> bodyTemperatureC = const Value.absent(),
-                Value<String> temperatureSource = const Value.absent(),
+                Value<TemperatureSource> temperatureSource =
+                    const Value.absent(),
                 Value<String?> reportText = const Value.absent(),
-                Value<String?> aiMode = const Value.absent(),
+                Value<ReportMode?> aiMode = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HealthRecordsCompanion(
                 id: id,
@@ -1438,15 +1476,15 @@ class $$HealthRecordsTableTableManager
                 required DateTime measuredAt,
                 required int elapsedMicros,
                 required bool faceDetected,
-                required String quality,
+                required MeasurementQuality quality,
                 Value<double?> estimatedHeartRateBpm = const Value.absent(),
-                required String heartRateSource,
+                required HeartRateSource heartRateSource,
                 Value<double?> faceColorFeature = const Value.absent(),
                 Value<int?> selfCondition = const Value.absent(),
                 Value<double?> bodyTemperatureC = const Value.absent(),
-                required String temperatureSource,
+                required TemperatureSource temperatureSource,
                 Value<String?> reportText = const Value.absent(),
-                Value<String?> aiMode = const Value.absent(),
+                Value<ReportMode?> aiMode = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HealthRecordsCompanion.insert(
                 id: id,
@@ -1467,11 +1505,11 @@ class $$HealthRecordsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable<$HealthRecordsTable, StoredHealthRecord>(table),
+                  e.readTable<$HealthRecordsTable, HealthRecord>(table),
                   BaseReferences<
                     _$AppDatabase,
                     $HealthRecordsTable,
-                    StoredHealthRecord
+                    HealthRecord
                   >(db, table, e),
                 ),
               )
@@ -1485,17 +1523,17 @@ typedef $$HealthRecordsTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
       $HealthRecordsTable,
-      StoredHealthRecord,
+      HealthRecord,
       $$HealthRecordsTableFilterComposer,
       $$HealthRecordsTableOrderingComposer,
       $$HealthRecordsTableAnnotationComposer,
       $$HealthRecordsTableCreateCompanionBuilder,
       $$HealthRecordsTableUpdateCompanionBuilder,
       (
-        StoredHealthRecord,
-        BaseReferences<_$AppDatabase, $HealthRecordsTable, StoredHealthRecord>,
+        HealthRecord,
+        BaseReferences<_$AppDatabase, $HealthRecordsTable, HealthRecord>,
       ),
-      StoredHealthRecord,
+      HealthRecord,
       PrefetchHooks Function()
     >;
 

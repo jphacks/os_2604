@@ -16,7 +16,7 @@ void main() {
       ),
     );
     expect(find.textContaining('履歴未接続'), findsOneWidget);
-    expect(find.textContaining('計測・保存サービスは未接続'), findsOneWidget);
+    expect(find.textContaining('計測・保存サービスは未接続'), findsNothing);
     expect(find.text('本日未実施'), findsNothing);
     for (final label in ['チェック開始', '履歴', '設定', 'アプリの説明']) {
       await tester.ensureVisible(find.text(label));
