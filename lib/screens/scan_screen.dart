@@ -38,16 +38,46 @@ class _ScanScreenState extends State<ScanScreen> {
   _Stage _stage = _Stage.idle;
   ScanFailureReason? _failure;
   HealthCheckResult? _unsaved;
+  bool _leaving = false;
+  bool _canPop = false;
+  Future<void>? _releasing;
+  Future<void>? _cancelling;
   int _attempt = 0; // 新しい試行・離脱・破棄後の古い結果を捨てるための世代
 
   @override
   void dispose() {
     _attempt++;
-    unawaited(_session.service.dispose());
+    unawaited(_release().catchError((Object _) {}));
     super.dispose();
   }
 
+  bool _isCurrent(int attempt) =>
+      mounted &&
+      !_leaving &&
+      attempt == _attempt &&
+      ModalRoute.of(context)?.isCurrent == true;
+
+  Future<void> _cancel() => _cancelling ??= () async {
+    try {
+      await _session.service.cancelScan();
+    } finally {
+      _cancelling = null;
+    }
+  }();
+
+  // Disposal also runs for routes removed by the parent Navigator. Share the
+  // operation with leave/navigation so overlapping callbacks release only once.
+  Future<void> _release() => _releasing ??= () async {
+    try {
+      await _cancel();
+    } finally {
+      await _session.service.dispose();
+    }
+  }();
+
   Future<void> _start() async {
+    if (_leaving || (_stage != _Stage.idle && _stage != _Stage.failed)) return;
+    final retry = _stage == _Stage.failed;
     final attempt = ++_attempt;
     setState(() {
       _stage = _Stage.running;
@@ -56,16 +86,18 @@ class _ScanScreenState extends State<ScanScreen> {
     });
     final ScanOutcome outcome;
     try {
+      if (retry) await _cancel();
+      if (!_isCurrent(attempt)) return;
       outcome = await _session.service.startHealthScan();
     } catch (_) {
-      if (!mounted || attempt != _attempt) return;
+      if (!_isCurrent(attempt)) return;
       setState(() {
         _stage = _Stage.failed;
         _failure = ScanFailureReason.processingFailed;
       });
       return;
     }
-    if (!mounted || attempt != _attempt) return;
+    if (!_isCurrent(attempt)) return;
     switch (outcome) {
       case ScanSuccess(:final result):
         await _save(result, attempt);
@@ -78,6 +110,7 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Future<void> _save(HealthCheckResult result, int attempt) async {
+    if (!_isCurrent(attempt) || _stage == _Stage.saving) return;
     setState(() {
       _stage = _Stage.saving;
       _unsaved = result;
@@ -85,31 +118,64 @@ class _ScanScreenState extends State<ScanScreen> {
     try {
       await widget.repository.insert(result);
     } catch (_) {
-      if (!mounted || attempt != _attempt) return;
+      if (!_isCurrent(attempt)) return;
       setState(() => _stage = _Stage.saveFailed);
       return;
     }
-    if (!mounted || attempt != _attempt) return;
-    await Navigator.of(context)
-        .pushReplacementNamed(AppRoutes.result, arguments: result.id);
+    if (!_isCurrent(attempt)) return;
+    try {
+      await _release();
+    } catch (_) {
+      // The record is saved. Cleanup failure must not trigger a duplicate insert.
+    }
+    if (!mounted || !_isCurrent(attempt)) return;
+    _leaving = true;
+    _attempt++;
+    unawaited(
+      Navigator.of(context)
+          .pushReplacementNamed(AppRoutes.result, arguments: result.id),
+    );
   }
 
   Future<void> _leave() async {
+    if (_leaving) return;
+    _leaving = true;
     _attempt++;
-    await _session.service.cancelScan();
-    if (mounted) Navigator.of(context).pop();
+    setState(() {});
+    try {
+      await _release();
+    } catch (_) {
+      // Best-effort cleanup must not trap the user on this screen.
+    }
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    setState(() => _canPop = true);
+    // PopScope must rebuild with canPop=true before requesting the actual pop.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).pop();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final busy = _stage == _Stage.running || _stage == _Stage.saving;
+    final busy =
+        _leaving || _stage == _Stage.running || _stage == _Stage.saving;
     return PopScope(
-      canPop: false,
+      canPop: _canPop,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(_leave());
+        if (didPop) {
+          _leaving = true;
+          _attempt++;
+        } else {
+          unawaited(_leave());
+        }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('15秒チェック')),
+        appBar: AppBar(
+          title: const Text('15秒チェック'),
+          leading: BackButton(onPressed: _leaving ? null : _leave),
+        ),
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -158,7 +224,9 @@ class _ScanScreenState extends State<ScanScreen> {
                 const SizedBox(height: 16),
                 if (_stage == _Stage.saveFailed)
                   FilledButton(
-                    onPressed: () => _save(_unsaved!, _attempt),
+                    onPressed: _leaving
+                        ? null
+                        : () => _save(_unsaved!, _attempt),
                     child: const Text('保存を再試行'),
                   )
                 else
