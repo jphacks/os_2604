@@ -11,6 +11,7 @@
 - 変更：lib/app.dart・main.dart・screens/・services/db/、生成g.dart、テスト、READMEと決定事項。CコードとCテストはBのflutter_lintsに合わせた機械的な修正（波括弧・初期化引数・package import）のみ。
 - 検証：Flutter 3.47.7 / Dart 3.13.5。build_runner成功。flutter analyze --no-pubは指摘なし、flutter test --no-pub --reporter expandedは全159件成功。UIは偽計測・偽保存で保存順序/再試行/履歴/削除を検証、DBは実SQLiteでNULL往復・重複・追記・削除後更新・書込失敗・v1移行・file再openを検証。合成値だけを使用。ログは/private/tmp/os2604-bc-tests.log。
 - 環境：SDK/private/tmp/os2604-c-flutter、PUB_CACHE=/private/tmp/os2604-c-dart/pub-cache、XDG_CONFIG_HOME=/private/tmp/os2604-c-config。CocoaPods 1.16.2を標準Rubyとの互換依存とともに/private/tmp/os2604-c-gemsへ導入済み。利用時はGEM_HOME/GEM_PATHを同ディレクトリへ、RUBYOPT=-rloggerを設定し、binをPATHへ追加。システムRuby/Xcode選択は変更していない。署名はGit除外のios/Flutter/LocalSigning.xcconfigへ設定。
-- 実機：ユーザーがUSB接続・ロック解除済み。iPhone 17 / iOS 27.0.1をFlutterで検出。署名付きReleaseビルド成功（Runner.app 59.5MB、Xcode build 38.6秒）。初回インストールは端末の再ロックで拒否されたが、ユーザーの解除後にdevicectlでインストール成功、com.example.os2604のプロセス起動も成功。実計測・結果・再起動後の履歴はユーザーによる操作確認待ち。ビルドログは/private/tmp/os2604-bc-ios-build.log。
-- UI確認：利用可能なMCP操作はシミュレータ専用。実機のカメラへの顔合わせと画面操作はユーザーに依頼する。顔画像や測定内容のログ保存・送信は行わない。
-- 次：インストール・起動済みのアプリでユーザーが初回説明・カメラ許可・顔合わせ15秒・結果・再起動後の履歴を確認。結果を本ファイルへ追記し、未確認を成功と扱わない。
+- 実機：ユーザーがUSB接続・ロック解除済み。iPhone 17 / iOS 27.0.1をFlutterで検出。署名付きReleaseビルド成功（Runner.app 59.5MB、Xcode build 38.6秒）。初回インストールは端末の再ロックで拒否されたが、ユーザーの解除後にdevicectlでインストール成功、com.example.os2604のプロセス起動も成功。ユーザーが実機で15秒計測・結果画面・再起動後の履歴保持まで確認できたと回答。通常の動線の実機確認は完了。ビルドログは/private/tmp/os2604-bc-ios-build.log。
+- UI確認：実機のカメラへの顔合わせと画面操作はユーザーが実施し、成功を報告。MCPによる自動実機UI検証とは区別する。顔画像や測定内容のログ保存・送信は行っていない。
+- 未確認：権限拒否・暗所・計測中の顔外れ・アプリ離脱・削除・機内モードの実機試験。これらを通常動線の成功報告から合格扱いにしない。Swift AIは引き続き未接続。
+- 次：必要に応じて統合分をpush・PR化する。今回の確認完了報告だけを新たなpush・PR作成・mainマージの依頼とは扱わない。
