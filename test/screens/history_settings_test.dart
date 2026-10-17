@@ -8,6 +8,9 @@ import 'package:os_2604/services/db/app_database.dart';
 import 'package:os_2604/services/db/health_record_repository.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
 
+import 'package:os_2604/services/settings/reminder_settings_store.dart';
+
+import '../support/fake_reminder.dart';
 import '../support/fake_scan.dart';
 
 class _Failing extends HealthRecordRepository {
@@ -64,10 +67,14 @@ void main() {
   final now = DateTime(2026, 10, 17, 9);
   late AppDatabase db;
   late _Failing repo;
+  late FakeReminderService reminder;
+  late FakeReminderStore reminderStore;
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     repo = _Failing(db);
+    reminder = FakeReminderService();
+    reminderStore = FakeReminderStore();
   });
   tearDown(() async => db.close());
 
@@ -82,6 +89,8 @@ void main() {
         repository: repo,
         createScanSession: () => sessionOf(FakeScanService()),
         aiRunner: runnerOf(FakeAiClient()),
+        reminderService: reminder,
+        reminderStore: reminderStore,
       ),
     );
     await tester.pumpAndSettle();
@@ -252,6 +261,100 @@ void main() {
       expect(find.textContaining('削除できませんでした'), findsOneWidget);
       expect(find.text('すべての健康記録を削除しました'), findsNothing);
       expect(await repo.findById('a'), isNotNull);
+    });
+
+    group('reminder', () {
+      Future<void> toggle(WidgetTester tester) async {
+        await tester.tap(find.byType(Switch));
+        await tester.pumpAndSettle();
+      }
+
+      Switch switchOf(WidgetTester tester) =>
+          tester.widget<Switch>(find.byType(Switch));
+
+      tw('is off by default; no notification before opt-in', (tester) async {
+        await openSettings(tester);
+        expect(switchOf(tester).value, isFalse);
+        expect(find.text('08:00'), findsOneWidget);
+        expect(find.textContaining('今後追加予定'), findsNothing);
+        expect(reminder.scheduled, isEmpty);
+      });
+
+      tw('enable: permission granted -> scheduled and saved', (tester) async {
+        await openSettings(tester);
+        await toggle(tester);
+        expect(reminder.permissionRequests, 1);
+        expect(reminder.scheduled, [(8, 0)]);
+        expect(reminderStore.value.enabled, isTrue);
+        expect(switchOf(tester).value, isTrue);
+        expect(find.text('毎朝 08:00 にお知らせします'), findsOneWidget);
+      });
+
+      tw('enable: permission denied stays off and saves nothing', (
+        tester,
+      ) async {
+        reminder.grant = false;
+        await openSettings(tester);
+        await toggle(tester);
+        expect(find.text('通知が許可されていません。設定アプリから許可できます。'), findsOneWidget);
+        expect(switchOf(tester).value, isFalse);
+        expect(reminder.scheduled, isEmpty);
+        expect(reminderStore.saves, 0);
+      });
+
+      tw('enable: scheduling failure is shown and not saved', (tester) async {
+        reminder.failSchedule = true;
+        await openSettings(tester);
+        await toggle(tester);
+        expect(find.textContaining('通知を設定できませんでした'), findsOneWidget);
+        expect(switchOf(tester).value, isFalse);
+        expect(reminderStore.saves, 0);
+      });
+
+      tw('change time reschedules and saves', (tester) async {
+        reminderStore.value = const ReminderSettings(
+          enabled: true,
+          hour: 7,
+          minute: 30,
+        );
+        await openSettings(tester);
+        expect(find.text('07:30'), findsOneWidget);
+        await tester.tap(find.text('通知時刻'));
+        await tester.pumpAndSettle();
+        // ダイヤル表示のまま OK で確定すると、現在の時刻が選ばれる。
+        await tester.tap(find.text('OK'));
+        await tester.pumpAndSettle();
+        expect(reminder.scheduled, [(7, 30)]);
+        expect(reminder.permissionRequests, 0);
+        expect(reminderStore.saves, 1);
+      });
+
+      tw('change time to a new value', (tester) async {
+        reminderStore.value = const ReminderSettings(enabled: true);
+        await openSettings(tester);
+        await tester.tap(find.text('通知時刻'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.keyboard_outlined));
+        await tester.pumpAndSettle();
+        final fields = find.byType(TextField);
+        await tester.enterText(fields.at(0), '6');
+        await tester.enterText(fields.at(1), '45');
+        await tester.tap(find.text('OK'));
+        await tester.pumpAndSettle();
+        expect(reminder.scheduled, [(6, 45)]);
+        expect(reminderStore.value.hour, 6);
+        expect(reminderStore.value.minute, 45);
+        expect(find.text('06:45'), findsOneWidget);
+      });
+
+      tw('disable cancels and saves', (tester) async {
+        reminderStore.value = const ReminderSettings(enabled: true);
+        await openSettings(tester);
+        await toggle(tester);
+        expect(reminder.cancels, 1);
+        expect(reminderStore.value.enabled, isFalse);
+        expect(switchOf(tester).value, isFalse);
+      });
     });
   });
 }

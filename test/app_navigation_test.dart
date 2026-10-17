@@ -7,6 +7,7 @@ import 'package:os_2604/services/db/health_record_repository.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
 
 import 'support/fake_scan.dart';
+import 'support/fake_reminder.dart';
 
 class CompletedOnboardingStore implements OnboardingStore {
   @override
@@ -28,6 +29,8 @@ void main() {
         onboardingStore: CompletedOnboardingStore(),
         repository: HealthRecordRepository(db),
         aiRunner: runnerOf(FakeAiClient()),
+        reminderService: FakeReminderService(),
+        reminderStore: FakeReminderStore(),
         createScanSession: () => sessionOf(FakeScanService()),
       ),
     );

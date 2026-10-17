@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../services/db/health_record_repository.dart';
+import '../services/notifications/daily_reminder_service.dart';
+import '../services/settings/reminder_settings_store.dart';
 
-/// 設定。現時点では健康記録の全削除のみ提供する。
+/// 設定。毎朝の通知と健康記録の全削除を提供する。
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.repository});
+  const SettingsScreen({
+    super.key,
+    required this.repository,
+    required this.reminderService,
+    required this.reminderStore,
+  });
 
   final HealthRecordRepository repository;
+  final DailyReminderService reminderService;
+  final ReminderSettingsStore reminderStore;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -15,6 +24,75 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _running = false;
   String? _message;
+  ReminderSettings _reminder = const ReminderSettings();
+  bool _reminderBusy = false;
+  String? _reminderMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReminder();
+  }
+
+  Future<void> _loadReminder() async {
+    try {
+      final loaded = await widget.reminderStore.load();
+      if (mounted) setState(() => _reminder = loaded);
+    } catch (_) {
+      // 読めないときはオフとして表示する。
+    }
+  }
+
+  /// 予約に成功してから保存する。失敗したら画面の状態も保存も変えない。
+  Future<void> _applyReminder(
+    ReminderSettings next, {
+    bool askPermission = false,
+  }) async {
+    setState(() {
+      _reminderBusy = true;
+      _reminderMessage = null;
+    });
+    String? message;
+    var applied = false;
+    try {
+      if (askPermission && !await widget.reminderService.requestPermission()) {
+        message = '通知が許可されていません。設定アプリから許可できます。';
+      } else {
+        if (next.enabled) {
+          await widget.reminderService.scheduleDaily(next.hour, next.minute);
+        } else {
+          await widget.reminderService.cancel();
+        }
+        await widget.reminderStore.save(next);
+        applied = true;
+        message = next.enabled
+            ? '毎朝 ${_formatTime(next)} にお知らせします'
+            : '毎朝の通知をオフにしました';
+      }
+    } catch (_) {
+      message = '通知を設定できませんでした（設定は変更されていません）';
+    }
+    if (!mounted) return;
+    setState(() {
+      _reminderBusy = false;
+      _reminderMessage = message;
+      if (applied) _reminder = next;
+    });
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _reminder.hour, minute: _reminder.minute),
+    );
+    if (picked == null || !mounted) return;
+    await _applyReminder(
+      _reminder.copyWith(hour: picked.hour, minute: picked.minute),
+    );
+  }
+
+  static String _formatTime(ReminderSettings s) =>
+      '${s.hour.toString().padLeft(2, '0')}:${s.minute.toString().padLeft(2, '0')}';
 
   Future<void> _deleteAll() async {
     final ok = await showDialog<bool>(
@@ -61,7 +139,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            const Text('通知設定は今後追加予定です'),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('毎朝の通知'),
+              subtitle: const Text('決めた時刻に、記録をつけるお知らせを届けます'),
+              value: _reminder.enabled,
+              onChanged: _reminderBusy
+                  ? null
+                  : (on) => _applyReminder(
+                      _reminder.copyWith(enabled: on),
+                      askPermission: on,
+                    ),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('通知時刻'),
+              trailing: Text(_formatTime(_reminder)),
+              enabled: _reminder.enabled && !_reminderBusy,
+              onTap: _pickTime,
+            ),
+            if (_reminderMessage != null) Text(_reminderMessage!),
             const SizedBox(height: 24),
             OutlinedButton(
               onPressed: _running ? null : _deleteAll,

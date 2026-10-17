@@ -8,6 +8,7 @@ import 'package:os_2604/services/db/app_database.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
 
 import '../support/fake_scan.dart';
+import '../support/fake_reminder.dart';
 
 class _Done implements OnboardingStore {
   @override
@@ -46,6 +47,8 @@ void main() {
         onboardingStore: _Done(),
         repository: repo,
         aiRunner: runnerOf(FakeAiClient()),
+        reminderService: FakeReminderService(),
+        reminderStore: FakeReminderStore(),
         createScanSession: () => sessionOf(scan),
       ),
     );

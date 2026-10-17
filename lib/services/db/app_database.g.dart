@@ -993,12 +993,311 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
   }
 }
 
+class $ReminderPreferencesTable extends ReminderPreferences
+    with TableInfo<$ReminderPreferencesTable, ReminderPreference> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReminderPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL CHECK (id = 1)',
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _hourMeta = const VerificationMeta('hour');
+  @override
+  late final GeneratedColumn<int> hour = GeneratedColumn<int>(
+    'hour',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _minuteMeta = const VerificationMeta('minute');
+  @override
+  late final GeneratedColumn<int> minute = GeneratedColumn<int>(
+    'minute',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, enabled, hour, minute];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reminder_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReminderPreference> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_enabledMeta);
+    }
+    if (data.containsKey('hour')) {
+      context.handle(
+        _hourMeta,
+        hour.isAcceptableOrUnknown(data['hour']!, _hourMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hourMeta);
+    }
+    if (data.containsKey('minute')) {
+      context.handle(
+        _minuteMeta,
+        minute.isAcceptableOrUnknown(data['minute']!, _minuteMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_minuteMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReminderPreference map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReminderPreference(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      hour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hour'],
+      )!,
+      minute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}minute'],
+      )!,
+    );
+  }
+
+  @override
+  $ReminderPreferencesTable createAlias(String alias) {
+    return $ReminderPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class ReminderPreference extends DataClass
+    implements Insertable<ReminderPreference> {
+  final int id;
+  final bool enabled;
+  final int hour;
+  final int minute;
+  const ReminderPreference({
+    required this.id,
+    required this.enabled,
+    required this.hour,
+    required this.minute,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['enabled'] = Variable<bool>(enabled);
+    map['hour'] = Variable<int>(hour);
+    map['minute'] = Variable<int>(minute);
+    return map;
+  }
+
+  ReminderPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return ReminderPreferencesCompanion(
+      id: Value(id),
+      enabled: Value(enabled),
+      hour: Value(hour),
+      minute: Value(minute),
+    );
+  }
+
+  factory ReminderPreference.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReminderPreference(
+      id: serializer.fromJson<int>(json['id']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      hour: serializer.fromJson<int>(json['hour']),
+      minute: serializer.fromJson<int>(json['minute']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'enabled': serializer.toJson<bool>(enabled),
+      'hour': serializer.toJson<int>(hour),
+      'minute': serializer.toJson<int>(minute),
+    };
+  }
+
+  ReminderPreference copyWith({
+    int? id,
+    bool? enabled,
+    int? hour,
+    int? minute,
+  }) => ReminderPreference(
+    id: id ?? this.id,
+    enabled: enabled ?? this.enabled,
+    hour: hour ?? this.hour,
+    minute: minute ?? this.minute,
+  );
+  ReminderPreference copyWithCompanion(ReminderPreferencesCompanion data) {
+    return ReminderPreference(
+      id: data.id.present ? data.id.value : this.id,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      hour: data.hour.present ? data.hour.value : this.hour,
+      minute: data.minute.present ? data.minute.value : this.minute,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderPreference(')
+          ..write('id: $id, ')
+          ..write('enabled: $enabled, ')
+          ..write('hour: $hour, ')
+          ..write('minute: $minute')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, enabled, hour, minute);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReminderPreference &&
+          other.id == this.id &&
+          other.enabled == this.enabled &&
+          other.hour == this.hour &&
+          other.minute == this.minute);
+}
+
+class ReminderPreferencesCompanion extends UpdateCompanion<ReminderPreference> {
+  final Value<int> id;
+  final Value<bool> enabled;
+  final Value<int> hour;
+  final Value<int> minute;
+  const ReminderPreferencesCompanion({
+    this.id = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.hour = const Value.absent(),
+    this.minute = const Value.absent(),
+  });
+  ReminderPreferencesCompanion.insert({
+    this.id = const Value.absent(),
+    required bool enabled,
+    required int hour,
+    required int minute,
+  }) : enabled = Value(enabled),
+       hour = Value(hour),
+       minute = Value(minute);
+  static Insertable<ReminderPreference> custom({
+    Expression<int>? id,
+    Expression<bool>? enabled,
+    Expression<int>? hour,
+    Expression<int>? minute,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (enabled != null) 'enabled': enabled,
+      if (hour != null) 'hour': hour,
+      if (minute != null) 'minute': minute,
+    });
+  }
+
+  ReminderPreferencesCompanion copyWith({
+    Value<int>? id,
+    Value<bool>? enabled,
+    Value<int>? hour,
+    Value<int>? minute,
+  }) {
+    return ReminderPreferencesCompanion(
+      id: id ?? this.id,
+      enabled: enabled ?? this.enabled,
+      hour: hour ?? this.hour,
+      minute: minute ?? this.minute,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (hour.present) {
+      map['hour'] = Variable<int>(hour.value);
+    }
+    if (minute.present) {
+      map['minute'] = Variable<int>(minute.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderPreferencesCompanion(')
+          ..write('id: $id, ')
+          ..write('enabled: $enabled, ')
+          ..write('hour: $hour, ')
+          ..write('minute: $minute')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $OnboardingCompletionsTable onboardingCompletions =
       $OnboardingCompletionsTable(this);
   late final $HealthRecordsTable healthRecords = $HealthRecordsTable(this);
+  late final $ReminderPreferencesTable reminderPreferences =
+      $ReminderPreferencesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1006,6 +1305,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     onboardingCompletions,
     healthRecords,
+    reminderPreferences,
   ];
 }
 
@@ -1536,6 +1836,208 @@ typedef $$HealthRecordsTableProcessedTableManager =
       HealthRecord,
       PrefetchHooks Function()
     >;
+typedef $$ReminderPreferencesTableCreateCompanionBuilder =
+    ReminderPreferencesCompanion Function({
+      Value<int> id,
+      required bool enabled,
+      required int hour,
+      required int minute,
+    });
+typedef $$ReminderPreferencesTableUpdateCompanionBuilder =
+    ReminderPreferencesCompanion Function({
+      Value<int> id,
+      Value<bool> enabled,
+      Value<int> hour,
+      Value<int> minute,
+    });
+
+class $$ReminderPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $ReminderPreferencesTable> {
+  $$ReminderPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hour => $composableBuilder(
+    column: $table.hour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get minute => $composableBuilder(
+    column: $table.minute,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReminderPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReminderPreferencesTable> {
+  $$ReminderPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hour => $composableBuilder(
+    column: $table.hour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get minute => $composableBuilder(
+    column: $table.minute,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReminderPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReminderPreferencesTable> {
+  $$ReminderPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<int> get hour =>
+      $composableBuilder(column: $table.hour, builder: (column) => column);
+
+  GeneratedColumn<int> get minute =>
+      $composableBuilder(column: $table.minute, builder: (column) => column);
+}
+
+class $$ReminderPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReminderPreferencesTable,
+          ReminderPreference,
+          $$ReminderPreferencesTableFilterComposer,
+          $$ReminderPreferencesTableOrderingComposer,
+          $$ReminderPreferencesTableAnnotationComposer,
+          $$ReminderPreferencesTableCreateCompanionBuilder,
+          $$ReminderPreferencesTableUpdateCompanionBuilder,
+          (
+            ReminderPreference,
+            BaseReferences<
+              _$AppDatabase,
+              $ReminderPreferencesTable,
+              ReminderPreference
+            >,
+          ),
+          ReminderPreference,
+          PrefetchHooks Function()
+        > {
+  $$ReminderPreferencesTableTableManager(
+    _$AppDatabase db,
+    $ReminderPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReminderPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReminderPreferencesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ReminderPreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<int> hour = const Value.absent(),
+                Value<int> minute = const Value.absent(),
+              }) => ReminderPreferencesCompanion(
+                id: id,
+                enabled: enabled,
+                hour: hour,
+                minute: minute,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required bool enabled,
+                required int hour,
+                required int minute,
+              }) => ReminderPreferencesCompanion.insert(
+                id: id,
+                enabled: enabled,
+                hour: hour,
+                minute: minute,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ReminderPreferencesTable, ReminderPreference>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ReminderPreferencesTable,
+                    ReminderPreference
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReminderPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReminderPreferencesTable,
+      ReminderPreference,
+      $$ReminderPreferencesTableFilterComposer,
+      $$ReminderPreferencesTableOrderingComposer,
+      $$ReminderPreferencesTableAnnotationComposer,
+      $$ReminderPreferencesTableCreateCompanionBuilder,
+      $$ReminderPreferencesTableUpdateCompanionBuilder,
+      (
+        ReminderPreference,
+        BaseReferences<
+          _$AppDatabase,
+          $ReminderPreferencesTable,
+          ReminderPreference
+        >,
+      ),
+      ReminderPreference,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1544,4 +2046,6 @@ class $AppDatabaseManager {
       $$OnboardingCompletionsTableTableManager(_db, _db.onboardingCompletions);
   $$HealthRecordsTableTableManager get healthRecords =>
       $$HealthRecordsTableTableManager(_db, _db.healthRecords);
+  $$ReminderPreferencesTableTableManager get reminderPreferences =>
+      $$ReminderPreferencesTableTableManager(_db, _db.reminderPreferences);
 }

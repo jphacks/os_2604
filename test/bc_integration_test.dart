@@ -9,6 +9,7 @@ import 'package:os_2604/services/db/health_record_store.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
 
 import 'support/fake_scan.dart';
+import 'support/fake_reminder.dart';
 
 class _Onboarding implements OnboardingStore {
   @override
@@ -42,6 +43,8 @@ void main() {
         onboardingStore: _Onboarding(),
         repository: repo,
         aiRunner: runnerOf(FakeAiClient()),
+        reminderService: FakeReminderService(),
+        reminderStore: FakeReminderStore(),
         createScanSession: () => sessionOf(scan),
       ),
     );
