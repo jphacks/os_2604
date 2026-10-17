@@ -4,6 +4,7 @@ import 'dart:math';
 
 import '../../models/health_check_result.dart';
 import '../../models/scan_contract.dart';
+import 'experimental_face_signals.dart';
 import 'scan_configuration.dart';
 import 'scan_frame_source.dart';
 import 'scan_permission_gate.dart';
@@ -11,13 +12,18 @@ import 'scan_permission_gate.dart';
 /// Owns the only measurement clock. B observes progress and persists success.
 class HealthScanController implements HealthScanService {
   HealthScanController({
-    required this._source,
-    required this._configuration,
-    this._permissionGate,
+    required ScanFrameSource source,
+    required ScanConfiguration configuration,
+    ScanPermissionGate? permissionGate,
     Duration Function()? monotonicNow,
     DateTime Function()? wallNow,
     String Function()? createId,
-  }) {
+    // ignore: prefer_initializing_formals
+  }) : _source = source,
+       // ignore: prefer_initializing_formals
+       _configuration = configuration,
+       // ignore: prefer_initializing_formals
+       _permissionGate = permissionGate {
     final stopwatch = Stopwatch()..start();
     _now = monotonicNow ?? () => stopwatch.elapsed;
     _wallNow = wallNow ?? DateTime.now;
@@ -45,6 +51,12 @@ class HealthScanController implements HealthScanService {
   Duration? _stableSince;
   Duration? _measurementStart;
   DateTime? _measuredAt;
+  final List<TimedFaceRgbSample> _experimentalSamples = [];
+  ExperimentalFaceSignalEvaluation? _lastExperimentalEvaluation;
+
+  /// Latest P2 experimental evaluation from a completed scan, if enabled.
+  ExperimentalFaceSignalEvaluation? get lastExperimentalEvaluation =>
+      _lastExperimentalEvaluation;
 
   @override
   ScanProgress get currentProgress => _current;
@@ -75,6 +87,8 @@ class HealthScanController implements HealthScanService {
     _measurementStart = null;
     _measuredAt = null;
     _finishing = null;
+    _experimentalSamples.clear();
+    _lastExperimentalEvaluation = null;
     _emit(
       ScanProgress(
         phase: _permissionGate == null
@@ -172,12 +186,14 @@ class HealthScanController implements HealthScanService {
       if (captured - stable >= _configuration.preparationStability) {
         _measurementStart = captured;
         _measuredAt = _wallNow().subtract(now - captured);
+        _recordExperimentalObservation(observation);
         _emit(const ScanProgress(phase: ScanPhase.measuring));
       } else {
         _emit(const ScanProgress(phase: ScanPhase.preparing));
       }
       return;
     }
+    _recordExperimentalObservation(observation);
     final elapsed = captured - started;
     if (elapsed >= HealthCheckResult.targetDuration) {
       final measuredAt = _measuredAt;
@@ -186,12 +202,26 @@ class HealthScanController implements HealthScanService {
         return;
       }
       try {
+        final experimentalConfig = _configuration.experimentalSignals;
+        final evaluation = experimentalConfig == null
+            ? null
+            : evaluateExperimentalFaceSignals(
+                List<TimedFaceRgbSample>.unmodifiable(_experimentalSamples),
+                experimentalConfig,
+              );
+        _lastExperimentalEvaluation = evaluation;
+        final heartRate = evaluation?.estimatedHeartRateBpm;
         final record = HealthCheckResult(
           id: _createId(),
           measuredAt: measuredAt,
           elapsed: elapsed,
           faceDetected: true,
           quality: MeasurementQuality.good,
+          estimatedHeartRateBpm: heartRate,
+          heartRateSource: heartRate == null
+              ? HeartRateSource.none
+              : HeartRateSource.rppgExperimental,
+          faceColorFeature: evaluation?.faceColorFeature,
         );
         unawaited(_finish(ScanSuccess(record)));
       } on Object {
@@ -199,6 +229,29 @@ class HealthScanController implements HealthScanService {
       }
     } else {
       _emit(ScanProgress(phase: ScanPhase.measuring, elapsed: elapsed));
+    }
+  }
+
+  void _recordExperimentalObservation(ScanObservation observation) {
+    final started = _measurementStart;
+    if (_configuration.experimentalSignals == null || started == null) return;
+    if (observation.rgbSamples.isNotEmpty) {
+      for (final item in observation.rgbSamples) {
+        if (item.capturedAt < started) continue;
+        if (_experimentalSamples.isEmpty ||
+            item.capturedAt > _experimentalSamples.last.capturedAt) {
+          _experimentalSamples.add(item);
+        }
+      }
+      return;
+    }
+    final sample = observation.rgbSample;
+    if (sample == null || observation.capturedAt < started) return;
+    if (_experimentalSamples.isEmpty ||
+        observation.capturedAt > _experimentalSamples.last.capturedAt) {
+      _experimentalSamples.add(
+        TimedFaceRgbSample(capturedAt: observation.capturedAt, sample: sample),
+      );
     }
   }
 
@@ -242,6 +295,10 @@ class HealthScanController implements HealthScanService {
     _permissionGate?.cancel();
     _timer?.cancel();
     _timer = null;
+    _experimentalSamples.clear();
+    if (outcome is ScanFailure) {
+      _lastExperimentalEvaluation = null;
+    }
     final result = _result;
     final elapsed = _elapsed();
     final launch = _launch;
@@ -268,6 +325,7 @@ class HealthScanController implements HealthScanService {
             ScanProgress(phase: ScanPhase.completed, elapsed: result.elapsed),
           );
         case ScanFailure(:final reason, :final elapsed):
+          _lastExperimentalEvaluation = null;
           _emit(
             ScanProgress(
               phase: ScanPhase.failed,

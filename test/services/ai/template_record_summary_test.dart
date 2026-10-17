@@ -11,6 +11,7 @@ void main() {
     int? condition,
     double? rate,
     HeartRateSource heartSource = HeartRateSource.none,
+    double? faceColorFeature,
     double? temperature,
     TemperatureSource temperatureSource = TemperatureSource.none,
   }) => HealthCheckResult(
@@ -24,6 +25,7 @@ void main() {
     selfCondition: condition,
     estimatedHeartRateBpm: rate,
     heartRateSource: heartSource,
+    faceColorFeature: faceColorFeature,
     bodyTemperatureC: temperature,
     temperatureSource: temperatureSource,
   );
@@ -183,6 +185,25 @@ void main() {
     expect(
       unentered,
       contains('過去比較：直近7日間（今日を除く）の体調の中央値 3.5 / 5（有効記録 4件、今回の体調：未入力）'),
+    );
+  });
+
+  test('experimental face color formatting is explicit and separated from normal report', () {
+    expect(summary.formatExperimentalFaceColor(record()), '顔色特徴量：未測定');
+    final withColor = record(faceColorFeature: 0.4512);
+    expect(summary.format(withColor), isNot(contains('0.4512')));
+    final colorText = summary.formatExperimentalFaceColor(withColor);
+    expect(colorText, contains('0.4512'));
+    expect(colorText, contains('実験値'));
+    expect(colorText, contains('診断値ではありません'));
+
+    final poorColor = record(
+      quality: MeasurementQuality.poor,
+      faceColorFeature: 0.4512,
+    );
+    expect(
+      summary.formatExperimentalFaceColor(poorColor),
+      contains('顔色特徴量：非表示'),
     );
   });
 }

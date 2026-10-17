@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import 'app.dart';
 import 'features/scan/camera_scan_service.dart';
+import 'features/scan/scan_configuration.dart';
 import 'screens/scan_screen.dart';
 import 'services/ai/foundation_models_client.dart';
 import 'services/ai/on_device_ai_runner.dart';
@@ -41,7 +42,9 @@ class _DatabaseHostState extends State<_DatabaseHost> {
   );
 
   static ScanSession _createSession() {
-    final service = CameraScanService();
+    final service = CameraScanService(
+      configuration: ScanConfiguration.day1Experimental(),
+    );
     return (service: service, preview: service.preview);
   }
 

@@ -1,5 +1,20 @@
 # C担当：計測APIとBへの組み込み手順
 
+## 2026-10-17 P2（30fps分離RGBサンプリング・顔色特徴量・rPPG）とB/P1統合
+
+`origin/c`（`0e3d79a`：BのSQLite/Drift DB・結果/履歴画面・カメラ起点タブUI・P1のSwift Foundation Modelsブリッジ統合済み）をベースに、P2実験機能（顔色特徴量・rPPG心拍推定）および顔検出間引きと分離した30fps高フレームレートRGBサンプリングを統合した。
+
+1. **顔検出の間引き（180ms）と分離した30fps RGBサンプリング（`lib/features/scan/ios_camera_frame_source.dart` / `experimental_face_signals.dart`）**：
+   - `google_mlkit_face_detection`（`FaceDetectorMode.accurate`）がiOSメインスレッドでフル解像度（`1280x720`）のBGRAバッファ複製・`CGImage`変換を行うことによる約6fpsへの低下を解消するため、顔検出の実行間隔を `faceDetectionInterval: 180ms`（約5.5Hz、`maxObservationGap: 500ms` に対して十分な余裕）に間引き、さらに顔検出用の一時バッファのみ `faceDetectionDownsampleFactor: 4`（`320x180`、メモリ量1/16）に縮小してML Kitへ渡すよう改善した。
+   - ML Kit推論中（`_busy`）や間引き間隔内のカメラフレーム（約30fps）も破棄せず、直近の有効な安定化済み顔枠（`stabilizeFaceRegion`：3%デッドバンドで1〜3pxの検出揺れを抑制）の内側皮膚領域（`extractSkinRoiRegion`：横25%〜75%・縦20%〜80%）からフル解像度BGRAバッファのRGB平均をDart側で即座にサンプリングし、`ScanObservation.rgbSamples` として時系列順に `HealthScanController` へ引き渡す。
+   - P2有効時はカメラ初期化時にベストエフォートで `ExposureMode.locked` を設定し、15秒計測中の自動露出ハンティングによる輝度変動を抑制する。
+2. **P0/P1保護とフォールバック**：
+   - `ScanConfiguration.day1Trial()` は既定で `experimentalSignals: null` を維持。実機統合エントリ（`lib/main.dart`）では `ScanConfiguration.day1Experimental()` を使用し、15秒の有効計測完了時にのみ `evaluateExperimentalFaceSignals` を評価する。
+   - 光量不安定・サンプル数不足（`minRppgSamples: 120` 未満）・フレーム欠落・スペクトルSNR不足（`minPeakPowerRatio: 0.24` / `minProminenceRatio: 1.45` 未満）のときはダミー値を入れず `null`（`HeartRateSource.none` / UI表示「未測定」）へ安全にフォールバックし、P0の15秒計測自体は失敗させない。
+3. **B担当DB・画面およびP1 Swift Foundation Modelsとの統合検証**：
+   - `test/bc_integration_test.dart` にP2推定値（`estimatedHeartRateBpm` / `HeartRateSource.rppgExperimental` / `faceColorFeature`）のDB即時保存、`ResultScreen`・`HistoryScreen` 表示、および `OnDeviceAiRunner`（`ReportMode.onDevice`）レポート生成までの一気通貫テストを追加し、全274テスト成功・`flutter analyze` 指摘なしを確認。
+   - 実機 iPhone 17（`00008150-000268A03EC2401C`、iOS 27.0.1）へ `--release` ビルドを導入し、Apple Watch との同時比較測定およびB担当DB保存・レポート作成・履歴保存までの通し確認を完了（従来の約6fps同期検出での `null` フォールバックが解消され、30fps分離RGBサンプリングにより `minRppgSamples: 120` とスペクトル品質基準を満たして基準心拍計と概ね数bpm差の範囲で推定値が表示されること、ならびにレポートの作成・保存が正常動作することを実機で確認。プライバシー方針に従い個人の測定実数値はリポジトリに記録しない）。
+
 ## 2026-10-17 cブランチの追加修正
 
 最新main `0e4b1ff`を取り込み、`CameraScanService`の開始前にiOSカメラ権限の確認を追加した。`ios/Runner/AppDelegate.swift`に`jp.jphacks.os_2604/camera_permission`チャネルの`requestCameraPermission`を登録する。これはアプリ独自のチャネル名で、AppleのAPI名ではない。依存追加・権限用途文・音声権限の変更はない。

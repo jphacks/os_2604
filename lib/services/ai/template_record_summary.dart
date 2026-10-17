@@ -79,6 +79,17 @@ class TemplateRecordSummary {
     TemperatureSource.none => '出典なし', // Rejected for non-null temperatures.
   };
 
+  /// Formats P2 experimental facial color feature for verification mode only.
+  /// Never included in standard health judgment or P0/P1 [formatRecord] text.
+  String formatExperimentalFaceColor(HealthCheckResult scan) {
+    if (scan.quality != MeasurementQuality.good) {
+      return '顔色特徴量：非表示（撮影品質が不足、または撮影が中断されました）';
+    }
+    final feature = scan.faceColorFeature;
+    if (feature == null) return '顔色特徴量：未測定';
+    return '顔色特徴量：${_number(feature)}（正規化赤み比・実験値。診断値ではありません）';
+  }
+
   // Preserve recorded precision; do not round, estimate or fill missing values.
   String _number(double value) {
     final text = value.toString();
