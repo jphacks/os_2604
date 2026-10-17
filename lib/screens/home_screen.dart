@@ -10,12 +10,14 @@ class HomeScreen extends StatelessWidget {
     super.key,
     required this.repository,
     this.now = DateTime.now,
+    this.showTabBar = true,
     required this.onStartCheck,
     required this.onOpenHistory,
     required this.onOpenSettings,
     this.onShowExplanation,
   });
 
+  final bool showTabBar;
   final HealthRecordRepository repository;
   final DateTime Function() now;
   final VoidCallback onStartCheck;
@@ -34,10 +36,9 @@ class HomeScreen extends StatelessWidget {
         title: const Text('あさかお'),
         centerTitle: true,
       ),
-      bottomNavigationBar: CameraTabBar(
-        onHistory: onOpenHistory,
-        onSettings: onOpenSettings,
-      ),
+      bottomNavigationBar: showTabBar
+          ? CameraTabBar(onHistory: onOpenHistory, onSettings: onOpenSettings)
+          : null,
       body: SafeArea(
         bottom: false,
         child: Center(

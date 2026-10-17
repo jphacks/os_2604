@@ -6,10 +6,14 @@ import 'package:flutter/services.dart';
 class CameraTabBar extends StatefulWidget {
   const CameraTabBar({
     super.key,
+    this.selectedIndex = 1,
+    this.onCamera,
     required this.onHistory,
     required this.onSettings,
   });
 
+  final int selectedIndex;
+  final VoidCallback? onCamera;
   final VoidCallback onHistory;
   final VoidCallback onSettings;
 
@@ -28,10 +32,26 @@ class _CameraTabBarState extends State<CameraTabBar> {
       switch (call.arguments) {
         case 0:
           widget.onHistory();
+        case 1:
+          widget.onCamera?.call();
         case 2:
           widget.onSettings();
       }
     });
+    _syncSelection();
+  }
+
+  Future<void> _syncSelection() async {
+    await _channel?.invokeMethod<void>(
+      'setSelectedIndex',
+      widget.selectedIndex,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant CameraTabBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) _syncSelection();
   }
 
   @override
@@ -60,35 +80,58 @@ class _CameraTabBarState extends State<CameraTabBar> {
                     horizontal: 12,
                     vertical: 4,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton.icon(
-                        onPressed: widget.onHistory,
-                        icon: const Icon(Icons.calendar_month_outlined),
-                        label: const Text('履歴'),
-                      ),
-                      Semantics(
-                        selected: true,
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Icon(
-                            Icons.camera_alt_outlined,
-                            semanticLabel: 'カメラ',
-                            size: 30,
-                          ),
+                  child: SizedBox(
+                    width: 280,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _tab(
+                          0,
+                          '履歴',
+                          Icons.calendar_month_outlined,
+                          widget.onHistory,
                         ),
-                      ),
-                      TextButton.icon(
-                        onPressed: widget.onSettings,
-                        icon: const Icon(Icons.settings_outlined),
-                        label: const Text('設定'),
-                      ),
-                    ],
+                        _tab(
+                          1,
+                          'カメラ',
+                          Icons.camera_alt_outlined,
+                          widget.onCamera ?? () {},
+                        ),
+                        _tab(
+                          2,
+                          '設定',
+                          Icons.settings_outlined,
+                          widget.onSettings,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
     ),
   );
+  Widget _tab(int index, String label, IconData icon, VoidCallback action) =>
+      Expanded(
+        child: Semantics(
+          selected: widget.selectedIndex == index,
+          child: TextButton(
+            key: ValueKey('main-tab-$index'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              backgroundColor: widget.selectedIndex == index
+                  ? const Color(0xFFFFE7D9)
+                  : Colors.transparent,
+            ),
+            onPressed: action,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 22),
+                Text(label, style: const TextStyle(fontSize: 11)),
+              ],
+            ),
+          ),
+        ),
+      );
 }

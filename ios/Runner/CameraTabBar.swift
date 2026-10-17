@@ -19,23 +19,45 @@ final class CameraTabBarFactory: NSObject, FlutterPlatformViewFactory {
 private final class CameraTabBarPlatformView: NSObject, FlutterPlatformView {
   // Retain the controller for as long as Flutter owns this platform view.
   private let controller: UIHostingController<CameraTabs>
+  private let channel: FlutterMethodChannel
 
   init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger) {
+    let selection = CameraTabSelection()
     let channel = FlutterMethodChannel(name: "os2604/camera-tabs/\(viewId)", binaryMessenger: messenger)
-    controller = UIHostingController(rootView: CameraTabs { index in
+    self.channel = channel
+    controller = UIHostingController(rootView: CameraTabs(selection: selection) { index in
       channel.invokeMethod("selectTab", arguments: index)
     })
     super.init()
+    channel.setMethodCallHandler { [weak selection] call, result in
+      guard call.method == "setSelectedIndex" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard let index = call.arguments as? Int, (0...2).contains(index) else {
+        result(FlutterError(code: "invalid_tab", message: "Invalid tab index", details: nil))
+        return
+      }
+      selection?.index = index
+      result(nil)
+    }
     controller.view.backgroundColor = .clear
     controller.view.isOpaque = false
     controller.view.frame = frame
     controller.view.accessibilityIdentifier = "camera-tab-bar"
   }
 
+  deinit { channel.setMethodCallHandler(nil) }
+
   func view() -> UIView { controller.view }
 }
 
+private final class CameraTabSelection: ObservableObject {
+  @Published var index = 1
+}
+
 private struct CameraTabs: View {
+  @ObservedObject var selection: CameraTabSelection
   let onSelect: (Int) -> Void
   private let accent = Color(red: 0.64, green: 0.31, blue: 0.16)
 
@@ -74,9 +96,9 @@ private struct CameraTabs: View {
           .font(.caption2)
       }
       .frame(minWidth: 52, minHeight: 48)
-      .foregroundStyle(index == 1 ? accent : Color.primary)
+      .foregroundStyle(index == selection.index ? accent : Color.primary)
       .background {
-        if index == 1 {
+        if index == selection.index {
           Capsule().fill(accent.opacity(0.12))
         }
       }
@@ -84,6 +106,6 @@ private struct CameraTabs: View {
     }
     .buttonStyle(.plain)
     .accessibilityLabel(title)
-    .accessibilityAddTraits(index == 1 ? [.isSelected] : [])
+    .accessibilityAddTraits(index == selection.index ? [.isSelected] : [])
   }
 }

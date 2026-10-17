@@ -8,7 +8,10 @@
 - 変更：lib/screens/home_screen.dart、lib/widgets/camera_tab_bar.dart、ios/Runner/CameraTabBar.swift、AppDelegate.swift、Runner.xcodeproj。Cの計測・AI内部、DB、通知のロジックは変更なし。
 - 確認：整形65ファイル変更なし、flutter analyze指摘なし、全237テスト成功（画面遷移・小画面／文字拡大含む）、署名付きiOS Releaseビルド成功60.5MB。
 - iPhone 15 / iOS 26.6.2へインストール・起動成功。ネイティブメニューの見た目・タップのユーザー確認は未実施。iPhone17も未確認。
-- 次：実機で下部メニューの表示・履歴／設定へ移動・戻る・チェック開始を確認し、Aのデザインに合わせて調整。mainへは未マージ。
+- 追加変更：ユーザー要望によりMainTabsScreen + IndexedStackへ変更。履歴／カメラ／設定を経路pushせず即座に切り替え、下部メニューを常時表示。履歴・設定のタブ内では戻る矢印を非表示。既存の単独ルートは互換性のため維持。
+- SwiftUI側はObservableObjectに選択タブを保持し、MethodChannelでFlutterの選択状態と同期。Flutter代替メニューも3タブすべて選択可能。
+- タブ切替・選択表示・戻る矢印なしを既存の画面遷移テストで確認。追加変更後も全237テスト成功、静的解析指摘なし。
+- タブ切替版もiOS Releaseビルド成功（60.5MB）、iPhone 15へインストール成功。実機のタブ操作はユーザー確認待ち。mainへは未マージ。
 
 ## 以下は前回の確認記録
 

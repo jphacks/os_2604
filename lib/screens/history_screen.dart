@@ -11,7 +11,9 @@ class HistoryScreen extends StatefulWidget {
     super.key,
     required this.store,
     this.now = DateTime.now,
+    this.embedded = false,
   });
+  final bool embedded;
   final HealthRecordStore store;
 
   /// 基準値の期間（今日を除く直近7日）の起点。テストでは固定時刻を渡す。
@@ -65,7 +67,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('履歴')),
+    appBar: AppBar(
+      title: const Text('履歴'),
+      automaticallyImplyLeading: !widget.embedded,
+    ),
     body: StreamBuilder<List<HealthCheckResult>>(
       stream: _records,
       builder: (context, snapshot) {
