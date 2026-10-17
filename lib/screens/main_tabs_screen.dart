@@ -4,6 +4,7 @@ import '../services/db/health_record_repository.dart';
 import '../services/notifications/daily_reminder_service.dart';
 import '../services/settings/reminder_settings_store.dart';
 import '../widgets/camera_tab_bar.dart';
+import '../ui/asakao_style.dart';
 import 'history_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
@@ -42,6 +43,8 @@ class _MainTabsScreenState extends State<MainTabsScreen> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: _selected == 1
         ? const Color(0xFFFFFDFC)
+        : _selected == 0
+        ? AsakaoStyle.background
         : Theme.of(context).scaffoldBackgroundColor,
     body: IndexedStack(
       index: _selected,
@@ -50,6 +53,7 @@ class _MainTabsScreenState extends State<MainTabsScreen> {
           store: widget.repository,
           now: widget.now,
           embedded: true,
+          onStartCheck: widget.onStartCheck,
         ),
         HomeScreen(
           repository: widget.repository,
