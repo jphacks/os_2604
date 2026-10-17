@@ -23,12 +23,20 @@ flutter devices
 
 - 署名：Git除外の `ios/Flutter/LocalSigning.xcconfig` を使う（Debug/Releaseのxcconfigが任意includeする）。自分の署名設定をここに置く。値はGitに入れない。
 - STATE記載の環境：Flutter 3.47.7 stable / Dart 3.13.5。ShiFtは署名付きReleaseビルド後、`devicectl` でインストール・起動した（bundle ID `com.example.os2604`）。
-- 上記のReleaseビルド／`devicectl` の**具体的なコマンド行はREADME・STATEに記載がない**。**要確認**（ShiFtに実際のコマンドを聞いてここへ追記）。`tool/flutter_with_xcode.sh` は `flutter` をXcode指定付きで呼ぶラッパー（`xcode-select` は変更しない）。
+- 統合版で実行したReleaseビルド／インストール／起動の手順は以下。`<DEVICE_ID>` は `flutter devices` で確認した端末IDに置き換える。
+
+```sh
+sh tool/flutter_with_xcode.sh build ios --release
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun devicectl device install app --device <DEVICE_ID> build/ios/iphoneos/Runner.app
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun devicectl device process launch --device <DEVICE_ID> com.example.os2604
+```
+
+署名設定済みのローカル環境で実行する。`tool/flutter_with_xcode.sh` は `flutter` をXcode指定付きで呼ぶラッパー（`xcode-select` は変更しない）。
 - STATEの環境メモ（ShiFt環境）：SDK `/private/tmp/os2604-c-flutter`、`PUB_CACHE=/private/tmp/os2604-c-dart/pub-cache`、CocoaPods 1.16.2は `/private/tmp/os2604-c-gems`（`GEM_HOME`/`GEM_PATH`、`RUBYOPT=-rlogger`、binをPATHへ）。自分の環境では不要な場合がある。
 
 ### 当日のチェックリスト
 
-- [ ] 通知追加後は `pod install`（または iOS ビルド）が必要（未実行）。Macのディスク空きが少ないとビルドが失敗するので、事前に空きを確保する
+- [ ] 通知追加後の iOS Releaseビルド（内部で `pod install`）は成功済み。依存変更後は再ビルドする。Macのディスク空きが少ないとビルドが失敗するので、事前に空きを確保する
 - [ ] Macの空き容量を確認（ビルド・インストールで不足しやすい。足りなければ不要なものを消す前にチームへ共有）
 - [ ] 端末の機種・iOSバージョンを記録する（本書の受け入れ試験表に記入）
 - [ ] 端末のロックを解除し、画面の自動ロックまでに時間がある状態にする
@@ -69,7 +77,7 @@ flutter devices
 11. **設定**：ホームの「設定」。期待：「毎朝の通知」スイッチ（初期はオフ）と「通知時刻」（HH:mm、オフの間は押せない）、「すべての健康記録を削除」、「このアプリは診断目的ではありません」。
     - 通知をオンにすると iOS の許可ダイアログが出る。許可で「毎朝 HH:mm にお知らせします」、拒否だとオフのまま「通知が許可されていません。設定アプリから許可できます。」。設定に失敗した場合は「通知を設定できませんでした（設定は変更されていません）」。オフにすると「毎朝の通知をオフにしました」。
     - 通知内容：タイトル「15秒チェック」、本文「おはようございます。今日の記録をつけましょう。」。タップでアプリが開く。
-    - 通知は実装済みだが実機で未確認（下記6参照）。
+    - iPhone 15 / iOS 26.6.2 で通知の到着をユーザー確認済み。時刻変更・取消・タップ起動・翌日の繰り返しは個別確認待ち。
 
 ## 4. 失敗系デモ（任意）
 
@@ -83,7 +91,7 @@ flutter devices
 
 ## 5. 受け入れ試験チェック表
 
-「結果」「確認者」「日時」は実施時に記入。STATEで実機確認済みと明記されているのは「15秒計測→結果→再起動後の履歴保持」のみ（ユーザーが確認）。それ以外は**未確認**として空欄。
+「結果」「確認者」「日時」は実施時に記入。通常計測・再起動後の履歴保持に加え、iPhone 15 / iOS 26.6.2 で通知到着をユーザー確認済み。複数操作を含む試験は一部確認だけで全体合格にしない。
 
 | ID | 手順 | 期待結果 | 結果 | 確認者 | 日時 |
 | --- | --- | --- | --- | --- | --- |
@@ -109,7 +117,7 @@ flutter devices
 - **心拍**：現状は未実装で値はnull、画面は「未測定」。「心拍を測れる」と言わない（将来出る場合も「試験的な推定値」）。
 - **体温**：カメラでは測っていない。入力は外部体温計の手入力。
 - **AI**：Swiftブリッジ未実装のため、現状のレポートは常に定型文。「AIが分析した」と言わない。AI実機動作は未確認。
-- **通知（B-05）**：実装済みだが実機では未確認（許可ダイアログ・設定時刻の配信・毎日の繰り返し・タップ起動・iOS/Androidのネイティブビルドはいずれも未検証）。T08で配信を確認するまで「確認済み」「動作する」と言わない。
+- **通知（B-05）**：iOSネイティブビルド成功、iPhone 15で通知到着をユーザー確認済み。時刻変更・取消・毎日の繰り返し・タップ起動、Androidは未確認。T08全体の合格とは区別する。
 - STATE上の未確認：権限拒否・暗所・計測中の顔外れ・アプリ離脱・削除・機内モードの実機試験、Swift AIの実機動作。表の空欄を埋めるまで「確認済み」と言わない。
 - 画像・動画は保存されない。健康記録は端末内にのみ保存される（外部送信なし）。
 
