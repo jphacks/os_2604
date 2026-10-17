@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/scan_screen.dart';
+import 'services/ai/on_device_ai_runner.dart';
 import 'services/db/health_record_repository.dart';
 import 'services/settings/onboarding_store.dart';
 import 'widgets/onboarding_gate.dart';
@@ -16,11 +17,13 @@ class MorningCheckApp extends StatelessWidget {
     super.key,
     required this.onboardingStore,
     required this.repository,
+    required this.aiRunner,
     required this.createScanSession,
   });
 
   final OnboardingStore onboardingStore;
   final HealthRecordRepository repository;
+  final OnDeviceAiRunner aiRunner;
 
   /// 撮影画面ごとに1回呼ばれる。本番は CameraScanService、テストは偽物を返す。
   final ScanSession Function() createScanSession;
@@ -59,6 +62,7 @@ class MorningCheckApp extends StatelessWidget {
           final id = ModalRoute.of(context)?.settings.arguments;
           return ResultScreen(
             repository: repository,
+            aiRunner: aiRunner,
             recordId: id is String ? id : null,
             onBackToHome: () =>
                 Navigator.of(context)

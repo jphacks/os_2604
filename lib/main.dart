@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'app.dart';
 import 'features/scan/camera_scan_service.dart';
 import 'screens/scan_screen.dart';
+import 'services/ai/foundation_models_client.dart';
+import 'services/ai/on_device_ai_runner.dart';
 import 'services/db/app_database.dart';
 import 'services/db/health_record_repository.dart';
 
@@ -27,6 +29,11 @@ class _DatabaseHostState extends State<_DatabaseHost> {
     _database,
   );
 
+  final OnDeviceAiRunner _aiRunner = OnDeviceAiRunner(
+    client: const FoundationModelsClient(),
+    timeout: const Duration(seconds: 10),
+  );
+
   static ScanSession _createSession() {
     final service = CameraScanService();
     return (service: service, preview: service.preview);
@@ -36,11 +43,13 @@ class _DatabaseHostState extends State<_DatabaseHost> {
   Widget build(BuildContext context) => MorningCheckApp(
     onboardingStore: _store,
     repository: _repository,
+    aiRunner: _aiRunner,
     createScanSession: _createSession,
   );
 
   @override
   void dispose() {
+    _aiRunner.dispose();
     unawaited(_database.close());
     super.dispose();
   }

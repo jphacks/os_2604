@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/models/scan_contract.dart';
 import 'package:os_2604/screens/scan_screen.dart';
+import 'package:os_2604/services/ai/on_device_ai_client.dart';
+import 'package:os_2604/services/ai/on_device_ai_runner.dart';
 import 'package:os_2604/services/db/health_record_repository.dart';
 
 class FakeScanService implements HealthScanService {
@@ -55,6 +57,7 @@ class FlakyRepository extends HealthRecordRepository {
   FlakyRepository(super.database);
   bool failInsert = false;
   bool failUpdate = false;
+  bool failReport = false;
 
   @override
   Future<void> insert(HealthCheckResult result) async {
@@ -77,7 +80,43 @@ class FlakyRepository extends HealthRecordRepository {
     if (failUpdate) throw StateError('update failed');
     return super.updateTemperature(id, celsius, source);
   }
+
+  @override
+  Future<void> updateReport(String id, String text, ReportMode mode) async {
+    if (failReport) throw StateError('report failed');
+    return super.updateReport(id, text, mode);
+  }
 }
+
+class FakeAiClient implements OnDeviceAiClient {
+  AiAvailability availability = AiAvailability.bridgeUnavailable;
+  String response = 'reviewRecord';
+  Completer<String>? generationGate;
+  int generations = 0;
+  String? prompt;
+  final cancellations = <String>[];
+
+  @override
+  Future<AiAvailability> checkAvailability() async => availability;
+
+  @override
+  Future<String> generateReflection({
+    required String requestId,
+    required String instructions,
+    required String prompt,
+  }) async {
+    generations++;
+    this.prompt = prompt;
+    return generationGate?.future ?? response;
+  }
+
+  @override
+  Future<void> cancelGeneration(String requestId) async =>
+      cancellations.add(requestId);
+}
+
+OnDeviceAiRunner runnerOf(FakeAiClient c) =>
+    OnDeviceAiRunner(client: c, timeout: const Duration(seconds: 10));
 
 ScanSession sessionOf(FakeScanService s) =>
     (service: s, preview: ValueNotifier(null));
