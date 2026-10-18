@@ -7,6 +7,10 @@ import '../services/analysis/history_baseline.dart';
 import '../services/db/health_record_repository.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
+import '../services/device/environment_save_service.dart';
+import '../widgets/environment_view.dart';
+import '../services/device/led_notification_service.dart';
+import '../widgets/led_kit_controls.dart';
 
 /// 保存済みの記録を表示し、体調・体温を同一IDへ任意で追記する。
 class ResultScreen extends StatefulWidget {
@@ -16,6 +20,8 @@ class ResultScreen extends StatefulWidget {
     required this.aiRunner,
     required this.recordId,
     required this.onBackToHome,
+    this.ledService,
+    this.environmentSaves,
   });
 
   final HealthRecordRepository repository;
@@ -24,6 +30,8 @@ class ResultScreen extends StatefulWidget {
   final OnDeviceAiRunner aiRunner;
   final String? recordId;
   final VoidCallback onBackToHome;
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? environmentSaves;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -181,6 +189,7 @@ class _ResultScreenState extends State<ResultScreen> {
         elapsed: current.elapsed,
         faceDetected: current.faceDetected,
         quality: current.quality,
+        scanMode: current.scanMode,
         estimatedHeartRateBpm: current.estimatedHeartRateBpm,
         heartRateSource: current.heartRateSource,
         faceColorFeature: current.faceColorFeature,
@@ -269,6 +278,15 @@ class _ResultScreenState extends State<ResultScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('記録は保存されました。'),
+        if (widget.ledService case final service?) ...[
+          const SizedBox(height: 8),
+          Text(
+            '現在のキット接続・LED状態',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          LedKitStatus(service: service),
+          const Text('下の環境情報は、計測終了時に保存した記録です。'),
+        ],
         const SizedBox(height: 16),
         _row('計測日時', _fmt(r.measuredAt)),
         _row(
@@ -285,6 +303,15 @@ class _ResultScreenState extends State<ResultScreen> {
         ),
         _row('体温', t == null ? '未測定' : '$t ℃（${_source(r.temperatureSource)}）'),
         const Text('体温はカメラで測定していません'),
+        if (widget.environmentSaves case final saves?) ...[
+          const SizedBox(height: 16),
+          SavedEnvironmentView(
+            recordId: r.id,
+            store: saves.store,
+            saves: saves,
+          ),
+          const SizedBox(height: 16),
+        ],
         _row('体調', r.selfCondition == null ? '未測定' : '${r.selfCondition} / 5'),
         const SizedBox(height: 16),
         Text('レポート', style: Theme.of(context).textTheme.titleMedium),

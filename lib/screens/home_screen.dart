@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
+import '../services/device/led_notification_service.dart';
+import '../widgets/environment_view.dart';
 import '../services/db/health_record_repository.dart';
 
 /// ホーム。本日の実施状態と前回結果は保存済みの記録から表示する。
@@ -13,9 +15,11 @@ class HomeScreen extends StatelessWidget {
     required this.onOpenHistory,
     required this.onOpenSettings,
     this.onShowExplanation,
+    this.ledService,
   });
 
   final HealthRecordRepository repository;
+  final LedNotificationService? ledService;
   final DateTime Function() now;
   final VoidCallback onStartCheck;
   final VoidCallback onOpenHistory;
@@ -42,6 +46,10 @@ class HomeScreen extends StatelessWidget {
                 builder: (context, snapshot) => _status(snapshot),
               ),
               const SizedBox(height: 16),
+              if (ledService case final service?) ...[
+                LiveEnvironmentView(service: service),
+                const SizedBox(height: 16),
+              ],
               FilledButton(
                 onPressed: onStartCheck,
                 child: const Text('チェック開始'),

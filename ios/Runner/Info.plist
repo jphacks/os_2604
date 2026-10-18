@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>外部キット付近の室温・湿度を取得し、チェックの保存完了をLEDでお知らせするため、Bluetoothを使用します。</string>
 	<key>NSCameraUsageDescription</key>
 	<string>顔の位置と撮影品質を確認し、15秒のセルフチェックを行うためにカメラを使用します。画像・動画は保存しません。</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

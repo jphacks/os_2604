@@ -14,6 +14,8 @@ import 'services/notifications/daily_reminder_service.dart';
 import 'services/settings/onboarding_store.dart';
 import 'services/settings/reminder_settings_store.dart';
 import 'widgets/onboarding_gate.dart';
+import 'services/device/led_notification_service.dart';
+import 'services/device/environment_save_service.dart';
 
 class MorningCheckApp extends StatelessWidget {
   const MorningCheckApp({
@@ -25,6 +27,8 @@ class MorningCheckApp extends StatelessWidget {
     required this.reminderService,
     required this.reminderStore,
     this.now = DateTime.now,
+    this.ledService,
+    this.environmentSaves,
   });
 
   final OnboardingStore onboardingStore;
@@ -32,6 +36,8 @@ class MorningCheckApp extends StatelessWidget {
   final OnDeviceAiRunner aiRunner;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? environmentSaves;
 
   /// 本日判定・履歴基準値に使う時計。テストでは固定する。
   final DateTime Function() now;
@@ -41,6 +47,7 @@ class MorningCheckApp extends StatelessWidget {
 
   Widget _home(BuildContext context) => HomeScreen(
     repository: repository,
+    ledService: ledService,
     now: now,
     onStartCheck: () => Navigator.of(context).pushNamed(AppRoutes.scan),
     onOpenHistory: () => Navigator.of(context).pushNamed(AppRoutes.history),
@@ -70,6 +77,8 @@ class MorningCheckApp extends StatelessWidget {
         AppRoutes.scan: (_) => ScanScreen(
           repository: repository,
           createSession: createScanSession,
+          ledService: ledService,
+          environmentSaves: environmentSaves,
         ),
         AppRoutes.result: (context) {
           final id = ModalRoute.of(context)?.settings.arguments;
@@ -77,6 +86,8 @@ class MorningCheckApp extends StatelessWidget {
             repository: repository,
             aiRunner: aiRunner,
             recordId: id is String ? id : null,
+            ledService: ledService,
+            environmentSaves: environmentSaves,
             onBackToHome: () =>
                 Navigator.of(context)
                     .popUntil(ModalRoute.withName(AppRoutes.home)),
@@ -87,6 +98,7 @@ class MorningCheckApp extends StatelessWidget {
           repository: repository,
           reminderService: reminderService,
           reminderStore: reminderStore,
+          ledService: ledService,
         ),
       },
     );

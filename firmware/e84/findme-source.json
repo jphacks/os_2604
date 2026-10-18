@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/Infineon/mtb-example-psoc-edge-btstack-findme.git",
+  "tag": "release-v2.3.1",
+  "commit": "ea2a19fa2b1321525f3ae0645ae2fba4f5d64340",
+  "target": "KIT_PSE84_AI",
+  "toolchain": "GCC_ARM",
+  "customFirmwareChanges": false,
+  "hardwareVerified": true,
+  "verificationScope": "User visually confirmed on 2026-10-18: AIROC on/off, app manual 3-second pulse, saved 15-second scan pulse, no pulse on cancelled/invalid scans or result/input updates, power-cycle reconnect, and two offline runs. Forced storage/BLE/AI failures not reproduced on device."
+}

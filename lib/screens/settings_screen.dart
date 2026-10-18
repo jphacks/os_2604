@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../services/db/health_record_repository.dart';
 import '../services/notifications/daily_reminder_service.dart';
 import '../services/settings/reminder_settings_store.dart';
+import '../services/device/led_notification_service.dart';
+import '../widgets/led_kit_controls.dart';
 
 /// 設定。毎朝の通知と健康記録の全削除を提供する。
 class SettingsScreen extends StatefulWidget {
@@ -11,11 +13,13 @@ class SettingsScreen extends StatefulWidget {
     required this.repository,
     required this.reminderService,
     required this.reminderStore,
+    this.ledService,
   });
 
   final HealthRecordRepository repository;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
+  final LedNotificationService? ledService;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -139,6 +143,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            if (widget.ledService case final service?)
+              LedKitControls(service: service),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('毎朝の通知'),
