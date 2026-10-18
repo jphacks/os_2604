@@ -14,6 +14,7 @@ import '../ui/asakao_widgets.dart';
 import '../ui/pachinko_effects.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
+import '../widgets/today_insight_card.dart';
 import '../services/device/environment_save_service.dart';
 import '../services/device/led_notification_service.dart';
 import '../widgets/led_kit_controls.dart';
@@ -559,11 +560,15 @@ class _ResultScreenState extends State<ResultScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        if (baseline != null && baseline.isAccumulating) ...[
-          _baselineCard(baseline),
-          const SizedBox(height: 12),
-        ],
         RecordQualityCard(r),
+        const SizedBox(height: 12),
+        TodayInsightCard(
+          record: r,
+          baseline: baseline,
+          title: DateUtils.isSameDay(r.measuredAt.toLocal(), DateTime.now())
+              ? '今日の気づき'
+              : 'この日の気づき',
+        ),
         const AsakaoSectionLabel('今日の記録'),
         RecordValuesCard(r, conditionDiff: diff),
         ..._kitInformation(),
@@ -585,62 +590,6 @@ class _ResultScreenState extends State<ResultScreen> {
       actions: [
         AsakaoPrimaryButton(label: '履歴に戻る', onPressed: widget.onBackToHome),
       ],
-    );
-  }
-
-  Widget _baselineCard(HistoryBaseline b) {
-    // 体調つきの有効記録が3件そろうと比較を表示する（直近7日・今日を除く）。
-    final n = b.selfConditionCount.clamp(0, 3);
-    return AsakaoCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '基準値を蓄積中',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AsakaoStyle.ink,
-                  ),
-                ),
-              ),
-              Text(
-                '$n / 3',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: AsakaoStyle.link,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              for (var i = 0; i < 3; i++) ...[
-                if (i > 0) const SizedBox(width: 6),
-                Expanded(
-                  child: Container(
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: i < n ? AsakaoStyle.link : AsakaoStyle.disabled,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'あと${3 - n}件、体調つきで記録すると普段との比較を表示します。',
-            style: AsakaoStyle.caption,
-          ),
-        ],
-      ),
     );
   }
 
