@@ -57,30 +57,15 @@ class EnvironmentValues extends StatelessWidget {
 }
 
 class LiveEnvironmentView extends StatelessWidget {
-  const LiveEnvironmentView({
-    super.key,
-    required this.service,
-    this.controls = false,
-  });
+  const LiveEnvironmentView({super.key, required this.service});
   final LedNotificationService service;
-  final bool controls;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: service,
     builder: (context, _) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (controls)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('環境情報を取得する'),
-            subtitle: const Text('前景で取得します。LED連動とは別に利用できます。'),
-            value: service.environmentEnabled,
-            onChanged: service.enableEnvironment,
-          ),
-        EnvironmentValues(snapshot: service.snapshotEnvironment()),
-      ],
+      children: [EnvironmentValues(snapshot: service.snapshotEnvironment())],
     ),
   );
 }

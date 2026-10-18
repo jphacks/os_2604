@@ -15,6 +15,7 @@ import 'about_screen.dart';
 import 'measure_sound_page.dart';
 import 'onboarding_screen.dart';
 import 'reminder_settings_page.dart';
+import 'research_mode_page.dart';
 
 /// 設定。毎朝の通知・このアプリについて・健康記録の全削除を提供する。
 class SettingsScreen extends StatefulWidget {
@@ -42,14 +43,12 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // デザイン 6-1：見出しの下と各グループの間を広めにとる。
-  static const _firstSection = EdgeInsets.fromLTRB(20, 16, 20, 8);
-  static const _section = EdgeInsets.fromLTRB(20, 28, 20, 8);
+  // 見出しは行の文字（20）より少し内側にそろえる。
+  static const _firstSection = EdgeInsets.fromLTRB(28, 16, 28, 4);
+  static const _section = EdgeInsets.fromLTRB(28, 24, 28, 4);
 
   bool _running = false;
   bool? _research;
-  bool _savingMode = false;
-  bool _modeLoadFailed = false;
   ReminderSettings _reminder = const ReminderSettings();
 
   @override
@@ -103,56 +102,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() => _feedback = SoundEffects.settings);
   }
 
-  Widget _switchRow(String title, bool value, ValueChanged<bool> onChanged) =>
-      MergeSemantics(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Row(
-            children: [
-              Expanded(child: Text(title, style: AsakaoStyle.body)),
-              Switch.adaptive(
-                value: value,
-                activeTrackColor: AsakaoStyle.coral,
-                onChanged: _savingFeedback ? null : onChanged,
-              ),
-            ],
-          ),
-        ),
-      );
-
+  /// 行に出す現在の値だけ読む。切り替えは研究モードのページで行う。
   Future<void> _loadMode() async {
     final store = widget.scanModeStore;
     if (store == null) return;
     try {
       final research = await store.loadResearchMode();
-      if (mounted) {
-        setState(() {
-          _research = research;
-          _modeLoadFailed = false;
-        });
-      }
+      if (mounted) setState(() => _research = research);
     } catch (_) {
-      if (mounted) setState(() => _modeLoadFailed = true);
+      if (mounted) setState(() => _research = null); // 読めないときは値を出さない。
     }
   }
 
-  Future<void> _saveMode(bool research) async {
-    if (_savingMode) return;
-    setState(() => _savingMode = true);
-    try {
-      await widget.scanModeStore!.saveResearchMode(research);
-      if (mounted) {
-        setState(() {
-          _research = research;
-          _modeLoadFailed = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) _snack('計測モードを保存できませんでした（設定は変更されていません）');
-    } finally {
-      if (mounted) setState(() => _savingMode = false);
-    }
+  Future<void> _openResearch() async {
+    await Navigator.of(context).push<void>(
+      AppTransitions.push(
+        (_) => ResearchModePage(store: widget.scanModeStore!),
+      ),
+    );
+    if (mounted) await _loadMode();
   }
+
+  void _openKit() => Navigator.of(context).push<void>(
+    AppTransitions.push((_) => KitSettingsPage(service: widget.ledService!)),
+  );
 
   Future<void> _loadReminder() async {
     try {
@@ -248,74 +221,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          if (widget.ledService case final service?)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: LedKitControls(service: service),
-            ),
-          const AsakaoSectionLabel('通知', padding: _firstSection),
-          // カードは画面の左右いっぱいに広げ、角丸にしない。
+          const AsakaoSectionLabel('毎日の記録', padding: _firstSection),
+          // バンドは画面の左右いっぱいに広げ、角丸にしない。
           AsakaoListGroup(
             fullBleed: true,
             children: [
               AsakaoListRow(
                 title: '毎朝の通知',
                 value: _reminder.enabled ? _reminder.timeLabel : 'オフ',
+                inset: 20,
                 onTap: _openReminder,
               ),
             ],
           ),
-          if (widget.feedbackStore != null) ...[
-            const AsakaoSectionLabel('音と振動', padding: _section),
+          if (widget.feedbackStore != null || widget.scanModeStore != null) ...[
+            const AsakaoSectionLabel('計測', padding: _section),
             AsakaoListGroup(
               fullBleed: true,
               children: [
-                _switchRow(
-                  '効果音',
-                  _feedback.sound,
-                  (v) => _saveFeedback(_feedback.copyWith(sound: v)),
-                ),
-                _switchRow(
-                  '振動',
-                  _feedback.haptics,
-                  (v) => _saveFeedback(_feedback.copyWith(haptics: v)),
-                ),
-                AsakaoListRow(
-                  title: '計測中の音',
-                  value: _feedback.instrument.label,
-                  onTap: _openMeasureSound,
+                if (widget.feedbackStore != null) ...[
+                  AsakaoSwitchRow(
+                    title: '効果音',
+                    value: _feedback.sound,
+                    onChanged: _savingFeedback
+                        ? null
+                        : (v) => _saveFeedback(_feedback.copyWith(sound: v)),
+                  ),
+                  AsakaoSwitchRow(
+                    title: '振動',
+                    value: _feedback.haptics,
+                    onChanged: _savingFeedback
+                        ? null
+                        : (v) => _saveFeedback(_feedback.copyWith(haptics: v)),
+                  ),
+                  AsakaoListRow(
+                    title: '計測中の音',
+                    value: _feedback.instrument.label,
+                    inset: 20,
+                    onTap: _openMeasureSound,
+                  ),
+                ],
+                if (widget.scanModeStore != null)
+                  AsakaoListRow(
+                    title: '研究モード',
+                    subtitle: '心拍数の実験的な推定',
+                    value: switch (_research) {
+                      null => null,
+                      true => 'オン',
+                      false => 'オフ',
+                    },
+                    inset: 20,
+                    onTap: _openResearch,
+                  ),
+              ],
+            ),
+            if (widget.feedbackStore != null)
+              const AsakaoCaption('効果音は、端末が消音モードのときは鳴りません。'),
+          ],
+          if (widget.ledService case final service?) ...[
+            const AsakaoSectionLabel('外部キット（デモ）', padding: _section),
+            AsakaoListGroup(
+              fullBleed: true,
+              children: [
+                ListenableBuilder(
+                  listenable: service,
+                  builder: (context, _) => AsakaoListRow(
+                    title: 'キットとLED通知・環境情報',
+                    subtitle: '室温・湿度の取得もここから',
+                    inset: 20,
+                    trailing: _KitStatus(connected: service.ready),
+                    onTap: _openKit,
+                  ),
                 ),
               ],
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 8, 24, 0),
-              child: Text('効果音は端末が消音モードのときは鳴りません。', style: AsakaoStyle.caption),
-            ),
-          ],
-          if (widget.scanModeStore != null) ...[
-            const AsakaoSectionLabel('計測', padding: _section),
-            SwitchListTile(
-              title: const Text('研究モード'),
-              subtitle: const Text(
-                '通常モードでも心拍数を実験的に推定します。オンにすると顔色特徴量も取得します。品質不足時は未測定になります。診断には使用できません。次回の撮影から適用されます。',
-              ),
-              value: _research ?? false,
-              onChanged: _research == null || _savingMode ? null : _saveMode,
-            ),
-            if (_modeLoadFailed) ...[
-              const Text('計測モードを読み込めませんでした'),
-              TextButton(
-                onPressed: _loadMode,
-                child: const Text('計測モードを再読み込み'),
-              ),
-            ],
           ],
           const AsakaoSectionLabel('情報', padding: _section),
           AsakaoListGroup(
             fullBleed: true,
             children: [
-              AsakaoListRow(title: 'アプリの説明', onTap: _openExplanation),
-              AsakaoListRow(title: 'このアプリについて', onTap: _openAbout),
+              AsakaoListRow(
+                title: 'アプリの説明',
+                inset: 20,
+                onTap: _openExplanation,
+              ),
+              AsakaoListRow(title: 'このアプリについて', inset: 20, onTap: _openAbout),
             ],
           ),
           const AsakaoSectionLabel('データ', padding: _section),
@@ -325,34 +315,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: AsakaoListRow(
               title: '記録をすべて削除',
               destructive: true,
+              inset: 20,
               onTap: _running ? null : _deleteAll,
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 12, 24, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(top: 2, right: 8),
-                  child: Icon(
-                    Icons.lock_outline,
-                    size: 14,
-                    color: AsakaoStyle.muted,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    '画像は保存されません。記録はこの端末の中だけにあります。',
-                    style: AsakaoStyle.caption,
-                  ),
-                ),
-              ],
-            ),
+          const AsakaoCaption(
+            '画像は保存されません。記録はこの端末の中だけにあります。',
+            icon: Icons.lock_outline,
           ),
         ],
       ),
     ),
+  );
+}
+
+/// 設定の行に出す、キットの接続状態（丸 + 文言）。
+class _KitStatus extends StatelessWidget {
+  const _KitStatus({required this.connected});
+
+  final bool connected;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      AsakaoStatusDot(on: connected),
+      const SizedBox(width: 6),
+      Text(
+        connected ? '接続済み' : '未接続',
+        style: const TextStyle(fontSize: 14, color: AsakaoStyle.muted),
+      ),
+    ],
   );
 }
 

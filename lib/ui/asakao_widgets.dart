@@ -157,19 +157,28 @@ class AsakaoQualityChip extends StatelessWidget {
 }
 
 /// 設定画面風の行。右に値とシェブロン。[destructive] は中央寄せの赤文字（削除など）。
+/// [subtitle] があると高さは60以上、なければ52以上。[trailing] は値の代わりに右へ置く。
 class AsakaoListRow extends StatelessWidget {
   const AsakaoListRow({
     super.key,
     required this.title,
+    this.subtitle,
     this.value,
+    this.trailing,
     this.onTap,
     this.destructive = false,
+    this.inset = 16,
   });
 
   final String title;
+  final String? subtitle;
   final String? value;
+  final Widget? trailing;
   final VoidCallback? onTap;
   final bool destructive;
+
+  /// 左右の余白。設定画面は20にそろえる。
+  final double inset;
 
   @override
   Widget build(BuildContext context) {
@@ -186,17 +195,35 @@ class AsakaoListRow extends StatelessWidget {
           )
         : Row(
             children: [
-              Expanded(child: Text(title, style: AsakaoStyle.body)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title, style: AsakaoStyle.body),
+                    if (subtitle != null)
+                      Text(subtitle!, style: AsakaoStyle.caption),
+                  ],
+                ),
+              ),
               if (value != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text(
-                    value!,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: AsakaoStyle.muted,
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(
+                      value!,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: AsakaoStyle.muted,
+                      ),
                     ),
                   ),
+                ),
+              if (trailing != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: trailing,
                 ),
               const Padding(
                 padding: EdgeInsets.only(left: 6),
@@ -208,17 +235,123 @@ class AsakaoListRow extends StatelessWidget {
               ),
             ],
           );
-    return InkWell(
-      onTap: onTap,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 52),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Align(alignment: Alignment.centerLeft, child: content),
+    return Semantics(
+      button: onTap != null,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: subtitle == null ? 52 : 60),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: inset,
+              vertical: subtitle == null ? 12 : 8,
+            ),
+            child: Align(alignment: Alignment.centerLeft, child: content),
+          ),
         ),
       ),
     );
   }
+}
+
+/// スイッチ付きの行（バンドの中に置く）。行のどこを押しても切り替わる。
+/// [onChanged] が null のときは無効表示。
+class AsakaoSwitchRow extends StatelessWidget {
+  const AsakaoSwitchRow({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+    this.inset = 20,
+  });
+
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final double inset;
+
+  @override
+  Widget build(BuildContext context) => MergeSemantics(
+    child: InkWell(
+      // 行全体のタップは見た目だけ。操作はスイッチ側の意味情報に任せる。
+      excludeFromSemantics: true,
+      onTap: onChanged == null ? null : () => onChanged!(!value),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: subtitle == null ? 52 : 60),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: inset,
+            vertical: subtitle == null ? 6 : 8,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title, style: AsakaoStyle.body),
+                    if (subtitle != null)
+                      Text(subtitle!, style: AsakaoStyle.caption),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Switch.adaptive(
+                value: value,
+                activeTrackColor: AsakaoStyle.coral,
+                onChanged: onChanged,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// バンドの下に置く小さな説明文。[icon] があれば文頭に添える。
+class AsakaoCaption extends StatelessWidget {
+  const AsakaoCaption(this.text, {super.key, this.icon});
+
+  final String text;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(28, 8, 28, 0),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (icon != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, right: 8),
+            child: Icon(icon, size: 14, color: AsakaoStyle.muted),
+          ),
+        Expanded(child: Text(text, style: AsakaoStyle.caption)),
+      ],
+    ),
+  );
+}
+
+/// 接続状態の小さな丸。色だけに頼らず、必ず隣に文言を置く。
+class AsakaoStatusDot extends StatelessWidget {
+  const AsakaoStatusDot({super.key, required this.on});
+
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: on ? AsakaoStyle.scanGreen : const Color(0xFFB8ABA3),
+        shape: BoxShape.circle,
+      ),
+      child: const SizedBox.square(dimension: 8),
+    ),
+  );
 }
 
 /// [AsakaoListRow] を1枚のカードにまとめ、行間に区切り線を引く。
