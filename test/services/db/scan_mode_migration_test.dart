@@ -67,7 +67,7 @@ void main() {
         expect(
           (await migrated.customSelect('PRAGMA user_version').getSingle())
               .read<int>('user_version'),
-          6,
+          8,
         );
         if (opening == 0) {
           await repo.insert(

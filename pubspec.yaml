@@ -36,6 +36,15 @@ flutter:
   assets:
     - assets/mascot/
     - assets/sounds/
+    # 計測中に1秒ごとに鳴らす音階（ド〜ドの15音）。tool/generate_scale_notes.py で作成。
+    - assets/sounds/scale/marimba/
+    - assets/sounds/scale/glockenspiel/
+    - assets/sounds/scale/musicbox/
+    - assets/sounds/scale/kalimba/
+    - assets/sounds/scale/harp/
+    - assets/sounds/scale/koto/
+    - assets/sounds/scale/soft/
+    - assets/sounds/scale/pachinko/
   # 端末内に同梱する（実行時に取得しない）。ライセンスは assets/fonts/OFL-*.txt。
   fonts:
     - family: NotoSansJP

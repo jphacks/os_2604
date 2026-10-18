@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/db/health_record_repository.dart';
 import '../services/notifications/daily_reminder_service.dart';
+import '../services/settings/feedback_settings_store.dart';
 import '../services/settings/reminder_settings_store.dart';
 import '../services/settings/scan_mode_store.dart';
 import '../widgets/camera_tab_bar.dart';
@@ -18,6 +21,7 @@ class MainTabsScreen extends StatefulWidget {
     required this.reminderService,
     required this.reminderStore,
     this.scanModeStore,
+    this.feedbackStore,
     required this.onStartCheck,
     this.now = DateTime.now,
   });
@@ -26,6 +30,7 @@ class MainTabsScreen extends StatefulWidget {
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
   final ScanModeStore? scanModeStore;
+  final FeedbackSettingsStore? feedbackStore;
 
   /// 計測を開き、計測の流れ（cover）が閉じたら完了する。
   final Future<void> Function() onStartCheck;
@@ -51,6 +56,18 @@ class _MainTabsScreenState extends State<MainTabsScreen>
     curve: Curves.easeOutCubic,
     reverseCurve: Curves.easeOutCubic,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    // 朝の通知を押したら、そのまま計測（3-1'）を開く。
+    unawaited(
+      // 呼ばれるのは非同期の通知処理の中なので、描画中ではない。直接開く。
+      widget.reminderService.listenForOpen(() {
+        if (mounted) unawaited(_startCheck());
+      }),
+    );
+  }
 
   @override
   void dispose() {
@@ -117,6 +134,7 @@ class _MainTabsScreenState extends State<MainTabsScreen>
             settings: true,
             child: SettingsScreen(
               scanModeStore: widget.scanModeStore,
+              feedbackStore: widget.feedbackStore,
               repository: widget.repository,
               reminderService: widget.reminderService,
               reminderStore: widget.reminderStore,

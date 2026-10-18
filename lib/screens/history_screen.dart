@@ -1,8 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
 import '../navigation/app_routes.dart';
-import '../navigation/app_transitions.dart';
 import '../services/analysis/history_baseline.dart';
 import '../services/db/health_record_store.dart';
 import '../ui/asakao_flower.dart';
@@ -34,6 +35,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
   late Stream<List<HealthCheckResult>> _records = widget.store.watchAll();
   bool _graph = false;
 
+  /// 記録がなくてもさかのぼれる週の数（今週を含めて約1年）。
+  static const _minWeeks = 53;
+
+  /// スイッチのつまみと下の画面は同じ速さで動かす。
+  static const _viewSwitchDuration = Duration(milliseconds: 360);
+
+  /// 左スワイプで削除済みの記録。
+  final _removed = <String>{};
+
+  /// 「咲いた花」の週。0 = 今週、1 = 先週…。
+  int _weekPage = 0;
+  final _weekPages = PageController();
+
+  @override
+  void dispose() {
+    _weekPages.dispose();
+    super.dispose();
+  }
+
   Widget _baselineCard(List<HealthCheckResult> records) {
     final b = calculateHistoryBaseline([
       for (final r in records)
@@ -64,20 +84,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  Widget _surface(Widget child, {bool fullBleed = false}) => Material(
-    color: Colors.white,
-    clipBehavior: Clip.antiAlias,
-    shape: fullBleed
-        ? const Border(
-            top: BorderSide(color: AsakaoStyle.border),
-            bottom: BorderSide(color: AsakaoStyle.border),
-          )
-        : RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(color: AsakaoStyle.border),
-          ),
-    child: child,
-  );
+  Widget _surface(Widget child, {bool fullBleed = false, bool top = true}) =>
+      Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: fullBleed
+            ? Border(
+                top: top
+                    ? const BorderSide(color: AsakaoStyle.border)
+                    : BorderSide.none,
+                bottom: const BorderSide(color: AsakaoStyle.border),
+              )
+            : RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: const BorderSide(color: AsakaoStyle.border),
+              ),
+        child: child,
+      );
 
   /// 5-1 ↔ 5-4。スイッチより下だけを入れ替える。
   void _showView({required bool graph}) {
@@ -119,7 +142,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               records[index - 1].measuredAt.toLocal().year !=
                   records[index].measuredAt.toLocal().year)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Text(
                 '${records[index].measuredAt.toLocal().year}年${records[index].measuredAt.toLocal().month}月',
                 style: const TextStyle(
@@ -129,8 +152,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ),
             ),
-          _record(records[index]),
-          const SizedBox(height: 8),
+          // 行は画面の左右いっぱいに、すき間なく並べる（上の線は月の最初の行だけ）。
+          _swipeToDelete(
+            records[index],
+            first:
+                index == 0 ||
+                records[index - 1].measuredAt.toLocal().month !=
+                    records[index].measuredAt.toLocal().month ||
+                records[index - 1].measuredAt.toLocal().year !=
+                    records[index].measuredAt.toLocal().year,
+          ),
         ],
       ],
     );
@@ -144,11 +175,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _todayCard(List<HealthCheckResult> records) {
     final now = widget.now().toLocal();
     final today = DateTime(now.year, now.month, now.day);
-    bool bloomed(DateTime day) => records.any(
-      (r) =>
-          r.quality == MeasurementQuality.good &&
-          _sameDay(r.measuredAt.toLocal(), day),
-    );
     final latest = records
         .where(
           (r) =>
@@ -156,17 +182,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
               _sameDay(r.measuredAt.toLocal(), today),
         )
         .firstOrNull;
-    final sunday = DateTime(
-      today.year,
-      today.month,
-      today.day - today.weekday % 7,
-    );
-    final days = List.generate(
-      7,
-      (i) => DateTime(sunday.year, sunday.month, sunday.day + i),
-    );
-    final done = [for (final d in days) !d.isAfter(today) && bloomed(d)];
-
     final summary = Row(
       children: [
         // 5-1' → 5-1。チェックが済むと、その場でしおれた花が咲く。
@@ -248,76 +263,212 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 color: AsakaoStyle.border,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  const Expanded(
-                    child: Text(
-                      '今週咲いた花',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AsakaoStyle.ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  for (var i = 0; i < days.length; i++)
-                    Expanded(
-                      child: Semantics(
-                        label:
-                            '${days[i].month}月${days[i].day}日 ${done[i] ? '記録あり' : '記録なし'}',
-                        excludeSemantics: true,
-                        child: Column(
-                          children: [
-                            Text(
-                              asakaoWeekdays[days[i].weekday - 1],
-                              style: _sameDay(days[i], today)
-                                  ? const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: AsakaoStyle.todayAccent,
-                                    )
-                                  : const TextStyle(
-                                      fontSize: 12,
-                                      color: AsakaoStyle.muted,
-                                    ),
-                            ),
-                            const SizedBox(height: 5),
-                            if (_sameDay(days[i], today))
-                              // 計測から戻って履歴が見えたときに、今日のつぼみが咲く。
-                              AsakaoTodayBloom(
-                                bloomed: done[i],
-                                visible:
-                                    ModalRoute.isCurrentOf(context) ?? true,
-                              )
-                            else
-                              AsakaoDayFlower(
-                                state: done[i]
-                                    ? AsakaoFlowerState.bloomed
-                                    : AsakaoFlowerState.bud,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            _weekFlowers(records, today),
           ],
         ),
       ),
       fullBleed: true,
+    );
+  }
+
+  /// 「今週咲いた花」。左右にスワイプ（または矢印）で過去の週へさかのぼれる。
+  /// 日付を押すと、その日の記録（同じ日に複数あれば最新）を開く。
+  Widget _weekFlowers(List<HealthCheckResult> records, DateTime today) {
+    DateTime sundayOf(DateTime d) =>
+        DateTime(d.year, d.month, d.day - d.weekday % 7);
+    final thisSunday = sundayOf(today);
+    // アプリを入れる前や記録がない週も、つぼみのまま1年前までさかのぼれる。
+    // それより古い記録があれば、その週まで。
+    final oldest = records.isEmpty ? today : records.last.measuredAt.toLocal();
+    final weeks = math.max(
+      _minWeeks,
+      (thisSunday.difference(sundayOf(oldest)).inDays / 7).round() + 1,
+    );
+    final page = _weekPage.clamp(0, weeks - 1);
+    final shownSunday = DateTime(
+      thisSunday.year,
+      thisSunday.month,
+      thisSunday.day - 7 * page,
+    );
+    final shownSaturday = DateTime(
+      shownSunday.year,
+      shownSunday.month,
+      shownSunday.day + 6,
+    );
+    final title = switch (page) {
+      0 => '今週咲いた花',
+      1 => '先週咲いた花',
+      _ =>
+        '${shownSunday.month}月${shownSunday.day}日〜${shownSaturday.month}月${shownSaturday.day}日に咲いた花',
+    };
+
+    void goTo(int target) => _weekPages.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeInOutCubic,
+    );
+
+    Widget arrow(IconData icon, String tooltip, VoidCallback? onPressed) =>
+        IconButton(
+          tooltip: tooltip,
+          onPressed: onPressed,
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 36, height: 32),
+          iconSize: 20,
+          color: AsakaoStyle.muted,
+          disabledColor: AsakaoStyle.disabled,
+          icon: Icon(icon),
+        );
+
+    Widget weekRow(int index) {
+      final sunday = DateTime(
+        thisSunday.year,
+        thisSunday.month,
+        thisSunday.day - 7 * index,
+      );
+      return Row(
+        children: [
+          for (var i = 0; i < 7; i++)
+            Expanded(
+              child: _dayCell(records, today, sunday.add(Duration(days: i))),
+            ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 見出しの上でも、左右になぞると週を切り替えられる。
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragEnd: (d) {
+            final v = d.primaryVelocity ?? 0;
+            if (v > 50 && page < weeks - 1) goTo(page + 1);
+            if (v < -50 && page > 0) goTo(page - 1);
+          },
+          child: Padding(
+            padding: const EdgeInsets.only(left: 22, right: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    key: const ValueKey('week-title'),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AsakaoStyle.ink,
+                    ),
+                  ),
+                ),
+                arrow(
+                  Icons.chevron_left,
+                  '前の週',
+                  page < weeks - 1 ? () => goTo(page + 1) : null,
+                ),
+                arrow(
+                  Icons.chevron_right,
+                  '次の週',
+                  page > 0 ? () => goTo(page - 1) : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          // 曜日と日付（行の高さ 1.3、拡大設定に合わせる）＋すき間 4＋花 30px。
+          height:
+              MediaQuery.textScalerOf(context).scale(12 * 1.3 + 11 * 1.3) +
+              4 +
+              30 +
+              2,
+          // reverse：右へスワイプすると前の週（左側）が出てくる。
+          child: PageView.builder(
+            controller: _weekPages,
+            reverse: true,
+            itemCount: weeks,
+            onPageChanged: (p) => setState(() => _weekPage = p),
+            itemBuilder: (_, index) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: weekRow(index),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dayCell(
+    List<HealthCheckResult> records,
+    DateTime today,
+    DateTime day,
+  ) {
+    final isToday = _sameDay(day, today);
+    final future = day.isAfter(today);
+    final ofDay = future
+        ? const <HealthCheckResult>[]
+        : records.where((r) => _sameDay(r.measuredAt.toLocal(), day)).toList();
+    final bloomed = ofDay.any((r) => r.quality == MeasurementQuality.good);
+    final target = ofDay.firstOrNull; // records は新しい順
+    return Semantics(
+      button: target != null,
+      label: '${day.month}月${day.day}日 ${bloomed ? '記録あり' : '記録なし'}',
+      excludeSemantics: true,
+      onTap: target == null ? null : () => _open(target),
+      child: GestureDetector(
+        key: ValueKey('week-day-${day.month}-${day.day}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: target == null ? null : () => _open(target),
+        child: Column(
+          children: [
+            Text(
+              asakaoWeekdays[day.weekday - 1],
+              maxLines: 1,
+              softWrap: false,
+              style: isToday
+                  ? const TextStyle(
+                      fontSize: 12,
+                      height: 1.3,
+                      fontWeight: FontWeight.w700,
+                      color: AsakaoStyle.todayAccent,
+                    )
+                  : const TextStyle(
+                      fontSize: 12,
+                      height: 1.3,
+                      color: AsakaoStyle.muted,
+                    ),
+            ),
+            Text(
+              '${day.day}',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.3,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                color: isToday ? AsakaoStyle.todayAccent : AsakaoStyle.muted,
+              ),
+            ),
+            const SizedBox(height: 4),
+            if (isToday)
+              // 計測から戻って履歴が見えたときに、今日のつぼみが咲く。
+              AsakaoTodayBloom(
+                bloomed: bloomed,
+                visible: ModalRoute.isCurrentOf(context) ?? true,
+              )
+            else
+              AsakaoDayFlower(
+                state: bloomed
+                    ? AsakaoFlowerState.bloomed
+                    : AsakaoFlowerState.bud,
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -331,7 +482,49 @@ class _HistoryScreenState extends State<HistoryScreen> {
     child: child,
   );
 
-  Widget _record(HealthCheckResult record) {
+  /// 行を左へスワイプすると削除。確認してから消し、失敗したら行を戻して知らせる。
+  Widget _swipeToDelete(HealthCheckResult record, {required bool first}) =>
+      Dismissible(
+        key: ValueKey('history-dismiss-${record.id}'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          color: AsakaoStyle.destructive,
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.delete_outline, color: Colors.white),
+              SizedBox(width: 6),
+              Text(
+                '削除',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        confirmDismiss: (_) async {
+          if (!await confirmRecordDeletion(context, all: false)) return false;
+          try {
+            await widget.store.deleteOne(record.id);
+            return true;
+          } catch (_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('削除できませんでした。再試行してください。')),
+              );
+            }
+            return false;
+          }
+        },
+        onDismissed: (_) => setState(() => _removed.add(record.id)),
+        child: _record(record, first: first),
+      );
+
+  Widget _record(HealthCheckResult record, {required bool first}) {
     final at = record.measuredAt.toLocal();
     final cond = record.selfCondition;
     // 文字が大きいときは日付の列を省き、横幅を本文に回す。
@@ -341,7 +534,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         key: ValueKey('history-row-${record.id}'),
         onTap: () => _open(record),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Row(
             children: [
               if (!compact)
@@ -435,51 +628,86 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ),
       ),
+      fullBleed: true,
+      top: first,
     );
   }
 
+  /// リスト／グラフのスイッチ。白いつまみが横にすべるだけで、押したときの色の変化は出さない。
+  /// つまみを左右になぞっても切り替わる。
   Widget _viewToggle() => Padding(
     padding: const EdgeInsets.only(top: 16),
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: AsakaoStyle.neutralBackground,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
+    child: GestureDetector(
+      onHorizontalDragEnd: (d) {
+        final v = d.primaryVelocity ?? 0;
+        if (v.abs() > 50) _showView(graph: v > 0);
+      },
+      child: Container(
+        height: 44,
         padding: const EdgeInsets.all(3),
-        child: Row(
+        decoration: BoxDecoration(
+          color: AsakaoStyle.neutralBackground,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
           children: [
-            for (final (label, graph) in const [('リスト', false), ('グラフ', true)])
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  selected: _graph == graph,
-                  excludeSemantics: true,
-                  label: label,
-                  onTap: () => _showView(graph: graph),
-                  child: Material(
-                    color: _graph == graph ? Colors.white : Colors.transparent,
+            AnimatedAlign(
+              duration: _viewSwitchDuration,
+              curve: Curves.easeInOutCubic,
+              alignment: _graph ? Alignment.centerRight : Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: 0.5,
+                heightFactor: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1A000000),
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                for (final (label, graph) in const [
+                  ('リスト', false),
+                  ('グラフ', true),
+                ])
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      selected: _graph == graph,
+                      excludeSemantics: true,
+                      label: label,
                       onTap: () => _showView(graph: graph),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 44),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _showView(graph: graph),
                         child: Center(
-                          child: Text(
-                            label,
-                            style: const TextStyle(
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: TextStyle(
+                              fontFamily: AsakaoStyle.bodyFont,
                               fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: AsakaoStyle.ink,
+                              fontWeight: FontWeight.w700,
+                              color: _graph == graph
+                                  ? AsakaoStyle.ink
+                                  : AsakaoStyle.muted,
                             ),
+                            child: Text(label),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
+              ],
+            ),
           ],
         ),
       ),
@@ -514,7 +742,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           if (data == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          final records = [...data]
+          // スワイプで消した行は、DB の更新が届く前でもすぐ外す。
+          final records = [...data.where((r) => !_removed.contains(r.id))]
             ..sort((a, b) => b.measuredAt.compareTo(a.measuredAt));
           return CustomScrollView(
             slivers: [
@@ -538,47 +767,51 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                padding: const EdgeInsets.only(bottom: 24),
                 // リスト ↔ グラフはスイッチより下だけを入れ替える。
                 // グラフは右から、リストは左から入る（push の向き）。
                 sliver: SliverToBoxAdapter(
-                  child: AnimatedSwitcher(
-                    duration: AppTransitions.fadeDuration,
-                    layoutBuilder: (current, previous) => Stack(
-                      alignment: Alignment.topCenter,
-                      children: [...previous, ?current],
+                  // 出ていく画面と入ってくる画面が重ならないよう、前後で対称な曲線を使い、
+                  // 2枚を横に並べたまま一緒に動かす（フェードはしない）。
+                  child: ClipRect(
+                    child: AnimatedSwitcher(
+                      duration: _viewSwitchDuration,
+                      layoutBuilder: (current, previous) => Stack(
+                        alignment: Alignment.topCenter,
+                        children: [...previous, ?current],
+                      ),
+                      transitionBuilder: (child, animation) => SlideTransition(
+                        position:
+                            Tween(
+                              begin: Offset(
+                                child.key == const ValueKey('history-graph')
+                                    ? 1
+                                    : -1,
+                                0,
+                              ),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeInOutCubic,
+                              ),
+                            ),
+                        child: child,
+                      ),
+                      child: _graph
+                          ? Padding(
+                              key: const ValueKey('history-graph'),
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                              child: HistoryTrendView(
+                                records: records,
+                                now: widget.now,
+                              ),
+                            )
+                          : KeyedSubtree(
+                              key: const ValueKey('history-list'),
+                              child: _list(records),
+                            ),
                     ),
-                    transitionBuilder: (child, animation) => SlideTransition(
-                      position:
-                          Tween(
-                            begin: Offset(
-                              child.key == const ValueKey('history-graph')
-                                  ? 1
-                                  : -1,
-                              0,
-                            ),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                            ),
-                          ),
-                      child: FadeTransition(opacity: animation, child: child),
-                    ),
-                    child: _graph
-                        ? Padding(
-                            key: const ValueKey('history-graph'),
-                            padding: const EdgeInsets.only(top: 12),
-                            child: HistoryTrendView(
-                              records: records,
-                              now: widget.now,
-                            ),
-                          )
-                        : KeyedSubtree(
-                            key: const ValueKey('history-list'),
-                            child: _list(records),
-                          ),
                   ),
                 ),
               ),

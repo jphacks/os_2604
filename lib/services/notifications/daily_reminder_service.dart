@@ -15,6 +15,10 @@ abstract interface class DailyReminderService {
   Future<void> scheduleDaily(int hour, int minute);
 
   Future<void> cancel();
+
+  /// 通知を押してアプリが開いたら [onOpen] を呼ぶ（最後に渡したものだけ）。
+  /// 通知を押して起動した場合は、最初の1回だけすぐ呼ぶ。例外は投げない。
+  Future<void> listenForOpen(void Function() onOpen);
 }
 
 /// flutter_local_notifications による実装。通知にデータは載せない。
@@ -36,6 +40,8 @@ class LocalDailyReminderService implements DailyReminderService {
   /// 次回時刻の計算に使う時計。テストでは固定する。
   final DateTime Function() now;
   bool _ready = false;
+  void Function()? _onOpen;
+  bool _launchChecked = false;
 
   static Future<String> _deviceTimezone() async =>
       (await FlutterTimezone.getLocalTimezone()).identifier;
@@ -55,6 +61,7 @@ class LocalDailyReminderService implements DailyReminderService {
           requestSoundPermission: false,
         ),
       ),
+      onDidReceiveNotificationResponse: (_) => _onOpen?.call(),
     );
     _ready = true;
   }
@@ -114,6 +121,20 @@ class LocalDailyReminderService implements DailyReminderService {
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
     );
+  }
+
+  @override
+  Future<void> listenForOpen(void Function() onOpen) async {
+    _onOpen = onOpen;
+    try {
+      await _ensureReady();
+      if (_launchChecked) return;
+      _launchChecked = true;
+      final launch = await _plugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp ?? false) _onOpen?.call();
+    } catch (_) {
+      // 通知から開けなくても、アプリはふつうに使える。
+    }
   }
 
   @override

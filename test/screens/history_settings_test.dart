@@ -1,6 +1,9 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:os_2604/screens/settings_screen.dart';
+import 'package:os_2604/services/settings/feedback_settings_store.dart';
+import 'package:os_2604/services/sound/sound_effects.dart';
 import 'package:os_2604/app.dart';
 import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/navigation/app_routes.dart';
@@ -30,6 +33,18 @@ class _Failing extends HealthRecordRepository {
   Future<void> deleteAll() async {
     if (fail) throw StateError('x');
     return super.deleteAll();
+  }
+}
+
+class _FeedbackStore implements FeedbackSettingsStore {
+  FeedbackSettings value = const FeedbackSettings();
+  bool fail = false;
+  @override
+  Future<FeedbackSettings> load() async => value;
+  @override
+  Future<void> save(FeedbackSettings settings) async {
+    if (fail) throw StateError('save failed');
+    value = settings;
   }
 }
 
@@ -109,6 +124,26 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// 縦に長い画面で履歴を開く（詳細へも進める）。今日は [now]。
+  Future<void> pumpTallHistory(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        routes: {
+          AppRoutes.historyDetail: (context) => HistoryDetailScreen(
+            store: repo,
+            recordId: ModalRoute.of(context)!.settings.arguments as String?,
+          ),
+        },
+        home: HistoryScreen(store: repo, now: () => now),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
   Future<void> confirm(WidgetTester tester, String label) async {
     await tester.tap(find.text(label));
     await tester.pumpAndSettle();
@@ -119,6 +154,13 @@ void main() {
       await pumpHistory(tester);
       expect(find.text('まだ記録がありません'), findsOneWidget);
       expect(find.text('基準値蓄積中（有効記録 0/3件）'), findsOneWidget);
+      // 記録がなくても前の週へさかのぼれる。
+      await tester.tap(find.byTooltip('前の週'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('week-title'))).data,
+        '先週咲いた花',
+      );
     });
 
     Finder row(String id) => find.byKey(ValueKey('history-row-$id'));
@@ -254,6 +296,115 @@ void main() {
       expect(find.text('今日はまだチェックしていません'), findsOneWidget);
     });
 
+    tw('past weeks: arrows and swipe move weeks; a day opens its record', (
+      tester,
+    ) async {
+      // 今日は 2026-10-17（土）。先週は 10/4〜10/10。
+      await repo.insert(_rec('last-week', DateTime(2026, 10, 7, 8)));
+      await repo.insert(_rec('two-weeks', DateTime(2026, 9, 30, 8)));
+      await pumpTallHistory(tester);
+      String? title() =>
+          tester.widget<Text>(find.byKey(const ValueKey('week-title'))).data;
+      expect(title(), '今週咲いた花');
+      // 曜日の下に日付（今週は 10/11〜10/17）。
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('week-day-10-17')),
+          matching: find.text('17'),
+        ),
+        findsOneWidget,
+      );
+      // 見出しの上で右へなぞっても前の週へ、左へなぞると戻る。
+      await tester.fling(
+        find.byKey(const ValueKey('week-title')),
+        const Offset(200, 0),
+        1000,
+      );
+      await tester.pumpAndSettle();
+      expect(title(), '先週咲いた花');
+      await tester.fling(
+        find.byKey(const ValueKey('week-title')),
+        const Offset(-200, 0),
+        1000,
+      );
+      await tester.pumpAndSettle();
+      expect(title(), '今週咲いた花');
+      expect(
+        tester
+            .widget<IconButton>(
+              find.widgetWithIcon(IconButton, Icons.chevron_right).first,
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byTooltip('前の週'));
+      await tester.pumpAndSettle();
+      expect(title(), '先週咲いた花');
+      // 右へスワイプでさらに前の週（記録がある一番古い週まで）。
+      await tester.fling(
+        find.byKey(const ValueKey('week-day-10-7')),
+        const Offset(300, 0),
+        1000,
+      );
+      await tester.pumpAndSettle();
+      expect(title(), '9月27日〜10月3日に咲いた花');
+      // 記録より前の週（アプリを入れる前）にもさかのぼれる。
+      await tester.tap(find.byTooltip('前の週'));
+      await tester.pumpAndSettle();
+      expect(title(), '9月20日〜9月26日に咲いた花');
+      expect(
+        tester
+            .widgetList<AsakaoDayFlower>(find.byType(AsakaoDayFlower))
+            .where((f) => f.state == AsakaoFlowerState.bloomed),
+        isEmpty,
+      );
+      await tester.tap(find.byTooltip('次の週'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('次の週'));
+      await tester.pumpAndSettle();
+      expect(title(), '先週咲いた花');
+      // 記録のある日を押すと、その日の詳細へ。
+      await tester.tap(find.byKey(const ValueKey('week-day-10-7')));
+      await tester.pumpAndSettle();
+      expect(find.text('10月7日（水）'), findsOneWidget);
+    });
+
+    tw('swipe left on a row deletes it after confirming; cancel keeps it', (
+      tester,
+    ) async {
+      Finder row(String id) => find.byKey(ValueKey('history-row-$id'));
+      await repo.insert(_rec('a', DateTime(2026, 10, 15, 8)));
+      await repo.insert(_rec('b', DateTime(2026, 10, 16, 8)));
+      await pumpTallHistory(tester);
+      await tester.drag(row('a'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      await confirm(tester, 'キャンセル');
+      expect(row('a'), findsOneWidget);
+      expect(await repo.findById('a'), isNotNull);
+      await tester.drag(row('a'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      // 背景にも「削除」が出ているので、確認ダイアログのボタンを押す。
+      await tester.tap(find.widgetWithText(TextButton, '削除'));
+      await tester.pumpAndSettle();
+      expect(row('a'), findsNothing);
+      expect(await repo.findById('a'), isNull);
+      expect(await repo.findById('b'), isNotNull);
+    });
+
+    tw('swipe delete failure keeps the row and says so', (tester) async {
+      Finder row(String id) => find.byKey(ValueKey('history-row-$id'));
+      await repo.insert(_rec('a', DateTime(2026, 10, 15, 8)));
+      repo.fail = true;
+      await pumpTallHistory(tester);
+      await tester.drag(row('a'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      // 背景にも「削除」が出ているので、確認ダイアログのボタンを押す。
+      await tester.tap(find.widgetWithText(TextButton, '削除'));
+      await tester.pumpAndSettle();
+      expect(row('a'), findsOneWidget);
+      expect(find.text('削除できませんでした。再試行してください。'), findsOneWidget);
+    });
+
     tw('small screen with large text can open and delete a record', (
       tester,
     ) async {
@@ -278,7 +429,17 @@ void main() {
       );
       await tester.pumpAndSettle();
       final rowFinder = find.byKey(const ValueKey('history-row-a'));
-      await tester.scrollUntilVisible(rowFinder, 160);
+      // 週の花も横にスクロールできるので、縦の一覧を指定する。
+      await tester.scrollUntilVisible(
+        rowFinder,
+        160,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(rowFinder);
       await tester.pumpAndSettle();
@@ -326,6 +487,43 @@ void main() {
   });
 
   group('settings', () {
+    tw('sound and vibration switches save and apply; failure keeps them', (
+      tester,
+    ) async {
+      final store = _FeedbackStore();
+      addTearDown(() => SoundEffects.settings = const FeedbackSettings());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            repository: repo,
+            reminderService: reminder,
+            reminderStore: reminderStore,
+            feedbackStore: store,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('音と振動'), findsOneWidget);
+      Finder toggle(String title) => find.descendant(
+        of: find.ancestor(of: find.text(title), matching: find.byType(Row)),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widget<Switch>(toggle('効果音')).value, isTrue);
+      await tester.tap(toggle('効果音'));
+      await tester.pumpAndSettle();
+      expect(store.value.sound, isFalse);
+      expect(SoundEffects.settings.sound, isFalse);
+      expect(tester.widget<Switch>(toggle('効果音')).value, isFalse);
+
+      store.fail = true;
+      await tester.tap(toggle('振動'));
+      await tester.pumpAndSettle();
+      expect(store.value.haptics, isTrue);
+      expect(SoundEffects.settings.haptics, isTrue);
+      expect(tester.widget<Switch>(toggle('振動')).value, isTrue);
+      expect(find.text('設定を保存できませんでした（変更されていません）'), findsOneWidget);
+    });
+
     Future<void> openSettings(WidgetTester tester) async {
       await pumpApp(tester);
       await tester.tap(find.text('設定'));

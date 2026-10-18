@@ -259,4 +259,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  tw('countdown runs smoothly between updates but never far ahead', (
+    tester,
+  ) async {
+    await open(tester);
+    await emit(
+      tester,
+      const ScanProgress(
+        phase: ScanPhase.measuring,
+        elapsed: Duration(milliseconds: 5900),
+      ),
+    );
+    expect(text('10'), findsOneWidget); // 残り 9.1 秒 → 10
+    // 次の通知がなくても、フレームごとに補って 6 秒を越え、9 に変わる。
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pumpAndSettle();
+    expect(text('9'), findsOneWidget);
+    expect(text('10'), findsNothing);
+    // 通知が止まったら 0.4 秒より先へは進まない（6.3 秒どまりで 9 のまま）。
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(text('9'), findsOneWidget);
+    await tester.tap(text('中止する'));
+    await tester.pumpAndSettle();
+  });
 }

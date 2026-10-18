@@ -11,6 +11,7 @@ import 'services/ai/on_device_ai_runner.dart';
 import 'services/db/app_database.dart';
 import 'services/db/health_record_repository.dart';
 import 'services/notifications/daily_reminder_service.dart';
+import 'services/sound/sound_effects.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,8 @@ class _DatabaseHostState extends State<_DatabaseHost> {
     _database,
   );
 
+  late final DriftFeedbackSettingsStore _feedbackStore =
+      DriftFeedbackSettingsStore(_database);
   late final DriftReminderSettingsStore _reminderStore =
       DriftReminderSettingsStore(_database);
   final LocalDailyReminderService _reminderService =
@@ -61,6 +64,7 @@ class _DatabaseHostState extends State<_DatabaseHost> {
     createScanSession: _createSession,
     createResearchScanSession: _createResearchSession,
     scanModeStore: DriftScanModeStore(_database),
+    feedbackStore: _feedbackStore,
     reminderService: _reminderService,
     reminderStore: _reminderStore,
   );
@@ -70,6 +74,13 @@ class _DatabaseHostState extends State<_DatabaseHost> {
     super.initState();
     // 起動を待たせない。失敗しても通知なしでアプリは使える。
     unawaited(restoreDailyReminder(_reminderStore, _reminderService));
+    // 効果音・振動の設定。読めなければ既定（オン）のまま。
+    unawaited(
+      _feedbackStore
+          .load()
+          .then((s) => SoundEffects.settings = s)
+          .catchError((Object _) => SoundEffects.settings),
+    );
   }
 
   @override

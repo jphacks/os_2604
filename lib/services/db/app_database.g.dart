@@ -1536,6 +1536,320 @@ class ScanPreferencesCompanion extends UpdateCompanion<ScanPreference> {
   }
 }
 
+class $FeedbackPreferencesTable extends FeedbackPreferences
+    with TableInfo<$FeedbackPreferencesTable, FeedbackPreference> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FeedbackPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL CHECK (id = 1)',
+  );
+  static const VerificationMeta _soundMeta = const VerificationMeta('sound');
+  @override
+  late final GeneratedColumn<bool> sound = GeneratedColumn<bool>(
+    'sound',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sound" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _hapticsMeta = const VerificationMeta(
+    'haptics',
+  );
+  @override
+  late final GeneratedColumn<bool> haptics = GeneratedColumn<bool>(
+    'haptics',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("haptics" IN (0, 1))',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<MeasureInstrument, String>
+  instrument =
+      GeneratedColumn<String>(
+        'instrument',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: Constant(MeasureInstrument.marimba.name),
+      ).withConverter<MeasureInstrument>(
+        $FeedbackPreferencesTable.$converterinstrument,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [id, sound, haptics, instrument];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'feedback_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FeedbackPreference> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sound')) {
+      context.handle(
+        _soundMeta,
+        sound.isAcceptableOrUnknown(data['sound']!, _soundMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_soundMeta);
+    }
+    if (data.containsKey('haptics')) {
+      context.handle(
+        _hapticsMeta,
+        haptics.isAcceptableOrUnknown(data['haptics']!, _hapticsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hapticsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FeedbackPreference map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FeedbackPreference(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      sound: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sound'],
+      )!,
+      haptics: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}haptics'],
+      )!,
+      instrument: $FeedbackPreferencesTable.$converterinstrument.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}instrument'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $FeedbackPreferencesTable createAlias(String alias) {
+    return $FeedbackPreferencesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<MeasureInstrument, String, String>
+  $converterinstrument = const EnumNameConverter<MeasureInstrument>(
+    MeasureInstrument.values,
+  );
+}
+
+class FeedbackPreference extends DataClass
+    implements Insertable<FeedbackPreference> {
+  final int id;
+  final bool sound;
+  final bool haptics;
+  final MeasureInstrument instrument;
+  const FeedbackPreference({
+    required this.id,
+    required this.sound,
+    required this.haptics,
+    required this.instrument,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['sound'] = Variable<bool>(sound);
+    map['haptics'] = Variable<bool>(haptics);
+    {
+      map['instrument'] = Variable<String>(
+        $FeedbackPreferencesTable.$converterinstrument.toSql(instrument),
+      );
+    }
+    return map;
+  }
+
+  FeedbackPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return FeedbackPreferencesCompanion(
+      id: Value(id),
+      sound: Value(sound),
+      haptics: Value(haptics),
+      instrument: Value(instrument),
+    );
+  }
+
+  factory FeedbackPreference.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FeedbackPreference(
+      id: serializer.fromJson<int>(json['id']),
+      sound: serializer.fromJson<bool>(json['sound']),
+      haptics: serializer.fromJson<bool>(json['haptics']),
+      instrument: $FeedbackPreferencesTable.$converterinstrument.fromJson(
+        serializer.fromJson<String>(json['instrument']),
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'sound': serializer.toJson<bool>(sound),
+      'haptics': serializer.toJson<bool>(haptics),
+      'instrument': serializer.toJson<String>(
+        $FeedbackPreferencesTable.$converterinstrument.toJson(instrument),
+      ),
+    };
+  }
+
+  FeedbackPreference copyWith({
+    int? id,
+    bool? sound,
+    bool? haptics,
+    MeasureInstrument? instrument,
+  }) => FeedbackPreference(
+    id: id ?? this.id,
+    sound: sound ?? this.sound,
+    haptics: haptics ?? this.haptics,
+    instrument: instrument ?? this.instrument,
+  );
+  FeedbackPreference copyWithCompanion(FeedbackPreferencesCompanion data) {
+    return FeedbackPreference(
+      id: data.id.present ? data.id.value : this.id,
+      sound: data.sound.present ? data.sound.value : this.sound,
+      haptics: data.haptics.present ? data.haptics.value : this.haptics,
+      instrument: data.instrument.present
+          ? data.instrument.value
+          : this.instrument,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedbackPreference(')
+          ..write('id: $id, ')
+          ..write('sound: $sound, ')
+          ..write('haptics: $haptics, ')
+          ..write('instrument: $instrument')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, sound, haptics, instrument);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FeedbackPreference &&
+          other.id == this.id &&
+          other.sound == this.sound &&
+          other.haptics == this.haptics &&
+          other.instrument == this.instrument);
+}
+
+class FeedbackPreferencesCompanion extends UpdateCompanion<FeedbackPreference> {
+  final Value<int> id;
+  final Value<bool> sound;
+  final Value<bool> haptics;
+  final Value<MeasureInstrument> instrument;
+  const FeedbackPreferencesCompanion({
+    this.id = const Value.absent(),
+    this.sound = const Value.absent(),
+    this.haptics = const Value.absent(),
+    this.instrument = const Value.absent(),
+  });
+  FeedbackPreferencesCompanion.insert({
+    this.id = const Value.absent(),
+    required bool sound,
+    required bool haptics,
+    this.instrument = const Value.absent(),
+  }) : sound = Value(sound),
+       haptics = Value(haptics);
+  static Insertable<FeedbackPreference> custom({
+    Expression<int>? id,
+    Expression<bool>? sound,
+    Expression<bool>? haptics,
+    Expression<String>? instrument,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sound != null) 'sound': sound,
+      if (haptics != null) 'haptics': haptics,
+      if (instrument != null) 'instrument': instrument,
+    });
+  }
+
+  FeedbackPreferencesCompanion copyWith({
+    Value<int>? id,
+    Value<bool>? sound,
+    Value<bool>? haptics,
+    Value<MeasureInstrument>? instrument,
+  }) {
+    return FeedbackPreferencesCompanion(
+      id: id ?? this.id,
+      sound: sound ?? this.sound,
+      haptics: haptics ?? this.haptics,
+      instrument: instrument ?? this.instrument,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (sound.present) {
+      map['sound'] = Variable<bool>(sound.value);
+    }
+    if (haptics.present) {
+      map['haptics'] = Variable<bool>(haptics.value);
+    }
+    if (instrument.present) {
+      map['instrument'] = Variable<String>(
+        $FeedbackPreferencesTable.$converterinstrument.toSql(instrument.value),
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedbackPreferencesCompanion(')
+          ..write('id: $id, ')
+          ..write('sound: $sound, ')
+          ..write('haptics: $haptics, ')
+          ..write('instrument: $instrument')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1547,6 +1861,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ScanPreferencesTable scanPreferences = $ScanPreferencesTable(
     this,
   );
+  late final $FeedbackPreferencesTable feedbackPreferences =
+      $FeedbackPreferencesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1556,6 +1872,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     healthRecords,
     reminderPreferences,
     scanPreferences,
+    feedbackPreferences,
   ];
 }
 
@@ -2446,6 +2763,212 @@ typedef $$ScanPreferencesTableProcessedTableManager =
       ScanPreference,
       PrefetchHooks Function()
     >;
+typedef $$FeedbackPreferencesTableCreateCompanionBuilder =
+    FeedbackPreferencesCompanion Function({
+      Value<int> id,
+      required bool sound,
+      required bool haptics,
+      Value<MeasureInstrument> instrument,
+    });
+typedef $$FeedbackPreferencesTableUpdateCompanionBuilder =
+    FeedbackPreferencesCompanion Function({
+      Value<int> id,
+      Value<bool> sound,
+      Value<bool> haptics,
+      Value<MeasureInstrument> instrument,
+    });
+
+class $$FeedbackPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $FeedbackPreferencesTable> {
+  $$FeedbackPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get sound => $composableBuilder(
+    column: $table.sound,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get haptics => $composableBuilder(
+    column: $table.haptics,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<MeasureInstrument, MeasureInstrument, String>
+  get instrument => $composableBuilder(
+    column: $table.instrument,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+}
+
+class $$FeedbackPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $FeedbackPreferencesTable> {
+  $$FeedbackPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get sound => $composableBuilder(
+    column: $table.sound,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get haptics => $composableBuilder(
+    column: $table.haptics,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get instrument => $composableBuilder(
+    column: $table.instrument,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FeedbackPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FeedbackPreferencesTable> {
+  $$FeedbackPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get sound =>
+      $composableBuilder(column: $table.sound, builder: (column) => column);
+
+  GeneratedColumn<bool> get haptics =>
+      $composableBuilder(column: $table.haptics, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<MeasureInstrument, String> get instrument =>
+      $composableBuilder(
+        column: $table.instrument,
+        builder: (column) => column,
+      );
+}
+
+class $$FeedbackPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FeedbackPreferencesTable,
+          FeedbackPreference,
+          $$FeedbackPreferencesTableFilterComposer,
+          $$FeedbackPreferencesTableOrderingComposer,
+          $$FeedbackPreferencesTableAnnotationComposer,
+          $$FeedbackPreferencesTableCreateCompanionBuilder,
+          $$FeedbackPreferencesTableUpdateCompanionBuilder,
+          (
+            FeedbackPreference,
+            BaseReferences<
+              _$AppDatabase,
+              $FeedbackPreferencesTable,
+              FeedbackPreference
+            >,
+          ),
+          FeedbackPreference,
+          PrefetchHooks Function()
+        > {
+  $$FeedbackPreferencesTableTableManager(
+    _$AppDatabase db,
+    $FeedbackPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FeedbackPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FeedbackPreferencesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$FeedbackPreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<bool> sound = const Value.absent(),
+                Value<bool> haptics = const Value.absent(),
+                Value<MeasureInstrument> instrument = const Value.absent(),
+              }) => FeedbackPreferencesCompanion(
+                id: id,
+                sound: sound,
+                haptics: haptics,
+                instrument: instrument,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required bool sound,
+                required bool haptics,
+                Value<MeasureInstrument> instrument = const Value.absent(),
+              }) => FeedbackPreferencesCompanion.insert(
+                id: id,
+                sound: sound,
+                haptics: haptics,
+                instrument: instrument,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$FeedbackPreferencesTable, FeedbackPreference>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $FeedbackPreferencesTable,
+                    FeedbackPreference
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FeedbackPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FeedbackPreferencesTable,
+      FeedbackPreference,
+      $$FeedbackPreferencesTableFilterComposer,
+      $$FeedbackPreferencesTableOrderingComposer,
+      $$FeedbackPreferencesTableAnnotationComposer,
+      $$FeedbackPreferencesTableCreateCompanionBuilder,
+      $$FeedbackPreferencesTableUpdateCompanionBuilder,
+      (
+        FeedbackPreference,
+        BaseReferences<
+          _$AppDatabase,
+          $FeedbackPreferencesTable,
+          FeedbackPreference
+        >,
+      ),
+      FeedbackPreference,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2458,4 +2981,6 @@ class $AppDatabaseManager {
       $$ReminderPreferencesTableTableManager(_db, _db.reminderPreferences);
   $$ScanPreferencesTableTableManager get scanPreferences =>
       $$ScanPreferencesTableTableManager(_db, _db.scanPreferences);
+  $$FeedbackPreferencesTableTableManager get feedbackPreferences =>
+      $$FeedbackPreferencesTableTableManager(_db, _db.feedbackPreferences);
 }

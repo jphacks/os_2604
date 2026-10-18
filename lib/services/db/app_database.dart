@@ -3,6 +3,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 import '../../models/health_check_result.dart';
 import '../settings/onboarding_store.dart';
+import '../settings/feedback_settings_store.dart';
 import '../settings/scan_mode_store.dart';
 import '../settings/reminder_settings_store.dart';
 
@@ -30,6 +31,17 @@ class ReminderPreferences extends Table {
 class ScanPreferences extends Table {
   IntColumn get id => integer().customConstraint('NOT NULL CHECK (id = 1)')();
   BoolColumn get research => boolean()();
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class FeedbackPreferences extends Table {
+  IntColumn get id => integer().customConstraint('NOT NULL CHECK (id = 1)')();
+  BoolColumn get sound => boolean()();
+  BoolColumn get haptics => boolean()();
+  TextColumn get instrument => textEnum<MeasureInstrument>().withDefault(
+    Constant(MeasureInstrument.marimba.name),
+  )();
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -79,6 +91,7 @@ class HealthRecords extends Table {
     HealthRecords,
     ReminderPreferences,
     ScanPreferences,
+    FeedbackPreferences,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -87,7 +100,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.production() : super(driftDatabase(name: 'os_2604'));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,6 +124,12 @@ class AppDatabase extends _$AppDatabase {
         );
       }
       if (from < 6) await m.createTable(scanPreferences);
+      // v6 -> v7 only adds the sound/haptics table; existing rows are untouched.
+      if (from < 7) await m.createTable(feedbackPreferences);
+      // v7 -> v8 adds the measuring instrument (existing rows get the default).
+      if (from == 7) {
+        await m.addColumn(feedbackPreferences, feedbackPreferences.instrument);
+      }
       if (from >= 2 && from < 5) {
         await m.addColumn(healthRecords, healthRecords.scanMode);
       }
@@ -193,6 +212,39 @@ class DriftScanModeStore implements ScanModeStore {
           ScanPreferencesCompanion.insert(
             id: const Value(1),
             research: enabled,
+          ),
+        );
+  }
+}
+
+class DriftFeedbackSettingsStore implements FeedbackSettingsStore {
+  DriftFeedbackSettingsStore(this.database);
+  final AppDatabase database;
+
+  @override
+  Future<FeedbackSettings> load() async {
+    final row = await database
+        .select(database.feedbackPreferences)
+        .getSingleOrNull();
+    return row == null
+        ? const FeedbackSettings()
+        : FeedbackSettings(
+            sound: row.sound,
+            haptics: row.haptics,
+            instrument: row.instrument,
+          );
+  }
+
+  @override
+  Future<void> save(FeedbackSettings settings) async {
+    await database
+        .into(database.feedbackPreferences)
+        .insertOnConflictUpdate(
+          FeedbackPreferencesCompanion.insert(
+            id: const Value(1),
+            sound: settings.sound,
+            haptics: settings.haptics,
+            instrument: Value(settings.instrument),
           ),
         );
   }

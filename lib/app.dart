@@ -13,9 +13,11 @@ import 'screens/settings_screen.dart';
 import 'services/ai/on_device_ai_runner.dart';
 import 'services/db/health_record_repository.dart';
 import 'services/notifications/daily_reminder_service.dart';
+import 'services/settings/feedback_settings_store.dart';
 import 'services/settings/onboarding_store.dart';
 import 'services/settings/reminder_settings_store.dart';
 import 'ui/asakao_style.dart';
+import 'ui/tap_feedback.dart';
 import 'widgets/onboarding_gate.dart';
 import 'widgets/scan_mode_gate.dart';
 import 'services/settings/scan_mode_store.dart';
@@ -29,6 +31,7 @@ class MorningCheckApp extends StatelessWidget {
     required this.createScanSession,
     this.createResearchScanSession,
     this.scanModeStore,
+    this.feedbackStore,
     required this.reminderService,
     required this.reminderStore,
     this.requestCameraPermission = requestSystemCameraPermission,
@@ -52,12 +55,16 @@ class MorningCheckApp extends StatelessWidget {
   final ScanSession Function()? createResearchScanSession;
   final ScanModeStore? scanModeStore;
 
+  /// 効果音・振動のオン／オフ。null なら設定に項目を出さない（既定はオン）。
+  final FeedbackSettingsStore? feedbackStore;
+
   Widget _home(BuildContext context) => MainTabsScreen(
     repository: repository,
     now: now,
     reminderService: reminderService,
     reminderStore: reminderStore,
     scanModeStore: scanModeStore,
+    feedbackStore: feedbackStore,
     onStartCheck: () => Navigator.of(context).pushNamed(AppRoutes.scan),
   );
 
@@ -111,6 +118,8 @@ class MorningCheckApp extends StatelessWidget {
       supportedLocales: const [Locale('ja')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: asakaoTheme(),
+      // ボタンを押したときのタップ音と振動（アプリ全体）。
+      builder: (context, child) => TapFeedback(child: child!),
       initialRoute: AppRoutes.home,
       routes: {
         AppRoutes.home: (_) => OnboardingGate(
@@ -127,6 +136,7 @@ class MorningCheckApp extends StatelessWidget {
         AppRoutes.history: (_) => HistoryScreen(store: repository, now: now),
         AppRoutes.settings: (_) => SettingsScreen(
           scanModeStore: scanModeStore,
+          feedbackStore: feedbackStore,
           repository: repository,
           reminderService: reminderService,
           reminderStore: reminderStore,
