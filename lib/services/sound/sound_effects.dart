@@ -96,6 +96,23 @@ abstract final class SoundEffects {
         .catchError((Object _) {});
   }
 
+  /// テストで止めた音を確かめるときに差し替える。
+  @visibleForTesting
+  static void Function(SoundEffect effect)? debugOnStop;
+
+  /// 鳴っている効果音を短く小さくして止める（演出を途中で終えたとき）。
+  static void stop(SoundEffect effect) {
+    final hook = debugOnStop;
+    if (hook != null) {
+      hook(effect);
+      return;
+    }
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    _channel
+        .invokeMethod<void>('stop', 'assets/sounds/${effect.file}')
+        .catchError((Object _) {});
+  }
+
   static void haptic(AppHaptic haptic) {
     if (!settings.haptics) return;
     final hook = debugOnHaptic;

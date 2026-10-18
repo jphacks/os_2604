@@ -77,11 +77,17 @@ import FoundationModels
         binaryMessenger: soundRegistrar.messenger()
       )
       channel.setMethodCallHandler { call, result in
-        guard call.method == "play", let asset = call.arguments as? String else {
+        guard let asset = call.arguments as? String else {
           result(FlutterMethodNotImplemented)
           return
         }
-        player.play(asset: asset)
+        switch call.method {
+        case "play": player.play(asset: asset)
+        case "stop": player.fadeOut(asset: asset)
+        default:
+          result(FlutterMethodNotImplemented)
+          return
+        }
         result(nil)
       }
       soundEffects = player
@@ -114,8 +120,18 @@ private final class SoundEffectPlayer {
       players[asset] = player
     }
     guard let player = players[asset] else { return }
+    player.volume = 1
     player.currentTime = 0
     player.play()
+  }
+
+  /// 鳴っている音を0.3秒で小さくして止める（演出を途中で終えたとき）。
+  func fadeOut(asset: String) {
+    guard let player = players[asset], player.isPlaying else { return }
+    player.setVolume(0, fadeDuration: 0.3)
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+      if player.volume == 0 { player.stop() }
+    }
   }
 }
 
