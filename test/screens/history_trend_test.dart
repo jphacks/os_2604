@@ -70,7 +70,7 @@ void main() {
     await openGraph(tester, screen: true);
     expect(find.byKey(const ValueKey('history-row-a')), findsNothing);
     expect(find.text('2026年10月'), findsOneWidget);
-    expect(find.text('1週間'), findsNothing);
+    expect(find.text('1週間'), findsOneWidget);
     expect(find.text('破線は記録のない日'), findsOneWidget);
     await tester.tap(find.text('リスト'));
     await tester.pumpAndSettle();

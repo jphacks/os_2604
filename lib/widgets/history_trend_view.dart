@@ -7,7 +7,8 @@ import '../ui/asakao_widgets.dart';
 
 /// 履歴の「グラフ」表示。体調（棒）と推定心拍 参考値（折れ線）を、実際の記録だけで描く。
 ///
-/// 期間は「今日を最後の日とする直近7日 / 30日」（カレンダー月ではない）。
+/// 年月指定時は選択期間全体と日曜〜土曜の1週間を切り替える。
+/// 期間指定なしの既存利用では今日を末日とする直近7日 / 30日。
 /// 外部パッケージは使わず、棒は通常のウィジェット、折れ線は CustomPaint で描く。
 class HistoryTrendView extends StatefulWidget {
   const HistoryTrendView({
@@ -15,11 +16,15 @@ class HistoryTrendView extends StatefulWidget {
     required this.records,
     required this.now,
     this.period,
+    this.weeklyRecords,
   });
 
   final List<HealthCheckResult> records;
   final DateTime Function() now;
   final DateTimeRange? period;
+
+  /// Unfiltered records for calendar weeks crossing the selected month.
+  final List<HealthCheckResult>? weeklyRecords;
 
   @override
   State<HistoryTrendView> createState() => _HistoryTrendViewState();
@@ -36,10 +41,56 @@ enum _Range {
 
 class _HistoryTrendViewState extends State<HistoryTrendView> {
   _Range _range = _Range.week;
+  bool _weekly = false;
+  int _weekOffset = 0;
+
+  DateTime _sunday(DateTime date) =>
+      DateTime(date.year, date.month, date.day - date.weekday % 7);
+
+  @override
+  void didUpdateWidget(HistoryTrendView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.period != widget.period) _weekOffset = 0;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final period = widget.period;
+    final selected = widget.period;
+    final weekly = selected != null && _weekly;
+    final now = widget.now().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final anchor = selected == null || selected.end.isAfter(today)
+        ? today
+        : selected.end;
+    final latestWeek = _sunday(
+      selected != null && anchor.isBefore(selected.start)
+          ? selected.start
+          : anchor,
+    );
+    final earliestWeek = _sunday(selected?.start ?? latestWeek);
+    final maxOffset =
+        DateTime.utc(latestWeek.year, latestWeek.month, latestWeek.day)
+            .difference(
+              DateTime.utc(
+                earliestWeek.year,
+                earliestWeek.month,
+                earliestWeek.day,
+              ),
+            )
+            .inDays ~/
+        7;
+    final offset = _weekOffset.clamp(0, maxOffset);
+    final weekStart = DateTime(
+      latestWeek.year,
+      latestWeek.month,
+      latestWeek.day - offset * 7,
+    );
+    final period = weekly
+        ? DateTimeRange(
+            start: weekStart,
+            end: DateTime(weekStart.year, weekStart.month, weekStart.day + 6),
+          )
+        : selected;
     final count = period == null
         ? _range.days
         : DateTime.utc(period.end.year, period.end.month, period.end.day)
@@ -53,11 +104,13 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
                   .inDays +
               1;
     final days = buildDailyTrend(
-      widget.records,
+      weekly ? (widget.weeklyRecords ?? widget.records) : widget.records,
       today: period?.end ?? widget.now(),
       days: count,
     );
-    final label = period == null
+    final label = weekly
+        ? '1週間'
+        : period == null
         ? _range.label
         : count > 31
         ? '${period.start.year}年'
@@ -65,7 +118,57 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (period == null)
+        if (selected != null) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _RangeChip(
+                label: '1週間',
+                selected: _weekly,
+                onTap: () => setState(() => _weekly = true),
+              ),
+              _RangeChip(
+                label: '選択期間',
+                selected: !_weekly,
+                onTap: () => setState(() => _weekly = false),
+              ),
+            ],
+          ),
+          if (weekly) ...[
+            const SizedBox(height: 12),
+            Text(
+              '${_ymd(period!.start)} 〜 ${_ymd(period.end)}',
+              key: const ValueKey('graph-week-period'),
+              textAlign: TextAlign.center,
+              style: AsakaoStyle.body,
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(
+                  key: const ValueKey('graph-previous-week'),
+                  onPressed: offset < maxOffset
+                      ? () => setState(() => _weekOffset = offset + 1)
+                      : null,
+                  child: const Text('前の週'),
+                ),
+                TextButton(
+                  key: const ValueKey('graph-next-week'),
+                  onPressed: offset > 0
+                      ? () => setState(() => _weekOffset = offset - 1)
+                      : null,
+                  child: const Text('次の週'),
+                ),
+              ],
+            ),
+            const Text(
+              '日曜〜土曜の7日間を表示します（月をまたぐ週も含みます）。',
+              style: AsakaoStyle.caption,
+            ),
+          ],
+        ],
+        if (selected == null)
           Row(
             children: [
               for (final r in _Range.values)
@@ -195,31 +298,35 @@ class _ConditionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 8,
               children: [
-                const Expanded(
-                  child: Text(
-                    '体調',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AsakaoStyle.ink,
-                    ),
-                  ),
-                ),
-                const Text('平均 ', style: AsakaoStyle.caption),
-                Text(
-                  avg == null ? '—' : avg.toStringAsFixed(1),
-                  key: const ValueKey('condition-average'),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+                const Text(
+                  '体調',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
                     color: AsakaoStyle.ink,
                   ),
                 ),
-                const Text(' / 5', style: AsakaoStyle.caption),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('平均 ', style: AsakaoStyle.caption),
+                    Text(
+                      avg == null ? '—' : avg.toStringAsFixed(1),
+                      key: const ValueKey('condition-average'),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: AsakaoStyle.ink,
+                      ),
+                    ),
+                    const Text(' / 5', style: AsakaoStyle.caption),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -349,7 +456,10 @@ class _HeartRateCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text(
                   '推定心拍',
@@ -359,7 +469,6 @@ class _HeartRateCard extends StatelessWidget {
                     color: AsakaoStyle.ink,
                   ),
                 ),
-                const SizedBox(width: 8),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: AsakaoStyle.neutralBackground,
@@ -377,7 +486,6 @@ class _HeartRateCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Spacer(),
                 const Text('bpm', style: AsakaoStyle.caption),
               ],
             ),

@@ -864,6 +864,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 records: filtered,
                                 now: widget.now,
                                 period: _period,
+                                weeklyRecords: records,
                               ),
                             )
                           : KeyedSubtree(
