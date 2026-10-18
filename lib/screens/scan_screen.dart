@@ -4,13 +4,13 @@ import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../features/scan/scan_widget.dart';
 import '../models/health_check_result.dart';
 import '../models/environment_snapshot.dart';
 import '../services/device/environment_save_service.dart';
-import '../widgets/environment_view.dart';
 import '../models/scan_contract.dart';
 import '../navigation/app_routes.dart';
 import '../navigation/app_transitions.dart';
@@ -20,6 +20,7 @@ import '../widgets/led_kit_controls.dart';
 import '../services/sound/sound_effects.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
+import '../ui/pachinko_effects.dart';
 
 /// 画面が1つ所有する計測サービスとそのプレビュー。
 typedef ScanSession = ({
@@ -48,9 +49,11 @@ class ScanScreen extends StatefulWidget {
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-enum _Stage { idle, running, saving, saveFailed, failed }
+/// [failed] は中断画面（3-3）、[interrupted] はカメラの画面のままダイアログで知らせる中断。
+enum _Stage { idle, running, saving, saveFailed, failed, interrupted }
 
-class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
+class _ScanScreenState extends State<ScanScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   LedAttempt? _ledAttempt;
   bool _completedNavigation = false;
 
@@ -64,6 +67,69 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     if (state != AppLifecycleState.resumed) {
       widget.ledService?.cancelAttempt(_ledAttempt);
       _ledAttempt = null;
+    }
+  }
+
+  // 計測の進み（円と残り秒数）は、届いた経過時間のあいだを毎フレーム補って滑らかに動かす。
+  // 次の通知が来ないとき（条件が崩れて止まったとき）は先へ進みすぎないよう上限を設ける。
+  static const _maxLead = Duration(milliseconds: 400);
+  late final Ticker _ticker = createTicker(_onTick);
+  Duration _tickNow = Duration.zero;
+  Duration _eventTick = Duration.zero;
+  Duration _eventElapsed = Duration.zero;
+  final _smoothElapsed = ValueNotifier(Duration.zero);
+
+  void _onTick(Duration now) {
+    _tickNow = now;
+    final lead = now - _eventTick;
+    final next = _eventElapsed + (lead > _maxLead ? _maxLead : lead);
+    final capped = next > HealthCheckResult.targetDuration
+        ? HealthCheckResult.targetDuration
+        : next;
+    // 戻らない（新しい通知が少し前の値でも、表示は前へだけ進む）。
+    if (capped > _smoothElapsed.value) _smoothElapsed.value = capped;
+    // 計測が終わった・止まったら、次の通知までフレームを回さない。
+    if (_stage != _Stage.running ||
+        lead >= _maxLead ||
+        capped >= HealthCheckResult.targetDuration) {
+      _ticker.stop();
+    }
+  }
+
+  /// パチンコ風の計測完了：画面を暗転し、暗転の音（約0.94秒）が終わったら体調の入力へ進む。
+  static const _blackoutDuration = Duration(milliseconds: 950);
+  late final _blackoutAnimation = AnimationController(
+    vsync: this,
+    duration: _blackoutDuration,
+  );
+  bool _blackout = false;
+  Future<void>? _blackoutDone;
+
+  /// 最後に鳴らした音（0 = 最初のド）。計測側から届いた秒数で進める。
+  int _lastNote = -1;
+
+  void _onMeasuringProgress(ScanProgress p) {
+    if (p.phase != ScanPhase.measuring) {
+      if (_ticker.isActive) _ticker.stop();
+      _smoothElapsed.value = Duration.zero;
+      _eventElapsed = Duration.zero;
+      _lastNote = -1;
+      return;
+    }
+    // 残り 15 → 1 秒の数字ごとに、ド〜2オクターブ上のドを1音ずつ鳴らす。
+    // 滑らかに補った表示ではなく、実際に届いた経過秒で鳴らす（止まれば音も止まる）。
+    final note = p.elapsed.inSeconds.clamp(0, 14);
+    if (note > _lastNote && _stage == _Stage.running) {
+      _lastNote = note;
+      SoundEffects.playNote(note);
+    }
+    _eventElapsed = p.elapsed;
+    _eventTick = _tickNow;
+    if (p.elapsed > _smoothElapsed.value) _smoothElapsed.value = p.elapsed;
+    if (!_ticker.isActive) {
+      _tickNow = Duration.zero;
+      _eventTick = Duration.zero;
+      _ticker.start();
     }
   }
 
@@ -96,6 +162,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       if (mounted) unawaited(_start());
     });
     _progressSub = _session.service.progress.listen((p) {
+      _onMeasuringProgress(p);
       final seen =
           p.phase == ScanPhase.preparing &&
           (p.guidance != null || _seenGuidance);
@@ -117,6 +184,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     if (!_completedNavigation) widget.ledService?.cancelAttempt(_ledAttempt);
+    _ticker.dispose();
+    _blackoutAnimation.dispose();
+    _smoothElapsed.dispose();
     unawaited(_progressSub?.cancel());
     _attempt++;
     unawaited(_release().catchError((Object _) {}));
@@ -148,8 +218,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }();
 
   Future<void> _start() async {
-    if (_leaving || (_stage != _Stage.idle && _stage != _Stage.failed)) return;
-    final retry = _stage == _Stage.failed;
+    if (_leaving ||
+        (_stage != _Stage.idle &&
+            _stage != _Stage.failed &&
+            _stage != _Stage.interrupted)) {
+      return;
+    }
+    final retry = _stage == _Stage.failed || _stage == _Stage.interrupted;
     final attempt = ++_attempt;
     _ledAttempt = widget.ledService?.beginAttempt();
     setState(() {
@@ -168,11 +243,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     } catch (_) {
       if (!_isCurrent(attempt)) return;
       widget.ledService?.cancelAttempt(_ledAttempt);
-      setState(() {
-        _stage = _Stage.failed;
-        _failure = ScanFailureReason.processingFailed;
-      });
-      SoundEffects.play(SoundEffect.pause); // 3-3
+      _fail(ScanFailureReason.processingFailed);
       return;
     }
     if (!_isCurrent(attempt)) return;
@@ -181,15 +252,65 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         _frozenEnvironment =
             widget.ledService?.snapshotEnvironment() ??
             EnvironmentSnapshot(state: EnvironmentState.disabled);
-        SoundEffects.play(SoundEffect.measureDone);
+        if (SoundEffects.pachinkoFinish) {
+          // パチンコ風：保存と並行して画面を暗転させ、暗転の音が終わるまで待ってから進む。
+          setState(() => _blackout = true);
+          SoundEffects.play(SoundEffect.pachinkoBlackout);
+          _blackoutDone = _blackoutAnimation
+              .forward(from: 0)
+              .orCancel
+              .catchError((Object _) {});
+        } else {
+          SoundEffects.play(SoundEffect.measureDone);
+        }
         await _save(result, attempt);
       case ScanFailure(:final reason):
         widget.ledService?.cancelAttempt(_ledAttempt);
-        setState(() {
-          _stage = _Stage.failed;
-          _failure = reason;
-        });
-        SoundEffects.play(SoundEffect.pause); // 3-3
+        _fail(reason);
+    }
+  }
+
+  /// 設定アプリでの手順が要る中断は、これまでどおり中断画面（3-3）で説明する。
+  static bool _needsScreen(ScanFailureReason r) =>
+      r == ScanFailureReason.permissionDenied ||
+      r == ScanFailureReason.cameraUnavailable;
+
+  bool _dialogOpen = false;
+
+  /// 計測が無効になった。記録は保存しない。
+  /// 顔が外れた・暗い・離脱などは、カメラの画面のままダイアログで知らせ、
+  /// 「もう一度測る」で状態をリセットして条件のチェックから再開する（自動では撮り直さない）。
+  void _fail(ScanFailureReason reason) {
+    SoundEffects.play(SoundEffect.pause);
+    if (_needsScreen(reason)) {
+      setState(() {
+        _stage = _Stage.failed;
+        _failure = reason;
+      });
+      return;
+    }
+    setState(() {
+      _stage = _Stage.interrupted;
+      _failure = reason;
+      _seenGuidance = false;
+    });
+    unawaited(_showInterrupted(reason));
+  }
+
+  Future<void> _showInterrupted(ScanFailureReason reason) async {
+    if (_dialogOpen) return;
+    _dialogOpen = true;
+    final again = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _InterruptedDialog(copy: _failureCopy(reason)),
+    );
+    _dialogOpen = false;
+    if (!mounted || _leaving) return;
+    if (again == true) {
+      unawaited(_start());
+    } else {
+      unawaited(_leave());
     }
   }
 
@@ -203,7 +324,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       await widget.repository.insert(result);
     } catch (_) {
       if (!_isCurrent(attempt)) return;
-      setState(() => _stage = _Stage.saveFailed);
+      // 保存できなかったことを隠さないよう、暗転はやめて再試行を見せる。
+      setState(() {
+        _stage = _Stage.saveFailed;
+        _blackout = false;
+        _blackoutAnimation.value = 0;
+      });
       return;
     }
     // App-owned association survives normal result navigation and screen cleanup.
@@ -225,6 +351,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       await _release();
     } catch (_) {
       // The record is saved. Cleanup failure must not trigger a duplicate insert.
+    }
+    final blackout = _blackoutDone;
+    if (blackout != null) {
+      await blackout;
+      if (!mounted || !_isCurrent(attempt)) return;
+      SoundEffects.play(SoundEffect.pachinkoResult);
     }
     if (!mounted || !_isCurrent(attempt)) return;
     _leaving = true;
@@ -296,6 +428,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+              // パチンコ風の計測完了：上下から黒が閉じ、閃光のあと暗転。暗い間は操作を受け付けない。
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_blackout,
+                  child: PachinkoBlackout(progress: _blackoutAnimation),
+                ),
+              ),
             ],
           ),
         ),
@@ -324,26 +463,24 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _header(measuring),
-                      Text(
-                        widget.researchMode ? '研究モード（試験機能）' : '通常モード',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AsakaoStyle.scanMuted,
-                          fontSize: 12,
-                        ),
-                      ),
+                      // 通常モードは表示しない。研究モードのときだけ試験中だと示す。
+                      widget.researchMode
+                          ? const Text(
+                              '研究モード（試験機能）',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AsakaoStyle.scanMuted,
+                                fontSize: 12,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                       const SizedBox(height: 16),
+                      // キットは接続中か未接続かだけを出す（詳しい状態は設定で見る）。
                       if (widget.ledService case final service?) ...[
-                        AsakaoCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              LedKitStatus(service: service),
-                              LiveEnvironmentView(service: service),
-                            ],
-                          ),
+                        Center(
+                          child: LedKitBadge(service: service, dark: true),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                       ],
                       _heading(measuring),
                       const SizedBox(height: 16),
@@ -431,17 +568,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     disabledForegroundColor: AsakaoStyle.scanMuted,
   );
 
+  // 位置合わせ中は見出しを出さない（下の「枠の中に顔を…」で伝わる）。
   Widget _header(bool measuring) => measuring
       ? const Align(alignment: Alignment.centerLeft, child: _MeasuringPill())
-      : const Text(
-          '顔の位置合わせ',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: AsakaoStyle.scanText,
-          ),
-          textAlign: TextAlign.center,
-        );
+      : const SizedBox.shrink();
 
   Widget _heading(bool measuring) => measuring
       ? const Text(
@@ -481,9 +611,6 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         : c.ready
         ? _GuideMode.ready
         : _GuideMode.notReady;
-    final progress =
-        p.elapsed.inMilliseconds /
-        HealthCheckResult.targetDuration.inMilliseconds;
     return Center(
       // Sibling types change when preparation becomes measurement. Keep this
       // subtree keyed so Flutter retains ScanWidget instead of cancelling it
@@ -499,6 +626,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
               Padding(
                 padding: const EdgeInsets.all(10),
                 child: ClipOval(
+                  // 縦横比を保った切り抜きは ScanWidget（CameraPreviewViewport）が行う。
                   child: ScanWidget(
                     service: _session.service,
                     preview: _session.preview,
@@ -524,19 +652,18 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                 ),
               ),
               IgnorePointer(
-                child: TweenAnimationBuilder<double>(
-                  key: ValueKey(mode),
-                  tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
-                  // Smooth the controller's 100 ms updates at display refresh
-                  // rate. This never advances the measurement clock itself.
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 100),
-                  curve: Curves.linear,
-                  builder: (context, displayedProgress, child) => CustomPaint(
+                child: ValueListenableBuilder(
+                  valueListenable: _smoothElapsed,
+                  builder: (_, elapsed, _) => CustomPaint(
                     painter: _GuidePainter(
                       mode: mode,
-                      progress: displayedProgress,
+                      progress: measuring
+                          ? (elapsed.inMicroseconds /
+                                    HealthCheckResult
+                                        .targetDuration
+                                        .inMicroseconds)
+                                .clamp(0.0, 1.0)
+                          : 0,
                     ),
                   ),
                 ),
@@ -548,8 +675,18 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _remaining(ScanProgress p) {
-    final seconds = (p.remaining.inMilliseconds / 1000).ceil();
+  Widget _remaining(ScanProgress p) => ValueListenableBuilder(
+    valueListenable: _smoothElapsed,
+    builder: (_, elapsed, _) {
+      final shown = elapsed > p.elapsed ? elapsed : p.elapsed;
+      final left = HealthCheckResult.targetDuration - shown;
+      return _remainingSeconds(
+        left.isNegative ? 0 : (left.inMilliseconds / 1000).ceil(),
+      );
+    },
+  );
+
+  Widget _remainingSeconds(int seconds) {
     return Semantics(
       label: '残り $seconds 秒',
       excludeSemantics: true,
@@ -563,13 +700,39 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             style: TextStyle(fontSize: 15, color: AsakaoStyle.scanMuted),
           ),
           const SizedBox(width: 12),
-          Text(
-            '$seconds',
-            style: const TextStyle(
-              fontSize: 72,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              color: AsakaoStyle.scanText,
+          // 数字は前の数字が上へ抜け、次の数字が下から入る。
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (current, previous) => Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [...previous, ?current],
+            ),
+            transitionBuilder: (child, animation) {
+              final entering = child.key == ValueKey(seconds);
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween(
+                    begin: Offset(0, entering ? 0.45 : -0.45),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              );
+            },
+            child: Text(
+              '$seconds',
+              key: ValueKey(seconds),
+              style: const TextStyle(
+                fontSize: 72,
+                fontWeight: FontWeight.w700,
+                height: 1,
+                fontFeatures: [FontFeature.tabularFigures()],
+                color: AsakaoStyle.scanText,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -1072,4 +1235,73 @@ class _GuidePainter extends CustomPainter {
   @override
   bool shouldRepaint(_GuidePainter old) =>
       old.mode != mode || old.progress != progress;
+}
+
+/// 計測が無効になったときのダイアログ。こまった顔と理由、もう一度／やめる。
+class _InterruptedDialog extends StatefulWidget {
+  const _InterruptedDialog({required this.copy});
+
+  final _FailureCopy copy;
+
+  @override
+  State<_InterruptedDialog> createState() => _InterruptedDialogState();
+}
+
+class _InterruptedDialogState extends State<_InterruptedDialog> {
+  // 連打で2回閉じると、下の計測画面まで閉じてしまうので1回だけにする。
+  bool _closed = false;
+
+  void _close(bool again) {
+    if (_closed) return;
+    _closed = true;
+    Navigator.of(context).pop(again);
+  }
+
+  _FailureCopy get copy => widget.copy;
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+    backgroundColor: AsakaoStyle.background,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AsakaoMascot(mood: AsakaoMascotMood.sad, size: 110),
+          const SizedBox(height: 12),
+          Semantics(
+            header: true,
+            child: Text(
+              copy.title,
+              textAlign: TextAlign.center,
+              style: AsakaoStyle.heading,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            copy.body,
+            textAlign: TextAlign.center,
+            style: AsakaoStyle.body.copyWith(color: AsakaoStyle.muted),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'この計測は無効になりました。記録は保存されていません。',
+            textAlign: TextAlign.center,
+            style: AsakaoStyle.caption,
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: AsakaoPrimaryButton(
+              label: 'もう一度測る',
+              onPressed: () => _close(true),
+            ),
+          ),
+          AsakaoTextLink(label: 'やめる', onPressed: () => _close(false)),
+        ],
+      ),
+    ),
+  );
 }

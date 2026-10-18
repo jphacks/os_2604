@@ -55,7 +55,7 @@ void main() {
     await open(tester);
     expect(scan.starts, 1); // 開いた瞬間にカメラを起動する（3-1'）
     expect(find.widgetWithText(FilledButton, '開始'), findsNothing);
-    expect(text('顔の位置合わせ'), findsOneWidget);
+    expect(text('顔の位置合わせ'), findsNothing); // 見出しは出さない
     expect(text('枠の中に顔を合わせてください'), findsOneWidget);
     expect(text('顔'), findsOneWidget);
     expect(text('明るさ'), findsOneWidget);
@@ -190,7 +190,7 @@ void main() {
     expect(scan.cancels, 0);
   });
 
-  tw('failure screen: invalid chip, reason card and honest note', (
+  tw('face lost: a dialog over the camera, then retry from the checks', (
     tester,
   ) async {
     await open(tester);
@@ -202,13 +202,51 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(text('この計測は無効になりました'), findsOneWidget);
-    expect(text('計測を中断しました'), findsOneWidget);
+    // 中断画面（3-3）へは行かず、カメラの画面の上にダイアログを出す。
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(text('計測を中断しました'), findsNothing);
     expect(text('うまく計測できませんでした'), findsOneWidget);
     expect(find.textContaining('位置を調整'), findsOneWidget);
+    expect(text('この計測は無効になりました。記録は保存されていません。'), findsOneWidget);
+    expect(text('枠の中に顔を合わせてください'), findsOneWidget); // 下はカメラの画面のまま
+    expect(scan.starts, 1);
+    await tester.tap(text('もう一度測る'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+    expect(scan.starts, 2); // その場でリセットして再開
+    expect(text('未確認'), findsNWidgets(3));
+  });
+
+  tw('face lost: "やめる" closes the scan without saving', (tester) async {
+    await open(tester);
+    await tester.pump();
+    scan.finish(
+      const ScanFailure(
+        reason: ScanFailureReason.interrupted,
+        elapsed: Duration(seconds: 2),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(text('やめる'));
+    await tester.pumpAndSettle();
+    expect(scan.starts, 1);
+    expect(scan.disposes, 1);
+  });
+
+  tw('camera unavailable still uses the interruption screen', (tester) async {
+    await open(tester);
+    await tester.pump();
+    scan.finish(
+      const ScanFailure(
+        reason: ScanFailureReason.cameraUnavailable,
+        elapsed: Duration.zero,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+    expect(text('計測を中断しました'), findsOneWidget);
+    expect(text('この計測は無効になりました'), findsOneWidget);
     expect(text('途中までのデータは保存されません。'), findsOneWidget);
-    expect(text('もう一度測る'), findsOneWidget);
-    expect(text('履歴に戻る'), findsOneWidget);
   });
 
   tw('permission denied keeps its guidance and has no 計測 invalid chip', (
@@ -258,5 +296,31 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  tw('countdown runs smoothly between updates but never far ahead', (
+    tester,
+  ) async {
+    await open(tester);
+    await emit(
+      tester,
+      const ScanProgress(
+        phase: ScanPhase.measuring,
+        elapsed: Duration(milliseconds: 5900),
+      ),
+    );
+    expect(text('10'), findsOneWidget); // 残り 9.1 秒 → 10
+    // 次の通知がなくても、フレームごとに補って 6 秒を越え、9 に変わる。
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pumpAndSettle();
+    expect(text('9'), findsOneWidget);
+    expect(text('10'), findsNothing);
+    // 通知が止まったら 0.4 秒より先へは進まない（6.3 秒どまりで 9 のまま）。
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(text('9'), findsOneWidget);
+    await tester.tap(text('中止する'));
+    await tester.pumpAndSettle();
   });
 }

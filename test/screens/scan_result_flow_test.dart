@@ -156,7 +156,7 @@ void main() {
     repo.failInsert = true;
     await openScan(tester);
     await startAndFinish(tester, successOutcome());
-    expect(find.text('顔の位置合わせ'), findsOneWidget);
+    expect(find.text('枠の中に顔を合わせてください'), findsOneWidget);
     expect(find.textContaining('結果は保存されていません'), findsOneWidget);
     expect(find.text('保存を再試行'), findsOneWidget);
     expect(await repo.findById('rec-1'), isNull);

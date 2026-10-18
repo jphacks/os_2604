@@ -211,7 +211,7 @@ void main() {
           expect(
             (await old.customSelect('PRAGMA user_version').getSingle())
                 .read<int>('user_version'),
-            7,
+            9,
           );
           expect(
             (await old.customSelect('PRAGMA foreign_keys').getSingle())

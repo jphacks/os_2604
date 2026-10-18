@@ -4,6 +4,46 @@ import '../services/device/led_notification_service.dart';
 import '../services/device/led_transport.dart';
 import 'environment_view.dart';
 
+/// 計測中・結果画面に出す、キットが「接続中」か「未接続」かだけの小さな表示。
+class LedKitBadge extends StatelessWidget {
+  const LedKitBadge({super.key, required this.service, this.dark = false});
+  final LedNotificationService service;
+
+  /// 暗い背景（計測画面）用の色にする。
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: service,
+    builder: (context, _) {
+      final connected = service.ready;
+      final dot = connected ? const Color(0xFF3DB27A) : const Color(0xFF9E9E9E);
+      return Semantics(
+        label: connected ? 'キット接続中' : 'キット未接続',
+        excludeSemantics: true,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+              child: const SizedBox.square(dimension: 8),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              connected ? 'キット接続中' : 'キット未接続',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: dark ? const Color(0xFFC9BDB5) : const Color(0xFF6E625B),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 class LedKitStatus extends StatelessWidget {
   const LedKitStatus({super.key, required this.service});
   final LedNotificationService service;

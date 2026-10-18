@@ -1,5 +1,14 @@
 # 現在の作業状態
 
+## 2026-10-18 UX追加（ブランチ codex/ui-history-sound-polish、最新main d4b5eb5 を取り込み）
+- 履歴：リスト／グラフはスイッチ（つまみと中身を同じ0.36秒・easeInOutCubic）、行は全幅・すき間なし・左スワイプ削除（確認ダイアログ、失敗時は行を戻す）。今週咲いた花は左右スワイプ／矢印で約1年前（53週、より古い記録があればそこまで）へ、曜日の下に日付、日付タップでその日の最新記録。咲く演出は効果音（約7秒）に合わせて6.5秒、暗転は円形の穴。
+- 振動：効果音ごとに HapticFeedback（ready=medium、measureDone=heavy、pause=medium、setupDone=light、花が開く瞬間=light）。
+- 効果音・振動のオン／オフ：設定「音と振動」。DB schema v7 で `feedback_preferences` 表を追加（createTable のみ、既存記録・設定は保持、移行テストあり）。起動時に読み込み `SoundEffects.settings` へ。
+- 通知から計測：`DailyReminderService.listenForOpen`（flutter_local_notifications の onDidReceiveNotificationResponse と起動時の launch details を1回だけ）。MainTabs が受けて cover で計測を開く。実機の通知タップは未確認。
+- 検証：format・analyze OK、flutter test 345件成功、iPhone 17 に上書き導入・起動。
+- 追加（同日）：計測画面のカメラを本来の比率で楕円に切り抜き（`_CameraCover`）、円と残り秒数は届いた経過時間の間を毎フレーム補間（先行は最大0.4秒、戻らない）、数字は上下にロール。ボタン全般でタップ音（type.mp3 を assets/sounds/tap.mp3 として同梱）＋選択クリック振動（`lib/ui/tap_feedback.dart`、読み上げ情報で押せる部品を判定）。
+- 計測中の音階：7楽器×15音（C major 2オクターブ）を `tool/generate_scale_notes.py` で合成し AAC 化（assets/sounds/scale/<楽器>/NN.m4a、計1.1MB）。計測側の経過秒が進んだときだけ1音（振動なし）。設定「計測中の音」で なし＋7楽器 を選択・試し聞き。DB schema v8（feedback_preferences.instrument、既定 marimba、v7 は addColumn）。撮影準備の振動は計測直前の揺れを避けるため廃止。テスト354件成功。
+
 ## 2026-10-18 最新mainのマージ修復・実機更新
 
 - 依頼：ユーザーがPR #16をmainへマージしたため、最新mainをUSB接続した実物のiPhoneへインストールする。再開・修復差分のコミットに続き、pushと日本語PR作成の依頼あり。マージ・main直接pushは行わない。

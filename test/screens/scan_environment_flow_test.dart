@@ -124,6 +124,10 @@ void main() {
     'freeze before parent save; navigation retains association, retry writes same snapshot without health insert',
     (tester) async {
       await open(tester);
+      // 計測画面のキット表示は「接続中／未接続」だけ（環境の値やLEDの状態は出さない）。
+      expect(find.text('キット接続中'), findsOneWidget);
+      expect(find.textContaining('キット付近の室温'), findsNothing);
+      expect(find.textContaining('LEDは記録の保存完了を通知します'), findsNothing);
       health.gate = Completer<void>();
       environment.gate = Completer<void>();
       environment.fail = true;
@@ -137,7 +141,9 @@ void main() {
       health.gate!.complete();
       await tester.pumpAndSettle();
       expect(environment.writes.single.ambientTemperatureC, 23.456);
-      expect(find.text('チェックは保存済みです。環境情報を保存しています…'), findsOneWidget);
+      // 結果画面ではキットは「接続中／未接続」だけ。保存中の細かい表示は出さない。
+      expect(find.text('キット接続中'), findsOneWidget);
+      expect(find.text('チェックは保存済みです。環境情報を保存しています…'), findsNothing);
       environment.gate!.complete();
       await tester.pumpAndSettle();
       expect(find.text('チェックは保存済みです。環境情報を保存できませんでした'), findsOneWidget);
@@ -149,11 +155,12 @@ void main() {
         identical(environment.writes.first, environment.writes.last),
         isTrue,
       );
-      expect(find.text('キット付近の室温：23.5 ℃'), findsOneWidget);
-      expect(find.text('取得元：E84キットのSHT40'), findsOneWidget);
+      // 再試行が通れば失敗の表示は消える。保存した値は履歴の詳細で見る。
+      expect(find.text('チェックは保存済みです。環境情報を保存できませんでした'), findsNothing);
+      expect(find.text('キット付近の室温：23.5 ℃'), findsNothing);
       await led.disconnect();
       await tester.pump(const Duration(seconds: 10));
-      expect(find.text('キット付近の室温：23.5 ℃'), findsOneWidget);
+      expect(find.text('キット未接続'), findsOneWidget);
       await close(tester);
     },
   );

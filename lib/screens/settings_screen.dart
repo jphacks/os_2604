@@ -3,13 +3,16 @@ import 'package:flutter/material.dart';
 import '../navigation/app_transitions.dart';
 import '../services/db/health_record_repository.dart';
 import '../services/notifications/daily_reminder_service.dart';
+import '../services/settings/feedback_settings_store.dart';
 import '../services/settings/reminder_settings_store.dart';
+import '../services/sound/sound_effects.dart';
 import '../services/device/led_notification_service.dart';
 import '../widgets/led_kit_controls.dart';
 import '../services/settings/scan_mode_store.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
 import 'about_screen.dart';
+import 'measure_sound_page.dart';
 import 'onboarding_screen.dart';
 import 'reminder_settings_page.dart';
 
@@ -23,6 +26,7 @@ class SettingsScreen extends StatefulWidget {
     required this.reminderStore,
     this.ledService,
     this.scanModeStore,
+    this.feedbackStore,
   });
 
   final bool embedded;
@@ -31,6 +35,7 @@ class SettingsScreen extends StatefulWidget {
   final ReminderSettingsStore reminderStore;
   final LedNotificationService? ledService;
   final ScanModeStore? scanModeStore;
+  final FeedbackSettingsStore? feedbackStore;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -52,7 +57,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _loadReminder();
     _loadMode();
+    _loadFeedback();
   }
+
+  FeedbackSettings _feedback = SoundEffects.settings;
+  bool _savingFeedback = false;
+
+  Future<void> _loadFeedback() async {
+    final store = widget.feedbackStore;
+    if (store == null) return;
+    try {
+      final loaded = await store.load();
+      SoundEffects.settings = loaded;
+      if (mounted) setState(() => _feedback = loaded);
+    } catch (_) {
+      // 読めないときは今の設定（既定はオン）のまま表示する。
+    }
+  }
+
+  /// 保存できたときだけ切り替える（表示と実際をそろえる）。
+  Future<void> _saveFeedback(FeedbackSettings next) async {
+    if (_savingFeedback) return;
+    final hapticsTurnedOn = next.haptics && !_feedback.haptics;
+    setState(() => _savingFeedback = true);
+    try {
+      await widget.feedbackStore!.save(next);
+      SoundEffects.settings = next;
+      if (mounted) setState(() => _feedback = next);
+      if (hapticsTurnedOn) {
+        SoundEffects.haptic(AppHaptic.light); // オンにしたことを手で感じられるように
+      }
+    } catch (_) {
+      if (mounted) _snack('設定を保存できませんでした（変更されていません）');
+    } finally {
+      if (mounted) setState(() => _savingFeedback = false);
+    }
+  }
+
+  Future<void> _openMeasureSound() async {
+    await Navigator.of(context).push<void>(
+      AppTransitions.push(
+        (_) => MeasureSoundPage(store: widget.feedbackStore!),
+      ),
+    );
+    if (mounted) setState(() => _feedback = SoundEffects.settings);
+  }
+
+  Widget _switchRow(String title, bool value, ValueChanged<bool> onChanged) =>
+      MergeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Row(
+            children: [
+              Expanded(child: Text(title, style: AsakaoStyle.body)),
+              Switch.adaptive(
+                value: value,
+                activeTrackColor: AsakaoStyle.coral,
+                onChanged: _savingFeedback ? null : onChanged,
+              ),
+            ],
+          ),
+        ),
+      );
 
   Future<void> _loadMode() async {
     final store = widget.scanModeStore;
@@ -199,6 +265,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+          if (widget.feedbackStore != null) ...[
+            const AsakaoSectionLabel('音と振動', padding: _section),
+            AsakaoListGroup(
+              fullBleed: true,
+              children: [
+                _switchRow(
+                  '効果音',
+                  _feedback.sound,
+                  (v) => _saveFeedback(_feedback.copyWith(sound: v)),
+                ),
+                _switchRow(
+                  '振動',
+                  _feedback.haptics,
+                  (v) => _saveFeedback(_feedback.copyWith(haptics: v)),
+                ),
+                AsakaoListRow(
+                  title: '計測中の音',
+                  value: _feedback.instrument.label,
+                  onTap: _openMeasureSound,
+                ),
+              ],
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 8, 24, 0),
+              child: Text('効果音は端末が消音モードのときは鳴りません。', style: AsakaoStyle.caption),
+            ),
+          ],
           if (widget.scanModeStore != null) ...[
             const AsakaoSectionLabel('計測', padding: _section),
             SwitchListTile(

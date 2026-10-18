@@ -51,11 +51,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('main-tab-1')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('顔の位置合わせ'), findsOneWidget); // 下から出てくる途中
+    expect(find.text('枠の中に顔を合わせてください'), findsOneWidget); // 下から出てくる途中
     await tester.pumpAndSettle();
     await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
-    expect(find.text('顔の位置合わせ'), findsNothing);
+    expect(find.text('枠の中に顔を合わせてください'), findsNothing);
     expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
     expect(selected(), 0);
 
@@ -100,8 +100,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1週間'), findsNothing);
     expect(find.text('グラフ'), findsOneWidget);
+    // スイッチを右へなぞるとグラフ、左へなぞるとリスト。
+    await tester.fling(find.text('リスト'), const Offset(200, 0), 800);
+    await tester.pumpAndSettle();
+    expect(find.text('1週間'), findsOneWidget);
+    await tester.fling(find.text('グラフ'), const Offset(-200, 0), 800);
+    await tester.pumpAndSettle();
+    expect(find.text('1週間'), findsNothing);
     expect(tester.takeException(), isNull);
     // drift の watch() は購読解除後に Timer を残すため、画面を外して流す。
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('tapping the morning notification opens the scan directly', (
+    tester,
+  ) async {
+    final reminder = FakeReminderService();
+    await tester.pumpWidget(
+      MorningCheckApp(
+        onboardingStore: CompletedOnboardingStore(),
+        repository: HealthRecordRepository(db),
+        aiRunner: runnerOf(FakeAiClient()),
+        reminderService: reminder,
+        reminderStore: FakeReminderStore(),
+        createScanSession: () => sessionOf(FakeScanService()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(reminder.onOpen, isNotNull);
+    reminder.onOpen!();
+    await tester.pumpAndSettle();
+    expect(find.text('枠の中に顔を合わせてください'), findsOneWidget);
+    // 計測中にもう一度押しても重ねて開かない。
+    reminder.onOpen!();
+    await tester.pumpAndSettle();
+    expect(find.text('枠の中に顔を合わせてください'), findsOneWidget);
+    await tester.tap(find.text('中止する'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });

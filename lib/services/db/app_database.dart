@@ -3,6 +3,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 import '../../models/health_check_result.dart';
 import '../settings/onboarding_store.dart';
+import '../settings/feedback_settings_store.dart';
 import '../settings/scan_mode_store.dart';
 import '../settings/reminder_settings_store.dart';
 
@@ -30,6 +31,17 @@ class ReminderPreferences extends Table {
 class ScanPreferences extends Table {
   IntColumn get id => integer().customConstraint('NOT NULL CHECK (id = 1)')();
   BoolColumn get research => boolean()();
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class FeedbackPreferences extends Table {
+  IntColumn get id => integer().customConstraint('NOT NULL CHECK (id = 1)')();
+  BoolColumn get sound => boolean()();
+  BoolColumn get haptics => boolean()();
+  TextColumn get instrument => textEnum<MeasureInstrument>().withDefault(
+    Constant(MeasureInstrument.marimba.name),
+  )();
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -103,6 +115,7 @@ class HealthRecordEnvironments extends Table {
     ReminderPreferences,
     ScanPreferences,
     HealthRecordEnvironments,
+    FeedbackPreferences,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -111,7 +124,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.production() : super(driftDatabase(name: 'os_2604'));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 9;
+
+  Future<bool> _tableExists(String name) async => (await customSelect(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+    variables: [Variable.withString(name)],
+  ).get()).isNotEmpty;
+
+  Future<bool> _columnExists(String table, String column) async =>
+      (await customSelect(
+        'PRAGMA table_info($table)',
+      ).get()).any((c) => c.read<String>('name') == column);
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -171,6 +194,24 @@ class AppDatabase extends _$AppDatabase {
           );
         }
         await m.createTable(healthRecordEnvironments);
+      }
+      // v7/v8 existed on two branches: main's v7 added the environment table,
+      // while the sound branch used v7 (sound/haptics) and v8 (instrument).
+      // Decide by what actually exists so neither side loses rows.
+      if (from >= 7 &&
+          from < 9 &&
+          !await _tableExists('health_record_environment')) {
+        await m.createTable(healthRecordEnvironments);
+      }
+      if (from < 9) {
+        if (!await _tableExists('feedback_preferences')) {
+          await m.createTable(feedbackPreferences);
+        } else if (!await _columnExists('feedback_preferences', 'instrument')) {
+          await m.addColumn(
+            feedbackPreferences,
+            feedbackPreferences.instrument,
+          );
+        }
       }
     }),
   );
@@ -251,6 +292,39 @@ class DriftScanModeStore implements ScanModeStore {
           ScanPreferencesCompanion.insert(
             id: const Value(1),
             research: enabled,
+          ),
+        );
+  }
+}
+
+class DriftFeedbackSettingsStore implements FeedbackSettingsStore {
+  DriftFeedbackSettingsStore(this.database);
+  final AppDatabase database;
+
+  @override
+  Future<FeedbackSettings> load() async {
+    final row = await database
+        .select(database.feedbackPreferences)
+        .getSingleOrNull();
+    return row == null
+        ? const FeedbackSettings()
+        : FeedbackSettings(
+            sound: row.sound,
+            haptics: row.haptics,
+            instrument: row.instrument,
+          );
+  }
+
+  @override
+  Future<void> save(FeedbackSettings settings) async {
+    await database
+        .into(database.feedbackPreferences)
+        .insertOnConflictUpdate(
+          FeedbackPreferencesCompanion.insert(
+            id: const Value(1),
+            sound: settings.sound,
+            haptics: settings.haptics,
+            instrument: Value(settings.instrument),
           ),
         );
   }

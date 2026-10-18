@@ -7,13 +7,14 @@ import '../services/ai/on_device_ai_runner.dart';
 import '../services/ai/template_record_summary.dart';
 import '../services/analysis/history_baseline.dart';
 import '../services/db/health_record_repository.dart';
+import '../services/sound/sound_effects.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_record_widgets.dart';
 import '../ui/asakao_widgets.dart';
+import '../ui/pachinko_effects.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
 import '../services/device/environment_save_service.dart';
-import '../widgets/environment_view.dart';
 import '../services/device/led_notification_service.dart';
 import '../widgets/led_kit_controls.dart';
 
@@ -71,6 +72,9 @@ class _ResultScreenState extends State<ResultScreen> {
     super.initState();
     _load();
   }
+
+  /// パチンコ風で計測を終えて来たときは、派手な背景と見出しにする（開いた時点で決める）。
+  final bool _pachinko = SoundEffects.pachinkoFinish;
 
   @override
   void dispose() {
@@ -269,9 +273,12 @@ class _ResultScreenState extends State<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final banner = _pachinko && _stage == _Stage.input && _record != null;
+    final page = Scaffold(
+      backgroundColor: _pachinko ? Colors.transparent : null,
       appBar: AppBar(
-        title: _stage == _Stage.input && _record != null
+        backgroundColor: _pachinko ? Colors.transparent : null,
+        title: !banner && _stage == _Stage.input && _record != null
             ? const Text(
                 '計測できました',
                 style: TextStyle(
@@ -285,14 +292,26 @@ class _ResultScreenState extends State<ResultScreen> {
       ),
       // 4-1 → 4-2 → 4-3 / 4-2' は同じ場所の fade。
       body: SafeArea(
-        child: AppTransitions.fadeSwitch(
-          child: KeyedSubtree(
-            key: ValueKey((_loading, _loadError, _stage)),
-            child: _body(context),
-          ),
+        child: Column(
+          children: [
+            if (banner)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: PachinkoBanner(),
+              ),
+            Expanded(
+              child: AppTransitions.fadeSwitch(
+                child: KeyedSubtree(
+                  key: ValueKey((_loading, _loadError, _stage)),
+                  child: _body(context),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+    return _pachinko ? PachinkoBackground(child: page) : page;
   }
 
   /// 本文（スクロール）と下部ボタンを分けて固定する。
@@ -352,22 +371,37 @@ class _ResultScreenState extends State<ResultScreen> {
     };
   }
 
+  /// キットは接続中か未接続かだけを出す。保存した環境の値は履歴の詳細で見られる。
+  /// ただし環境情報の保存に失敗したときは、隠さずに知らせて再試行できるようにする。
   List<Widget> _kitInformation() => [
     if (widget.ledService case final service?) ...[
       const SizedBox(height: 16),
-      const Text('現在のキット接続・LED状態'),
-      LedKitStatus(service: service),
-      const Text('下の環境情報は計測終了時に保存した記録です。現在の接続状態とは別に表示します。'),
+      Center(child: LedKitBadge(service: service)),
     ],
-    if (widget.environmentSaves case final saves?) ...[
-      const SizedBox(height: 16),
-      SavedEnvironmentView(
-        key: ValueKey(widget.recordId),
-        recordId: widget.recordId!,
-        store: saves.store,
-        saves: saves,
+    if ((widget.environmentSaves, widget.recordId) case (
+      final saves?,
+      final id?,
+    ))
+      ListenableBuilder(
+        listenable: saves,
+        builder: (context, _) =>
+            saves.stateFor(id) != EnvironmentSaveState.failed
+            ? const SizedBox.shrink()
+            : Column(
+                children: [
+                  const SizedBox(height: 8),
+                  const Text(
+                    'チェックは保存済みです。環境情報を保存できませんでした',
+                    textAlign: TextAlign.center,
+                    style: AsakaoStyle.caption,
+                  ),
+                  TextButton(
+                    onPressed: () => saves.retry(id),
+                    child: const Text('環境情報の保存を再試行'),
+                  ),
+                ],
+              ),
       ),
-    ],
   ];
 
   // ---- 4-1 自己申告 ----

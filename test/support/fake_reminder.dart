@@ -22,6 +22,13 @@ class FakeReminderService implements DailyReminderService {
 
   @override
   Future<void> cancel() async => cancels++;
+
+  /// 通知を押したことにする。
+  void Function()? onOpen;
+
+  @override
+  Future<void> listenForOpen(void Function() onOpen) async =>
+      this.onOpen = onOpen;
 }
 
 class FakeReminderStore implements ReminderSettingsStore {

@@ -164,8 +164,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     scan.cancelGate = Completer<void>();
+    // 中断のダイアログの「もう一度測る」を連打しても、閉じるのも再開も1回だけ。
     final retry = tester
-        .widget<FilledButton>(find.byType(FilledButton))
+        .widget<FilledButton>(
+          find.descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(FilledButton),
+          ),
+        )
         .onPressed!;
     retry();
     retry();

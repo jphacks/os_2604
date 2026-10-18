@@ -222,6 +222,20 @@ class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
     parent: _controller,
     curve: const Interval(0.22, 0.45, curve: Curves.easeOutBack),
   );
+  bool _bloomFelt = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 花が開く瞬間（音の山）に軽く振動させる。
+    _controller.addListener(() {
+      if (!_bloomFelt && _controller.isAnimating && _controller.value >= 0.24) {
+        _bloomFelt = true;
+        SoundEffects.haptic(AppHaptic.light);
+      }
+    });
+  }
+
   late final _afterglow = CurvedAnimation(
     parent: _controller,
     curve: const Interval(0.3, 1, curve: Curves.easeOut),
@@ -232,6 +246,7 @@ class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
     super.didUpdateWidget(old);
     if (!widget.bloomed) {
       _controller.value = 0; // 記録を消したときはつぼみに戻す
+      _bloomFelt = false;
     } else if (widget.visible && _controller.value == 0) {
       _controller.forward();
       SoundEffects.play(SoundEffect.bloom);
@@ -247,13 +262,14 @@ class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
     if (overlay == null || box is! RenderBox || overlayBox is! RenderBox) {
       return;
     }
-    final origin = box.localToGlobal(Offset.zero, ancestor: overlayBox);
-    // 花の上の曜日も含めて、少し広めに明るく残す。
-    final hole = Rect.fromLTRB(
-      origin.dx - 18,
-      origin.dy - 28,
-      origin.dx + box.size.width + 18,
-      origin.dy + box.size.height + 16,
+    // 花を中心に、後ろの光まで入る円を明るく残す。
+    final center = box.localToGlobal(
+      box.size.center(Offset.zero),
+      ancestor: overlayBox,
+    );
+    final hole = Rect.fromCircle(
+      center: center,
+      radius: box.size.shortestSide / 2 + 24,
     );
     final controller = AnimationController(
       vsync: this,
@@ -358,7 +374,7 @@ class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
   );
 }
 
-/// 咲く間の暗幕。今日の花のまわりだけ穴をあけ、下の画面への操作をすべて止める。
+/// 咲く間の暗幕。今日の花のまわりだけ円く穴をあけ、下の画面への操作をすべて止める。
 class _BloomSpotlight extends StatelessWidget {
   const _BloomSpotlight({required this.animation, required this.hole});
 
@@ -398,7 +414,7 @@ class _SpotlightPainter extends CustomPainter {
     final scrim = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
-      ..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(16)));
+      ..addOval(hole);
     canvas.drawPath(
       scrim,
       Paint()..color = Color.fromRGBO(0, 0, 0, 0.55 * opacity),

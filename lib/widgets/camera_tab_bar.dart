@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/sound/sound_effects.dart';
+
 /// iOSではSwiftUIのLiquid Glassを使う。その他の環境では通常の操作部品。
 class CameraTabBar extends StatefulWidget {
   const CameraTabBar({
@@ -29,6 +31,7 @@ class _CameraTabBarState extends State<CameraTabBar> {
     _channel = channel;
     channel.setMethodCallHandler((call) async {
       if (!mounted || call.method != 'selectTab') return;
+      SoundEffects.play(SoundEffect.tap);
       switch (call.arguments) {
         case 0:
           widget.onHistory();
