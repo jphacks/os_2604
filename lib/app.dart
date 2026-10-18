@@ -17,8 +17,13 @@ import 'services/settings/onboarding_store.dart';
 import 'services/settings/reminder_settings_store.dart';
 import 'ui/asakao_style.dart';
 import 'widgets/onboarding_gate.dart';
+<<<<<<< HEAD
+import 'services/device/led_notification_service.dart';
+import 'services/device/environment_save_service.dart';
+=======
 import 'widgets/scan_mode_gate.dart';
 import 'services/settings/scan_mode_store.dart';
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 
 class MorningCheckApp extends StatelessWidget {
   const MorningCheckApp({
@@ -33,6 +38,8 @@ class MorningCheckApp extends StatelessWidget {
     required this.reminderStore,
     this.requestCameraPermission = requestSystemCameraPermission,
     this.now = DateTime.now,
+    this.ledService,
+    this.environmentSaves,
   });
 
   final OnboardingStore onboardingStore;
@@ -40,6 +47,8 @@ class MorningCheckApp extends StatelessWidget {
   final OnDeviceAiRunner aiRunner;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? environmentSaves;
 
   /// 初回設定でカメラ許可を求める。テストでは偽物に差し替える。
   final Future<bool?> Function() requestCameraPermission;
@@ -54,6 +63,7 @@ class MorningCheckApp extends StatelessWidget {
 
   Widget _home(BuildContext context) => MainTabsScreen(
     repository: repository,
+    ledService: ledService,
     now: now,
     reminderService: reminderService,
     reminderStore: reminderStore,
@@ -113,6 +123,31 @@ class MorningCheckApp extends StatelessWidget {
       theme: asakaoTheme(),
       initialRoute: AppRoutes.home,
       routes: {
+<<<<<<< HEAD
+        AppRoutes.home: (_) =>
+            OnboardingGate(store: onboardingStore, homeBuilder: _home),
+        AppRoutes.onboarding: (context) =>
+            OnboardingScreen(onContinue: () => Navigator.of(context).pop()),
+        AppRoutes.scan: (_) => ScanScreen(
+          repository: repository,
+          createSession: createScanSession,
+          ledService: ledService,
+          environmentSaves: environmentSaves,
+        ),
+        AppRoutes.result: (context) {
+          final id = ModalRoute.of(context)?.settings.arguments;
+          return ResultScreen(
+            repository: repository,
+            aiRunner: aiRunner,
+            recordId: id is String ? id : null,
+            ledService: ledService,
+            environmentSaves: environmentSaves,
+            onBackToHome: () =>
+                Navigator.of(context)
+                    .popUntil(ModalRoute.withName(AppRoutes.home)),
+          );
+        },
+=======
         AppRoutes.home: (_) => OnboardingGate(
           store: onboardingStore,
           homeBuilder: _home,
@@ -124,12 +159,14 @@ class MorningCheckApp extends StatelessWidget {
           explanationOnly: true,
           onFinish: () => Navigator.of(context).pop(),
         ),
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
         AppRoutes.history: (_) => HistoryScreen(store: repository, now: now),
         AppRoutes.settings: (_) => SettingsScreen(
           scanModeStore: scanModeStore,
           repository: repository,
           reminderService: reminderService,
           reminderStore: reminderStore,
+          ledService: ledService,
         ),
       },
       onGenerateRoute: _generateRoute,

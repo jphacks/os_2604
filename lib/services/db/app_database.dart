@@ -72,6 +72,29 @@ class HealthRecords extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+/// Optional, one-to-one environment snapshot. Parent deletion removes it.
+class HealthRecordEnvironments extends Table {
+  @override
+  String get tableName => 'health_record_environment';
+  TextColumn get recordId =>
+      text().references(HealthRecords, #id, onDelete: KeyAction.cascade)();
+  TextColumn get state => text()();
+  RealColumn get ambientTemperatureC => real().nullable()();
+  RealColumn get relativeHumidityPct => real().nullable()();
+  TextColumn get source => text()();
+  IntColumn get receivedAtUtcMicros => integer().nullable()();
+  IntColumn get sampleAgeAtSnapshotMicros => integer().nullable()();
+  IntColumn get sampleSequence => integer().nullable()();
+  IntColumn get protocolVersion => integer().nullable()();
+  @override
+  Set<Column<Object>> get primaryKey => {recordId};
+  @override
+  List<String> get customConstraints => [
+    "CHECK (source = 'e84_sht40')",
+    "CHECK ((state = 'available' AND ambient_temperature_c IS NOT NULL AND relative_humidity_pct IS NOT NULL AND ambient_temperature_c BETWEEN -40 AND 125 AND relative_humidity_pct BETWEEN 0 AND 100 AND received_at_utc_micros IS NOT NULL AND sample_age_at_snapshot_micros BETWEEN 0 AND 5000000 AND sample_age_at_snapshot_micros IS NOT NULL AND sample_sequence BETWEEN 0 AND 4294967295 AND sample_sequence IS NOT NULL AND protocol_version = 1 AND protocol_version IS NOT NULL) OR (state <> 'available' AND ambient_temperature_c IS NULL AND relative_humidity_pct IS NULL AND sample_age_at_snapshot_micros IS NULL))",
+  ];
+}
+
 /// The application owns this connection and must await [close] on disposal.
 @DriftDatabase(
   tables: [
@@ -79,6 +102,10 @@ class HealthRecords extends Table {
     HealthRecords,
     ReminderPreferences,
     ScanPreferences,
+<<<<<<< HEAD
+    HealthRecordEnvironments,
+=======
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -87,10 +114,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.production() : super(driftDatabase(name: 'os_2604'));
 
   @override
+<<<<<<< HEAD
+  int get schemaVersion => 7;
+=======
   int get schemaVersion => 6;
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    beforeOpen: (_) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) => transaction(() async {
       // v1 -> v2 only adds the health record table; onboarding data is kept.
@@ -112,7 +146,42 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 6) await m.createTable(scanPreferences);
       if (from >= 2 && from < 5) {
+<<<<<<< HEAD
+        // A device can still report v4 after scan_mode was already added.
+        // Keep that column and its values only if its definition matches v5.
+        final columns = await customSelect('PRAGMA table_info(health_records)')
+            .get();
+        final existing = columns.where(
+          (column) => column.read<String>('name').toLowerCase() == 'scan_mode',
+        );
+        if (existing.isEmpty) {
+          await m.addColumn(healthRecords, healthRecords.scanMode);
+        } else {
+          final column = existing.single;
+          if (column.read<String>('type').toUpperCase() != 'TEXT' ||
+              column.read<int>('notnull') != 1 ||
+              column.readNullable<String>('dflt_value') != "'legacyUnknown'" ||
+              column.read<int>('pk') != 0) {
+            throw StateError(
+              'Unexpected health_records.scan_mode schema; '
+              'migration stopped to preserve existing records.',
+            );
+          }
+        }
+      }
+      if (from < 7) {
+        final existing = await customSelect(
+          "SELECT name FROM sqlite_master WHERE name = 'health_record_environment'",
+        ).get();
+        if (existing.isNotEmpty) {
+          throw StateError(
+            'Unexpected existing environment table; migration stopped to preserve records.',
+          );
+        }
+        await m.createTable(healthRecordEnvironments);
+=======
         await m.addColumn(healthRecords, healthRecords.scanMode);
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
       }
     }),
   );
