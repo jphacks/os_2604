@@ -195,32 +195,32 @@ class AsakaoTodayBloom extends StatefulWidget {
 
 class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
     with TickerProviderStateMixin {
-  /// 咲く間は画面全体を暗くし、今日の花だけを明るく残す。
-  /// 「蕾」の効果音（約7秒）が鳴り終わるまで操作を止める。
-  static const spotlightDuration = Duration(milliseconds: 7100);
+  /// 咲く間は画面全体を暗くし、今日の花だけを明るく残す。約3.4秒で明るく戻り、
+  /// 暗い間に画面をタップすると、その場で花を咲ききらせて解除する。
+  static const spotlightDuration = Duration(milliseconds: 3400);
+  static const _skipDuration = Duration(milliseconds: 300);
 
   OverlayEntry? _spotlight;
   AnimationController? _spotlightController;
 
-  // 「蕾」の効果音（約7秒）に合わせる。音は 0〜1.5秒で盛り上がり、3秒ごろまで続き、
-  // 6.5秒までに消える。0.4秒は待ち（cover が下へ閉じきるまで）、つぼみがふくらみ、
-  // 音の山で花が開き、余韻に合わせて光がゆっくり引いていく。
+  // 約3.2秒。0.4秒は待ち（cover が下へ閉じきるまで）、つぼみがふくらみ（〜1.1秒）、
+  // 1秒ごろに花が開き（〜1.9秒）、光がゆっくり引いていく。効果音は演出が終われば止める。
   late final _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 6500),
+    duration: const Duration(milliseconds: 3200),
     value: widget.bloomed ? 1 : 0,
   );
   late final _swell = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.06, 0.24, curve: Curves.easeInOut),
+    curve: const Interval(0.125, 0.34, curve: Curves.easeInOut),
   );
   late final _budOut = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.22, 0.32, curve: Curves.easeIn),
+    curve: const Interval(0.31, 0.41, curve: Curves.easeIn),
   );
   late final _flowerIn = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.22, 0.45, curve: Curves.easeOutBack),
+    curve: const Interval(0.31, 0.6, curve: Curves.easeOutBack),
   );
   bool _bloomFelt = false;
 
@@ -229,7 +229,7 @@ class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
     super.initState();
     // 花が開く瞬間（音の山）に軽く振動させる。
     _controller.addListener(() {
-      if (!_bloomFelt && _controller.isAnimating && _controller.value >= 0.24) {
+      if (!_bloomFelt && _controller.isAnimating && _controller.value >= 0.33) {
         _bloomFelt = true;
         SoundEffects.haptic(AppHaptic.light);
       }
@@ -238,7 +238,7 @@ class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
 
   late final _afterglow = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.3, 1, curve: Curves.easeOut),
+    curve: const Interval(0.31, 1, curve: Curves.easeOut),
   );
 
   @override
@@ -277,10 +277,26 @@ class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
     );
     _spotlightController = controller;
     _spotlight = OverlayEntry(
-      builder: (_) => _BloomSpotlight(animation: controller, hole: hole),
+      builder: (_) =>
+          _BloomSpotlight(animation: controller, hole: hole, onSkip: _skip),
     );
     overlay.insert(_spotlight!);
-    controller.forward().whenCompleteOrCancel(_hideSpotlight);
+    controller.forward().whenCompleteOrCancel(() {
+      SoundEffects.stop(SoundEffect.bloom);
+      _hideSpotlight();
+    });
+  }
+
+  /// 暗い間のタップ：花をすぐ咲ききらせ、暗転を短く消す。
+  void _skip() {
+    final spotlight = _spotlightController;
+    if (spotlight == null || spotlight.value >= 0.94) return;
+    if (_controller.value < 1) {
+      _controller.animateTo(1, duration: _skipDuration);
+    }
+    // 明るく戻る部分（最後の6%）だけを短く流す。
+    spotlight.value = 0.94;
+    spotlight.animateTo(1, duration: _skipDuration);
   }
 
   void _hideSpotlight() {
@@ -374,14 +390,19 @@ class _AsakaoTodayBloomState extends State<AsakaoTodayBloom>
   );
 }
 
-/// 咲く間の暗幕。今日の花のまわりだけ円く穴をあけ、下の画面への操作をすべて止める。
+/// 咲く間の暗幕。今日の花のまわりだけ円く穴をあけ、下の画面への操作を止める（タップで解除）。
 class _BloomSpotlight extends StatelessWidget {
-  const _BloomSpotlight({required this.animation, required this.hole});
+  const _BloomSpotlight({
+    required this.animation,
+    required this.hole,
+    required this.onSkip,
+  });
 
   final Animation<double> animation;
   final Rect hole;
+  final VoidCallback onSkip;
 
-  // 始めの 0.3 秒で暗くし、最後の 0.4 秒で明るく戻す。
+  // 始めの約0.14秒で暗くし、最後の約0.2秒で明るく戻す。
   static final _opacity = TweenSequence<double>([
     TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 4),
     TweenSequenceItem(tween: ConstantTween(1), weight: 90),
@@ -389,7 +410,10 @@ class _BloomSpotlight extends StatelessWidget {
   ]);
 
   @override
-  Widget build(BuildContext context) => AbsorbPointer(
+  // タップは下の画面へ通さず、解除にだけ使う。
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: onSkip,
     child: AnimatedBuilder(
       animation: animation,
       builder: (_, _) => CustomPaint(

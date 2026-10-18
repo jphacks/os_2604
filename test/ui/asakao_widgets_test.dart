@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:os_2604/models/health_check_result.dart';
+import 'package:os_2604/services/sound/sound_effects.dart';
 import 'package:os_2604/ui/asakao_flower.dart';
 import 'package:os_2604/ui/asakao_style.dart';
 import 'package:os_2604/ui/asakao_widgets.dart';
@@ -83,10 +84,10 @@ void main() {
     expect(shown(), [AsakaoFlowerState.todayBud]);
     // 履歴が見えたら、少し待ってからつぼみが花に開く。
     await show(bloomed: true, visible: true);
-    // 効果音に合わせて、つぼみがふくらんでから（約1.4秒後）花が開く。
-    await t.pump(const Duration(milliseconds: 1000));
+    // つぼみがふくらんでから（約1秒後）花が開く。全体で約3.2秒。
+    await t.pump(const Duration(milliseconds: 700));
     expect(shown(), [AsakaoFlowerState.todayBud]);
-    await t.pump(const Duration(milliseconds: 1000));
+    await t.pump(const Duration(milliseconds: 800));
     expect(shown(), contains(AsakaoFlowerState.bloomed));
     await t.pumpAndSettle();
     expect(shown(), [AsakaoFlowerState.bloomed]);
@@ -127,12 +128,56 @@ void main() {
     await t.pump();
     await t.pump(const Duration(seconds: 1));
     expect(scrim, findsOneWidget);
+    final stopped = <SoundEffect>[];
+    SoundEffects.debugOnStop = stopped.add;
+    addTearDown(() => SoundEffects.debugOnStop = null);
+    // 暗い間のタップは下の画面へ通さず、解除に使う（花はすぐ咲ききる）。
     await t.tap(find.text('下の操作'), warnIfMissed: false);
-    expect(taps, 0); // 効果音が鳴っている間は操作できない
-    await t.pump(const Duration(seconds: 7));
-    await t.pumpAndSettle();
+    expect(taps, 0);
+    await t.pump(const Duration(milliseconds: 400));
+    await t.pump();
     expect(scrim, findsNothing);
+    expect(stopped, [SoundEffect.bloom]); // 効果音も止める
+    expect(
+      t
+          .widgetList<AsakaoDayFlower>(find.byType(AsakaoDayFlower))
+          .map((f) => f.state),
+      contains(AsakaoFlowerState.bloomed),
+    );
+    await t.pumpAndSettle();
     await t.tap(find.text('下の操作'));
     expect(taps, 1);
+  });
+
+  testWidgets('without a tap the dim ends by itself in about 3.4 seconds', (
+    t,
+  ) async {
+    Future<void> show({required bool bloomed}) =>
+        _pump(t, AsakaoTodayBloom(bloomed: bloomed, visible: true));
+    final scrim = find.byWidgetPredicate(
+      (w) =>
+          w is CustomPaint &&
+          w.painter.runtimeType.toString() == '_SpotlightPainter',
+    );
+    await show(bloomed: false);
+    await show(bloomed: true);
+    await t.pump();
+    await t.pump(const Duration(seconds: 3));
+    expect(scrim, findsOneWidget);
+    await t.pump(const Duration(milliseconds: 600));
+    await t.pump();
+    expect(scrim, findsNothing);
+  });
+
+  testWidgets('list row values sit at the right, next to the arrow', (t) async {
+    await _pump(
+      t,
+      const AsakaoListRow(title: '毎朝の通知', value: '7:00', inset: 20),
+    );
+    final value = t.getRect(find.text('7:00'));
+    final arrow = t.getRect(find.byIcon(Icons.chevron_right));
+    // 値の右端は矢印のすぐ左（間は余白 6px だけ）。真ん中に浮かない。
+    expect(arrow.left - value.right, lessThanOrEqualTo(8));
+    expect(value.left, greaterThan(t.getRect(find.text('毎朝の通知')).right));
   });
 }

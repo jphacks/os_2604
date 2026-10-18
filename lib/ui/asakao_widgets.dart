@@ -206,13 +206,18 @@ class AsakaoListRow extends StatelessWidget {
                   ],
                 ),
               ),
+              // 値は右端（矢印の手前）に寄せる。題名と幅を半分ずつ分けると、
+              // 短い値が真ん中に浮いてしまうため、値は内容の幅だけにする。
               if (value != null)
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 170),
                     child: Text(
                       value!,
                       textAlign: TextAlign.end,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 15,
                         color: AsakaoStyle.muted,
