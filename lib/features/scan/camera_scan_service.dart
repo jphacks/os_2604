@@ -8,7 +8,7 @@ import 'scan_configuration.dart';
 
 class CameraScanService extends HealthScanController {
   factory CameraScanService({ScanConfiguration? configuration}) {
-    final selected = configuration ?? ScanConfiguration.day1Trial();
+    final selected = configuration ?? ScanConfiguration.day1Standard();
     return CameraScanService._(IosCameraFrameSource(selected), selected);
   }
 

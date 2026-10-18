@@ -218,14 +218,14 @@ class HealthScanController implements HealthScanService {
           elapsed: elapsed,
           faceDetected: true,
           quality: MeasurementQuality.good,
-          scanMode: experimentalConfig == null
-              ? ScanMode.standard
-              : ScanMode.research,
+          scanMode: _configuration.scanMode,
           estimatedHeartRateBpm: heartRate,
           heartRateSource: heartRate == null
               ? HeartRateSource.none
               : HeartRateSource.rppgExperimental,
-          faceColorFeature: evaluation?.faceColorFeature,
+          faceColorFeature: _configuration.scanMode == ScanMode.research
+              ? evaluation?.faceColorFeature
+              : null,
         );
         unawaited(_finish(ScanSuccess(record)));
       } on Object {

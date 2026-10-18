@@ -1,3 +1,4 @@
+import '../../models/health_check_result.dart';
 import 'experimental_face_signals.dart';
 import 'frame_signal_quality.dart';
 
@@ -11,6 +12,7 @@ class ScanConfiguration {
     required this.preparationStability,
     required this.maxObservationGap,
     this.experimentalSignals,
+    this.scanMode = ScanMode.standard,
   }) {
     for (final value in [
       maxCenterOffset,
@@ -35,6 +37,7 @@ class ScanConfiguration {
   /// Keeps P2 experimental features disabled by default to preserve P0/P1.
   factory ScanConfiguration.day1Trial({
     ExperimentalFaceSignalConfig? experimentalSignals,
+    ScanMode scanMode = ScanMode.standard,
   }) => ScanConfiguration(
     signals: FrameSignalLimits(
       minLuminance: 50,
@@ -49,6 +52,12 @@ class ScanConfiguration {
     preparationStability: const Duration(milliseconds: 500),
     maxObservationGap: const Duration(milliseconds: 500),
     experimentalSignals: experimentalSignals,
+    scanMode: scanMode,
+  );
+
+  /// Standard recording also attempts experimental heart-rate estimation.
+  factory ScanConfiguration.day1Standard() => ScanConfiguration.day1Trial(
+    experimentalSignals: ExperimentalFaceSignalConfig(),
   );
 
   /// Opt-in P2 verification configuration for facial color and 15s rPPG.
@@ -56,6 +65,7 @@ class ScanConfiguration {
     RppgAlgorithm rppgAlgorithm = RppgAlgorithm.pos,
     ExperimentalFaceSignalConfig? experimentalSignals,
   }) => ScanConfiguration.day1Trial(
+    scanMode: ScanMode.research,
     experimentalSignals:
         experimentalSignals ??
         ExperimentalFaceSignalConfig(rppgAlgorithm: rppgAlgorithm),
@@ -69,6 +79,8 @@ class ScanConfiguration {
   final Duration preparationStability;
   final Duration maxObservationGap;
 
-  /// Null in standard P0/P1 mode. Set only in P2 experimental verification.
+  final ScanMode scanMode;
+
+  /// Null only when signal extraction is explicitly disabled.
   final ExperimentalFaceSignalConfig? experimentalSignals;
 }
