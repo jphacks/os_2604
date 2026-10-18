@@ -102,7 +102,10 @@ class HealthRecordEnvironments extends Table {
     HealthRecords,
     ReminderPreferences,
     ScanPreferences,
+<<<<<<< HEAD
     HealthRecordEnvironments,
+=======
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -111,7 +114,11 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.production() : super(driftDatabase(name: 'os_2604'));
 
   @override
+<<<<<<< HEAD
   int get schemaVersion => 7;
+=======
+  int get schemaVersion => 6;
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -139,6 +146,7 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 6) await m.createTable(scanPreferences);
       if (from >= 2 && from < 5) {
+<<<<<<< HEAD
         // A device can still report v4 after scan_mode was already added.
         // Keep that column and its values only if its definition matches v5.
         final columns = await customSelect('PRAGMA table_info(health_records)')
@@ -171,6 +179,9 @@ class AppDatabase extends _$AppDatabase {
           );
         }
         await m.createTable(healthRecordEnvironments);
+=======
+        await m.addColumn(healthRecords, healthRecords.scanMode);
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
       }
     }),
   );

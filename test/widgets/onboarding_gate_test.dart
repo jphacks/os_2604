@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
 import 'package:os_2604/widgets/onboarding_gate.dart';
 
+import '../support/fake_reminder.dart';
+
 class FakeStore implements OnboardingStore {
   bool completed = false;
   int writes = 0;
@@ -27,11 +29,31 @@ Widget gate(OnboardingStore store) => MaterialApp(
   home: OnboardingGate(
     store: store,
     homeBuilder: (_) => const Scaffold(body: Text('テストホーム')),
+    reminderService: FakeReminderService(),
+    reminderStore: FakeReminderStore(),
+    requestCameraPermission: () async => true,
   ),
 );
 
+Future<void> tapText(WidgetTester tester, String text) async {
+  final finder = find.text(text);
+  await tester.ensureVisible(finder);
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
+/// 初回設定を最後まで進めて「記録をはじめる」を押す。
 Future<void> acknowledge(WidgetTester tester) async {
-  final button = find.text('説明を確認して次へ');
+  if (find.text('準備ができました').evaluate().isEmpty) {
+    await tapText(tester, 'タップしてはじめる');
+    await tapText(tester, 'つづける');
+    await tapText(tester, '同意してつづける');
+    await tapText(tester, '今はしない');
+    // 1-4 → 1-5（fade）→ 1-6（push）
+    await tapText(tester, 'あとで設定する');
+    await tapText(tester, 'スキップ');
+  }
+  final button = find.text('記録をはじめる');
   await tester.ensureVisible(button);
   await tester.tap(button);
 }
@@ -65,6 +87,40 @@ void main() {
     },
   );
 
+  testWidgets('first-visit tip appears once after setup and can be closed', (
+    tester,
+  ) async {
+    final store = FakeStore();
+    await tester.pumpWidget(gate(store));
+    await tester.pumpAndSettle();
+    await acknowledge(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('テストホーム'), findsOneWidget);
+    expect(find.text('毎朝のチェックはここから'), findsOneWidget);
+    // 表示中は全体を暗くして、下の画面を操作できない（タップで閉じる）。
+    final dim = find.byWidgetPredicate(
+      (w) => w is ModalBarrier && w.color == const Color(0x8C000000),
+    );
+    expect(dim, findsOneWidget);
+    await tester.tap(find.byTooltip('閉じる'));
+    await tester.pumpAndSettle();
+    expect(find.text('テストホーム'), findsOneWidget);
+    expect(find.text('毎朝のチェックはここから'), findsNothing);
+    expect(dim, findsNothing);
+  });
+
+  testWidgets('tapping outside the tip also closes it', (tester) async {
+    await tester.pumpWidget(gate(FakeStore()));
+    await tester.pumpAndSettle();
+    await acknowledge(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('毎朝のチェックはここから'), findsOneWidget);
+    await tester.tapAt(const Offset(20, 20)); // 暗くした部分
+    await tester.pumpAndSettle();
+    expect(find.text('毎朝のチェックはここから'), findsNothing);
+    expect(find.text('テストホーム'), findsOneWidget);
+  });
+
   testWidgets('completed store bypasses explanation without another write', (
     tester,
   ) async {
@@ -72,6 +128,7 @@ void main() {
     await tester.pumpWidget(gate(store));
     await tester.pumpAndSettle();
     expect(find.text('テストホーム'), findsOneWidget);
+    expect(find.text('毎朝のチェックはここから'), findsNothing);
     expect(store.writes, 0);
   });
 

@@ -62,29 +62,23 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('チェック開始'));
+    await tester.tap(find.byKey(const ValueKey('main-tab-1'))); // カメラボタン
     await tester.pumpAndSettle();
   }
 
   Future<void> startAndFinish(WidgetTester tester, ScanOutcome o) async {
-    await tester.tap(find.text('開始'));
     await tester.pump();
     scan.finish(o);
     await tester.pumpAndSettle();
   }
 
-  tw('success saves before the result screen; nulls are 未測定', (tester) async {
+  tw('success saves before the result screen; nulls are 未入力', (tester) async {
     await openScan(tester);
     expect(find.textContaining('診断目的ではありません'), findsOneWidget);
-    await tester.tap(find.text('開始'));
     await tester.pump();
-    expect(find.widgetWithText(FilledButton, '開始'), findsOneWidget);
-    expect(
-      tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '開始'))
-          .onPressed,
-      isNull,
-    );
+    // 開いた瞬間に1回だけ計測を始める。開始ボタンは無い。
+    expect(scan.starts, 1);
+    expect(find.widgetWithText(FilledButton, '開始'), findsNothing);
     scan.emit(
       const ScanProgress(
         phase: ScanPhase.measuring,
@@ -92,21 +86,29 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.textContaining('残り 10 秒'), findsOneWidget);
+    expect(find.text('計測中'), findsOneWidget);
+    expect(find.text('そのまま動かずに'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget); // 残り秒数（Cの進捗から）
     scan.finish(successOutcome());
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, '結果'), findsOneWidget);
+    // 保存が先、画面は自己申告（4-1）。
+    expect(find.text('計測できました'), findsOneWidget);
+    expect(find.text('いまの体調は？'), findsOneWidget);
     expect(await repo.findById('rec-1'), isNotNull);
-    expect(find.text('未測定'), findsWidgets);
-    expect(find.text('15.2 秒'), findsOneWidget);
-    expect(find.text('良好'), findsOneWidget);
-    expect(find.text('レポートは未生成です。'), findsOneWidget);
-    expect(find.text('体温はカメラで測定していません'), findsOneWidget);
     expect(scan.disposes, 1);
-    await tester.ensureVisible(find.text('ホームへ'));
-    await tester.tap(find.text('ホームへ'));
+    // 何も入力せずに結果へ進める。未入力は未入力と表示し、0や正常値で埋めない。
+    await tester.tap(find.text('結果を見る'));
     await tester.pumpAndSettle();
-    expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
+    expect(find.text('今日の記録ができました'), findsOneWidget);
+    expect(find.text('未入力'), findsNWidgets(2));
+    expect(find.textContaining('推定心拍'), findsNothing);
+    expect(find.text('良好'), findsOneWidget);
+    expect(find.text('定型文'), findsOneWidget);
+    expect(find.text('15.2 秒'), findsNothing);
+    expect(find.textContaining('15.2 秒'), findsOneWidget);
+    await tester.tap(find.text('履歴に戻る'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
   });
 
   tw('AI fallback and result input updates do not resend completion LED', (
@@ -153,14 +155,14 @@ void main() {
     repo.failInsert = true;
     await openScan(tester);
     await startAndFinish(tester, successOutcome());
-    expect(find.widgetWithText(AppBar, '15秒チェック'), findsOneWidget);
+    expect(find.text('顔の位置合わせ'), findsOneWidget);
     expect(find.textContaining('結果は保存されていません'), findsOneWidget);
     expect(find.text('保存を再試行'), findsOneWidget);
     expect(await repo.findById('rec-1'), isNull);
     repo.failInsert = false;
     await tester.tap(find.text('保存を再試行'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, '結果'), findsOneWidget);
+    expect(find.text('計測できました'), findsOneWidget);
     expect(await repo.findById('rec-1'), isNotNull);
   });
 
@@ -181,9 +183,9 @@ void main() {
         ScanFailure(reason: entry.key, elapsed: Duration.zero),
       );
       expect(find.textContaining(entry.value), findsOneWidget);
-      expect(find.text('再試行'), findsOneWidget);
+      expect(find.text('もう一度測る'), findsOneWidget);
       expect(await db.select(db.healthRecords).get(), isEmpty);
-      await tester.tap(find.text('再試行'));
+      await tester.tap(find.text('もう一度測る'));
       await tester.pump();
       expect(scan.starts, 2);
     });
@@ -193,47 +195,44 @@ void main() {
     tester,
   ) async {
     await openScan(tester);
-    await tester.tap(find.text('開始'));
     await tester.pump();
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
     expect(scan.cancels, greaterThanOrEqualTo(1));
     expect(scan.disposes, 1);
-    expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
     scan.finish(successOutcome('late'));
     await tester.pumpAndSettle();
     expect(await repo.findById('late'), isNull);
-    expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
   });
 
-  tw(
-    'result: self condition and temperature persist; failure shown; unknown id',
-    (tester) async {
-      await openScan(tester);
-      await startAndFinish(tester, successOutcome());
-      await tester.tap(find.text('4'));
-      await tester.pump();
-      repo.failUpdate = true;
-      await tester.tap(find.text('体調を保存'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('体調を保存できませんでした'), findsOneWidget);
-      expect((await repo.findById('rec-1'))!.selfCondition, isNull);
-      repo.failUpdate = false;
-      await tester.tap(find.text('体調を保存'));
-      await tester.pumpAndSettle();
-      expect(find.text('体調を保存しました'), findsOneWidget);
-      await tester.enterText(find.byType(TextFormField), '36.5');
-      await tester.pump();
-      await tester.ensureVisible(find.text('体温を保存'));
-      await tester.tap(find.text('体温を保存'));
-      await tester.pumpAndSettle();
-      expect(find.text('体温を保存しました'), findsOneWidget);
-      final saved = (await repo.findById('rec-1'))!;
-      expect(saved.selfCondition, 4);
-      expect(saved.bodyTemperatureC, 36.5);
-      expect(saved.temperatureSource, TemperatureSource.manual);
-    },
-  );
+  tw('result: inputs persist on the same record; failure shown then retried', (
+    tester,
+  ) async {
+    await openScan(tester);
+    await startAndFinish(tester, successOutcome());
+    await tester.tap(find.text('4'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '36.5');
+    await tester.pump();
+    repo.failUpdate = true;
+    await tester.tap(find.text('結果を見る'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('入力を保存できませんでした'), findsOneWidget);
+    expect(find.text('いまの体調は？'), findsOneWidget); // 入力画面に留まる
+    expect((await repo.findById('rec-1'))!.selfCondition, isNull);
+    repo.failUpdate = false;
+    await tester.tap(find.text('結果を見る'));
+    await tester.pumpAndSettle();
+    final saved = (await repo.findById('rec-1'))!;
+    expect(saved.selfCondition, 4);
+    expect(saved.bodyTemperatureC, 36.5);
+    expect(saved.temperatureSource, TemperatureSource.manual);
+    expect(saved.reportText, isNotNull);
+    expect(find.text('4 / 5 良い'), findsOneWidget);
+    expect(find.text('36.5℃'), findsOneWidget);
+  });
 
   tw('result with unknown id shows not-found', (tester) async {
     await openScan(tester);

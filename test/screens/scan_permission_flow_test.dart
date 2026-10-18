@@ -92,7 +92,6 @@ void main() {
     );
     unawaited(navigator.currentState!.pushNamed('/scan'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('開始'));
     await tester.pump();
   }
 
@@ -106,12 +105,9 @@ void main() {
       expect(scan.currentProgress.phase, ScanPhase.requestingPermission);
       expect(scan.currentProgress.elapsed, Duration.zero);
       expect(frames.starts, 0);
-      expect(
-        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-        isNull,
-      );
+      expect(find.byType(FilledButton), findsNothing); // 開始ボタンは無い
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.text('中止する'));
       await tester.pumpAndSettle();
       expect(find.text('home'), findsOneWidget);
       expect(frames.starts, 0);
@@ -131,14 +127,14 @@ void main() {
       expect(frames.starts, 0);
       expect(await repository.loadAll(), isEmpty);
       permission.pending = Completer<bool>();
-      await tester.tap(find.text('再試行'));
+      await tester.tap(find.text('もう一度測る'));
       await tester.pump();
       expect(scan.currentProgress.phase, ScanPhase.requestingPermission);
       permission.pending.complete(true);
       await tester.pump();
       expect(scan.currentProgress.phase, ScanPhase.preparing);
       expect(frames.starts, 1);
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.text('中止する'));
       await tester.pumpAndSettle();
       expect(find.text('home'), findsOneWidget);
       expect(frames.disposals, 1);

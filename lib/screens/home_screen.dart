@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
+<<<<<<< HEAD
 import '../services/device/led_notification_service.dart';
 import '../widgets/environment_view.dart';
+=======
+import '../ui/asakao_widgets.dart';
+import '../widgets/camera_tab_bar.dart';
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 import '../services/db/health_record_repository.dart';
 
 /// ホーム。本日の実施状態と前回結果は保存済みの記録から表示する。
@@ -11,6 +16,7 @@ class HomeScreen extends StatelessWidget {
     super.key,
     required this.repository,
     this.now = DateTime.now,
+    this.showTabBar = true,
     required this.onStartCheck,
     required this.onOpenHistory,
     required this.onOpenSettings,
@@ -18,6 +24,7 @@ class HomeScreen extends StatelessWidget {
     this.ledService,
   });
 
+  final bool showTabBar;
   final HealthRecordRepository repository;
   final LedNotificationService? ledService;
   final DateTime Function() now;
@@ -28,18 +35,97 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const accent = Color(0xFFEF9164);
     return Scaffold(
-      appBar: AppBar(title: const Text('15秒健康チェック')),
+      backgroundColor: const Color(0xFFFFFDFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFFFFDFC),
+        surfaceTintColor: Colors.transparent,
+        title: const Text('あさかお'),
+        centerTitle: true,
+      ),
+      bottomNavigationBar: showTabBar
+          ? CameraTabBar(onHistory: onOpenHistory, onSettings: onOpenSettings)
+          : null,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '毎朝の自分を振り返る',
-                style: Theme.of(context).textTheme.headlineSmall,
+        bottom: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 104,
+                      height: 104,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFEFE5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt_outlined,
+                        size: 46,
+                        color: Color(0xFFA34F28),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    '毎朝の自分を振り返る',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF392D28),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '顔の位置と明るさを合わせて、15秒。\n今日の記録をはじめましょう。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(height: 1.7),
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: const Color(0xFF382418),
+                      minimumSize: const Size.fromHeight(56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                    ),
+                    onPressed: onStartCheck,
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text('チェック開始'),
+                  ),
+                  const SizedBox(height: 24),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFEDE5E0)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: StreamBuilder<List<HealthCheckResult>>(
+                        stream: repository.watchAll(),
+                        builder: (context, snapshot) => _status(snapshot),
+                      ),
+                    ),
+                  ),
+                  if (onShowExplanation != null) ...[
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: onShowExplanation,
+                      child: const Text('アプリの説明'),
+                    ),
+                  ],
+                ],
               ),
+<<<<<<< HEAD
               const SizedBox(height: 16),
               StreamBuilder<List<HealthCheckResult>>(
                 stream: repository.watchAll(),
@@ -69,6 +155,9 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ],
+=======
+            ),
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
           ),
         ),
       ),
@@ -89,12 +178,7 @@ class HomeScreen extends StatelessWidget {
     );
     final latest = records.isEmpty ? null : records.first;
     String two(int v) => v.toString().padLeft(2, '0');
-    final quality = switch (latest?.quality) {
-      MeasurementQuality.good => '良好',
-      MeasurementQuality.poor => '不十分',
-      MeasurementQuality.interrupted => '中断',
-      null => '',
-    };
+    final quality = latest == null ? '' : asakaoQualityLabel(latest.quality);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

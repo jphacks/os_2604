@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 
 import 'on_device_ai_client.dart';
 
-/// Dart half of a proposed C-internal channel; Swift registration is not present.
+/// Dart adapter for the C-internal channel registered by OnDeviceAiBridge.
 /// Missing native code is reported explicitly instead of claiming AI support.
 class FoundationModelsClient implements OnDeviceAiClient {
   const FoundationModelsClient({

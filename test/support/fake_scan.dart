@@ -9,7 +9,8 @@ import 'package:os_2604/services/ai/on_device_ai_runner.dart';
 import 'package:os_2604/services/db/health_record_repository.dart';
 
 class FakeScanService implements HealthScanService {
-  final _controller = StreamController<ScanProgress>.broadcast();
+  // テストが emit した直後の pump で反映されるよう、同期で届ける。
+  final _controller = StreamController<ScanProgress>.broadcast(sync: true);
   Completer<ScanOutcome> _pending = Completer();
   int starts = 0;
   int cancels = 0;

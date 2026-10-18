@@ -1,6 +1,20 @@
 import 'package:flutter/material.dart';
 
-/// 任意の自己申告。値の保持・保存は呼び出し元が扱う。
+import '../ui/asakao_style.dart';
+import '../ui/asakao_widgets.dart';
+
+/// 体調（1〜5）の表示ラベル。入力・結果画面で共通。
+String selfConditionLabel(int condition) => switch (condition) {
+  1 => 'とても悪い',
+  2 => '悪い',
+  3 => '普通',
+  4 => '良い',
+  5 => 'とても良い',
+  _ => throw RangeError.range(condition, 1, 5, 'condition'),
+};
+
+/// 任意の自己申告（1〜5）。値の保持・保存は呼び出し元が扱う。
+/// 選択中の数字をもう一度押すと未選択（null）に戻る。
 class SelfConditionInput extends StatelessWidget {
   const SelfConditionInput({
     super.key,
@@ -13,33 +27,70 @@ class SelfConditionInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('今日の体調（任意）', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        const Text('1：よくない 〜 5：よい。入力せずに進むこともできます。'),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (var condition = 1; condition <= 5; condition++)
-              ChoiceChip(
-                label: Text('$condition'),
-                tooltip: '体調 $condition / 5',
-                selected: value == condition,
-                onSelected: (selected) =>
-                    onChanged(selected ? condition : null),
+    return AsakaoCard(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var condition = 1; condition <= 5; condition++)
+            Expanded(child: _option(condition)),
+        ],
+      ),
+    );
+  }
+
+  Widget _option(int condition) {
+    final selected = value == condition;
+    final label = selfConditionLabel(condition);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '体調 $condition / 5 $label',
+      excludeSemantics: true,
+      onTap: () => onChanged(selected ? null : condition),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => onChanged(selected ? null : condition),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? AsakaoStyle.coral : AsakaoStyle.card,
+                  border: Border.all(
+                    color: selected ? AsakaoStyle.coral : AsakaoStyle.border,
+                    width: 2,
+                  ),
+                ),
+                child: Text(
+                  '$condition',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AsakaoStyle.ink,
+                  ),
+                ),
               ),
-          ],
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.3,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w400,
+                  color: selected ? AsakaoStyle.coralInk : AsakaoStyle.muted,
+                ),
+              ),
+            ],
+          ),
         ),
-        Text(value == null ? '未選択' : '選択中：$value / 5'),
-        TextButton(
-          onPressed: value == null ? null : () => onChanged(null),
-          child: const Text('選択を解除'),
-        ),
-      ],
+      ),
     );
   }
 }

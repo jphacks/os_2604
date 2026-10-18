@@ -1,3 +1,4 @@
+import 'experimental_face_signals.dart';
 import 'frame_signal_quality.dart';
 
 class ScanConfiguration {
@@ -9,6 +10,7 @@ class ScanConfiguration {
     required this.maxCenterMovement,
     required this.preparationStability,
     required this.maxObservationGap,
+    this.experimentalSignals,
   }) {
     for (final value in [
       maxCenterOffset,
@@ -30,7 +32,10 @@ class ScanConfiguration {
   }
 
   /// Approved on 2026-10-17 for device calibration; not validated accuracy.
-  factory ScanConfiguration.day1Trial() => ScanConfiguration(
+  /// Keeps P2 experimental features disabled by default to preserve P0/P1.
+  factory ScanConfiguration.day1Trial({
+    ExperimentalFaceSignalConfig? experimentalSignals,
+  }) => ScanConfiguration(
     signals: FrameSignalLimits(
       minLuminance: 50,
       maxAbsPitch: 15,
@@ -43,6 +48,17 @@ class ScanConfiguration {
     maxCenterMovement: 0.05,
     preparationStability: const Duration(milliseconds: 500),
     maxObservationGap: const Duration(milliseconds: 500),
+    experimentalSignals: experimentalSignals,
+  );
+
+  /// Opt-in P2 verification configuration for facial color and 15s rPPG.
+  factory ScanConfiguration.day1Experimental({
+    RppgAlgorithm rppgAlgorithm = RppgAlgorithm.pos,
+    ExperimentalFaceSignalConfig? experimentalSignals,
+  }) => ScanConfiguration.day1Trial(
+    experimentalSignals:
+        experimentalSignals ??
+        ExperimentalFaceSignalConfig(rppgAlgorithm: rppgAlgorithm),
   );
 
   final FrameSignalLimits signals;
@@ -52,4 +68,7 @@ class ScanConfiguration {
   final double maxCenterMovement;
   final Duration preparationStability;
   final Duration maxObservationGap;
+
+  /// Null in standard P0/P1 mode. Set only in P2 experimental verification.
+  final ExperimentalFaceSignalConfig? experimentalSignals;
 }

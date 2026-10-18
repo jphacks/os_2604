@@ -1,28 +1,28 @@
-# C担当：AI利用可否と失敗時処理の準備
+# C担当：端末内AI接続と定型文フォールバック
 
 ## 実装範囲
 
-2026-10-17、ユーザーの依頼でDart側の利用可否・失敗時処理を実装した。共有のHealthCheckResult・計測API・DB・pubspec・ios/は変更していない。以下はC内部の実行部品と、Bへ共有するネイティブ接続案である。共有のHealthReport／createReport、比較・保存・再生成の製品契約を確定するものではない。
+2026-10-18更新。Dartの利用可否・失敗処理、Swift Foundation Modelsブリッジ、Bの結果・比較・保存へ接続済み。過去の「AI未接続」は解消。対象と実機確認の範囲は[B・C接続状況](c-integration-status.md)を参照。
 
 | ファイル | 責務 |
 | --- | --- |
-| `lib/services/ai/on_device_ai_client.dart` | 利用可否・失敗理由と端末内クライアント境界 |
-| `lib/services/ai/foundation_models_client.dart` | 未接続のMethodChannelを含むDart側アダプター |
-| `lib/services/ai/on_device_ai_runner.dart` | 利用可否確認、短文選択、期限、定型文、二重要求・キャンセル制御 |
-| `lib/services/ai/template_record_summary.dart` | 現在記録の文章化。生成モードを除く本文の合成にも対応 |
+| `on_device_ai_client.dart` | 利用可否・失敗理由とクライアント境界 |
+| `foundation_models_client.dart` | 登録済みSwiftブリッジとのMethodChannel通信 |
+| `on_device_ai_runner.dart` | 利用可否、短文選択、期限、定型文、二重要求・取消 |
+| `template_record_summary.dart` | 記録・計測モード・Dart集計値の文章化 |
 
-Swiftの実装・チャネル登録と実機確認は未実施。今のアプリにネイティブ接続がなければ、端末を非対応と断定せず `bridgeUnavailable` で定型文へ切り替える。クラウドAI・モデルの自動取得は追加していない。
+2026-10-17のiPhone 17 / iOS 27.0.1で通常AIと利用不可時の定型文をユーザー確認済み。今回の切替追加版の再試験とは区別する。接続欠落は `bridgeUnavailable` として定型文へ切り替える。クラウドAIやアプリによるモデル自動取得は追加していない。
 
 ## Dart側の使い方
 
 ```dart
 final runner = OnDeviceAiRunner(
   client: const FoundationModelsClient(),
-  timeout: approvedAiTimeout, // Duration。秒数はB/C・人間の未決事項。
+  timeout: const Duration(seconds: 10), // 現在のmain.dartと同じ。
 );
 
 // Bが結果を保存し終えた後に呼び出す。
-final outcome = await runner.generateReflection(savedScan);
+final outcome = await runner.generateReflection(savedScan, baseline: baseline);
 // outcome.text / outcome.mode / outcome.fallbackReason
 // Bは削除・入力更新・再生成による世代変更を確認してから既存IDへ追記する。
 
@@ -32,14 +32,14 @@ runner.cancel();
 runner.dispose();
 ```
 
-`AiTextOutcome` はC内部の文章実行結果で、生成日時や比較情報は持たない。B/Cの保存用HealthReportが決まったら変換する。例中の `approvedAiTimeout`・`savedScan` は統合側が渡す値。保存処理やその成功をこの部品は代行・判断しない。
+`AiTextOutcome` は本文・実際のモード・理由を返す内部型。Bの `ResultScreen` が保存済み記録とDartの `baseline` を渡し、削除・入力更新・生成世代を確認して同じIDへ本文と生成モードを保存する。runnerは保存を代行・判断しない。
 
 ### 利用可否と失敗
 
 - 利用可否はリクエストごとに確認し、利用可能な場合だけ生成へ進む。
 - 非対応・無効・モデル未準備・初期化中・制限・ブリッジ未接続・その他利用不可は、理由を区別して定型文へ戻す。
 - 利用可否の例外と生成中の例外を区別する。空・未知・不適切な応答も定型文へ戻す。ネイティブの例外文、入力、スタックはUI用文章へ出さず、ログも追加していない。
-- タイムアウトは利用可否確認から生成までの合計待ち時間。正のDurationを必須指定し、製品用の秒数を既定値にしていない。テストの2秒は合成検証用。
+- タイムアウトは利用可否確認から生成までの合計待ち時間。正のDurationを必須指定し、現在のアプリは10秒を渡す。計測の15秒には含めない。テストの2秒は合成検証用。
 - 同じrunnerで同時に複数のネイティブ処理を起動しない。次の要求は `busy` を理由とする定型文を返す。AIが正常に使えなかった場合の実際のモードは常に `template`。
 - 品質不十分・中断の記録はAIへ渡さず、現在記録の定型文を返す。
 
@@ -47,7 +47,7 @@ runner.dispose();
 
 キャンセル／破棄／タイムアウト時は、呼び出し元へ定型文を返して待ち時間を終える。生成を始めていればrequestIdを指定してネイティブへキャンセルを依頼する。キャンセルの失敗もUIへ例外として流さない。
 
-この時点ではネイティブの停止を保証できない。`isNativeBusy` は元のネイティブFutureが完了するまでtrueを維持し、キャンセル応答だけを受け取っても次の生成を起動しない。元の処理が終了しなければ、その間は定型文で継続する。同じクライアントへ別runnerを追加して制限を迂回しない。
+SwiftはTask取消と元要求の完了を実装済みだが、Dartはネイティブの停止を前提にしない。`isNativeBusy` は元のネイティブFutureが完了するまでtrueを維持し、キャンセル応答だけを受け取っても次の生成を起動しない。元の処理が終了しなければ、その間は定型文で継続する。同じクライアントへ別runnerを追加して制限を迂回しない。
 
 遅い成功・例外は処理済みの結果を書き換えない。生成完了済みの結果について、DBへ更新してよいかはBが判断する。Bは削除済みIDをupsertで復活させず、入力や生成世代が変わった応答を書き込まない。
 
@@ -102,5 +102,7 @@ runner.dispose();
 
 ## 検証結果と残り
 
-- 自動テスト：過去比較（基準値蓄積中／直近7日間の中央値との差）の定型文・オンデバイスAIレポート接続を含め、全257テスト成功、`flutter analyze` 指摘なし。
-- 実機確認待ち：実機でのApple Intelligence設定・モデル準備・実際のAI生成、オフライン動作、および手動UI確認。
+- 利用不可・例外・不正応答・timeout・取消・遅い応答の破棄・過去比較は自動テストで確認。最新の全体結果は `.codex/STATE.md` に記録する。
+- 2026-10-17の実機で通常AI・利用不可時の定型文・オフライン・手動UIをユーザー確認済み。
+- 2026-10-18、今回の切替・schema v5版で研究記録の生成と「端末内AIで作成」をユーザー確認済み。AI利用不可応答を注入した専用版では、定型文・理由表示と再起動後の記録／定型レポート本文保持をユーザー確認済み。確認後は通常版へ復帰・起動済み。OS側の実際の利用不可やAIレポート本文の再起動後保持は個別には未確認。[C確認票](c-validation.md)を参照。
+- AIオフと生成例外／timeoutは別の条件。生成例外／遅延の実機再現は未確認。自動試験を実機合格へ読み替えない。

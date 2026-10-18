@@ -67,6 +67,9 @@ void main() {
           "BEGIN SELECT RAISE(ABORT, 'synthetic migration failure'); END",
         );
       }
+      await db.customStatement(
+        'ALTER TABLE health_records DROP COLUMN scan_mode',
+      );
       await db.customStatement('PRAGMA user_version = $version');
     } finally {
       await db.close();
@@ -136,7 +139,11 @@ void main() {
             expect(
               (await db.customSelect('PRAGMA user_version').getSingle())
                   .read<int>('user_version'),
+<<<<<<< HEAD
               7,
+=======
+              6,
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
             );
           } finally {
             await db.close();
@@ -174,8 +181,14 @@ void main() {
           [rawValues[i], 'boundary-$i'],
         );
       }
+<<<<<<< HEAD
       await db.customStatement('DROP TABLE health_record_environment');
       await db.customStatement('DROP TABLE scan_preferences');
+=======
+      await db.customStatement(
+        'ALTER TABLE health_records DROP COLUMN scan_mode',
+      );
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
       await db.customStatement('PRAGMA user_version = 3');
     } finally {
       await db.close();

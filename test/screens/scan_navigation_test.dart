@@ -94,7 +94,6 @@ void main() {
   }
 
   Future<void> start(WidgetTester tester) async {
-    await tester.tap(find.text('開始'));
     await tester.pump();
   }
 
@@ -106,7 +105,7 @@ void main() {
       scan.cancelGate = Completer<void>();
       await tester.binding.handlePopRoute();
       await tester.binding.handlePopRoute();
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.text('中止する'));
       await tester.pump();
       expect(scan.cancels, 1);
       expect(observer.pops, 0);
@@ -128,7 +127,9 @@ void main() {
   ) async {
     await open(tester);
     scan.failCancel = true;
-    final back = tester.widget<BackButton>(find.byType(BackButton)).onPressed!;
+    final back = tester
+        .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '中止する'))
+        .onPressed!;
     back();
     back();
     await tester.pumpAndSettle();
@@ -138,18 +139,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('start double tap starts only one scan before rebuild', (
+  testWidgets('opening starts exactly one scan, even after rebuilds', (
     tester,
   ) async {
     await open(tester);
-    final begin = tester
-        .widget<FilledButton>(find.byType(FilledButton))
-        .onPressed!;
-    begin();
-    begin();
+    await tester.pump();
     await tester.pump();
     expect(scan.starts, 1);
-    await tester.tap(find.byType(BackButton));
+    expect(find.byType(FilledButton), findsNothing);
+    await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
   });
 
@@ -177,7 +175,7 @@ void main() {
     scan.cancelGate!.complete();
     await tester.pump();
     expect(scan.starts, 2);
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
     expect(scan.disposes, 1);
   });
@@ -195,7 +193,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     scan.cancelGate = Completer<void>();
-    await tester.tap(find.text('再試行'));
+    await tester.tap(find.text('もう一度測る'));
     await tester.pump();
     await tester.binding.handlePopRoute();
     scan.cancelGate!.complete();
@@ -212,7 +210,8 @@ void main() {
     await start(tester);
     repository.insertGate = Completer<void>();
     scan.finish(successOutcome());
-    await tester.pump();
+    await tester.pump(); // 計測結果を受け取る
+    await tester.pump(); // 保存中の表示を描く
     expect(find.text('記録を保存しています…'), findsOneWidget);
     expect(observer.replacements, 0);
     expect(await repository.findById('rec-1'), isNull);
@@ -309,7 +308,7 @@ void main() {
       repository.fail = fail;
       scan.finish(successOutcome());
       await tester.pump();
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.text('中止する'));
       await tester.pumpAndSettle();
       expect(scan.disposes, 1);
       repository.insertGate!.complete();

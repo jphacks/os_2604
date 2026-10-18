@@ -254,4 +254,69 @@ void main() {
       expect(failures, [ScanFailureReason.processingFailed]);
     },
   );
+
+  test('experimental configuration samples RGB only when frame quality passes and collects 30fps intermediate frames while throttled', () async {
+    await source.dispose();
+    var currentTime = const Duration(seconds: 1);
+    source = IosCameraFrameSource(ScanConfiguration.day1Experimental());
+    var mlkitCalls = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'vision#closeFaceDetector') {
+            detectorCloses++;
+            return null;
+          }
+          mlkitCalls++;
+          final gate = inferenceGate;
+          return gate == null ? faces : await gate.future;
+        });
+    await source.start(
+      monotonicNow: () => currentTime,
+      onObservation: observations.add,
+      onFailure: failures.add,
+    );
+
+    // Frame 0 at t=1000ms runs ML Kit and establishes _lastValidFaceRegion.
+    camera.emit(brightness: 120);
+    await flushFrame();
+    expect(mlkitCalls, 1);
+    expect(observations.last.guidance, isNull);
+    expect(observations.last.rgbSample, isNotNull);
+    expect(observations.last.rgbSample!.red, closeTo(120, 0.0001));
+
+    // Intermediate 30fps frames at +33ms, +66ms, +100ms, +133ms (< 180ms interval)
+    // sample RGB without invoking ML Kit face detection.
+    for (final offsetMs in [33, 66, 100, 133]) {
+      currentTime = Duration(milliseconds: 1000 + offsetMs);
+      camera.emit(brightness: 120 + offsetMs ~/ 33);
+      await flushFrame();
+    }
+    expect(mlkitCalls, 1);
+    expect(observations.length, 1);
+
+    // Next detection frame at +200ms (>= 180ms interval) invokes ML Kit once
+    // and flushes all 5 chronological 30fps RGB samples in rgbSamples.
+    currentTime = const Duration(milliseconds: 1200);
+    camera.emit(brightness: 130);
+    await flushFrame();
+    expect(mlkitCalls, 2);
+    expect(observations.length, 2);
+    expect(observations.last.guidance, isNull);
+    expect(observations.last.rgbSamples.length, 5);
+    expect(observations.last.rgbSamples.map((e) => e.capturedAt).toList(), [
+      const Duration(milliseconds: 1033),
+      const Duration(milliseconds: 1066),
+      const Duration(milliseconds: 1100),
+      const Duration(milliseconds: 1133),
+      const Duration(milliseconds: 1200),
+    ]);
+
+    // Low-light frame clears valid face region and drops RGB samples.
+    currentTime = const Duration(milliseconds: 1400);
+    camera.emit(brightness: 10);
+    await flushFrame();
+    expect(observations.last.guidance, ScanGuidance.lowLight);
+    expect(observations.last.rgbSample, isNull);
+    expect(observations.last.rgbSamples, isEmpty);
+  });
 }

@@ -10,6 +10,8 @@ import FoundationModels
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var cameraPermissionChannel: FlutterMethodChannel?
   private var onDeviceAiChannel: FlutterMethodChannel?
+  private var soundChannel: FlutterMethodChannel?
+  private var soundEffects: SoundEffectPlayer?
   private let onDeviceAiBridge = OnDeviceAiBridge()
 
   override func application(
@@ -23,6 +25,10 @@ import FoundationModels
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let tabRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "CameraTabBar") {
+      tabRegistrar.register(CameraTabBarFactory(messenger: tabRegistrar.messenger()), withId: "os2604/camera-tabs")
+    }
+
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CameraPermissionBridge") {
       let channel = FlutterMethodChannel(
         name: "jp.jphacks.os_2604/camera_permission",
@@ -63,6 +69,53 @@ import FoundationModels
       }
       onDeviceAiChannel = aiChannel
     }
+
+    if let soundRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "SoundEffects") {
+      let player = SoundEffectPlayer(registrar: soundRegistrar)
+      let channel = FlutterMethodChannel(
+        name: "jp.jphacks.os_2604/sound_effects",
+        binaryMessenger: soundRegistrar.messenger()
+      )
+      channel.setMethodCallHandler { call, result in
+        guard call.method == "play", let asset = call.arguments as? String else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        player.play(asset: asset)
+        result(nil)
+      }
+      soundEffects = player
+      soundChannel = channel
+    }
+  }
+}
+
+/// 効果音。Flutter の assets にある音を鳴らす。
+/// ambient にして、消音スイッチに従い、他のアプリの音を止めない。失敗しても画面は止めない。
+private final class SoundEffectPlayer {
+  private let registrar: FlutterPluginRegistrar
+  private var players: [String: AVAudioPlayer] = [:]
+  private var sessionReady = false
+
+  init(registrar: FlutterPluginRegistrar) {
+    self.registrar = registrar
+  }
+
+  func play(asset: String) {
+    if !sessionReady {
+      try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
+      sessionReady = true
+    }
+    if players[asset] == nil {
+      let key = registrar.lookupKey(forAsset: asset)
+      guard let path = Bundle.main.path(forResource: key, ofType: nil),
+            let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: path)) else { return }
+      player.prepareToPlay()
+      players[asset] = player
+    }
+    guard let player = players[asset] else { return }
+    player.currentTime = 0
+    player.play()
   }
 }
 
@@ -220,6 +273,9 @@ private final class OnDeviceAiBridge {
     if error is CancellationError {
       return "cancelled"
     }
+    // Xcode 27 ships Swift 6.4 and the new Foundation Models error types.
+    // Runtime availability alone cannot hide those types from the Xcode 26 SDK.
+    #if compiler(>=6.4)
     if #available(iOS 27.0, *) {
       if let modelError = error as? SystemLanguageModel.Error {
         switch modelError {
@@ -249,6 +305,7 @@ private final class OnDeviceAiBridge {
         }
       }
     }
+    #endif
     if let genError = error as? LanguageModelSession.GenerationError {
       switch genError {
       case .assetsUnavailable:

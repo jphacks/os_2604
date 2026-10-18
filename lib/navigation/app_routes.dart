@@ -5,6 +5,7 @@ abstract final class AppRoutes {
   static const scan = '/scan';
   static const result = '/result';
   static const history = '/history';
+  static const historyDetail = '/history/detail';
   static const settings = '/settings';
 
   static const destinations = {

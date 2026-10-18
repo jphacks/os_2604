@@ -1536,6 +1536,7 @@ class ScanPreferencesCompanion extends UpdateCompanion<ScanPreference> {
   }
 }
 
+<<<<<<< HEAD
 class $HealthRecordEnvironmentsTable extends HealthRecordEnvironments
     with TableInfo<$HealthRecordEnvironmentsTable, HealthRecordEnvironment> {
   @override
@@ -2178,6 +2179,8 @@ class HealthRecordEnvironmentsCompanion
   }
 }
 
+=======
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2189,8 +2192,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ScanPreferencesTable scanPreferences = $ScanPreferencesTable(
     this,
   );
+<<<<<<< HEAD
   late final $HealthRecordEnvironmentsTable healthRecordEnvironments =
       $HealthRecordEnvironmentsTable(this);
+=======
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2200,7 +2206,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     healthRecords,
     reminderPreferences,
     scanPreferences,
+<<<<<<< HEAD
     healthRecordEnvironments,
+=======
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3212,6 +3221,7 @@ typedef $$ScanPreferencesTableProcessedTableManager =
       ScanPreference,
       PrefetchHooks Function()
     >;
+<<<<<<< HEAD
 typedef $$HealthRecordEnvironmentsTableCreateCompanionBuilder =
     HealthRecordEnvironmentsCompanion Function({
       required String recordId,
@@ -3641,6 +3651,8 @@ typedef $$HealthRecordEnvironmentsTableProcessedTableManager =
       HealthRecordEnvironment,
       PrefetchHooks Function({bool recordId})
     >;
+=======
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3653,9 +3665,12 @@ class $AppDatabaseManager {
       $$ReminderPreferencesTableTableManager(_db, _db.reminderPreferences);
   $$ScanPreferencesTableTableManager get scanPreferences =>
       $$ScanPreferencesTableTableManager(_db, _db.scanPreferences);
+<<<<<<< HEAD
   $$HealthRecordEnvironmentsTableTableManager get healthRecordEnvironments =>
       $$HealthRecordEnvironmentsTableTableManager(
         _db,
         _db.healthRecordEnvironments,
       );
+=======
+>>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 }

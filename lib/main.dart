@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import 'app.dart';
 import 'features/scan/camera_scan_service.dart';
+import 'features/scan/scan_configuration.dart';
 import 'screens/scan_screen.dart';
 import 'services/ai/foundation_models_client.dart';
 import 'services/ai/on_device_ai_runner.dart';
@@ -59,12 +60,21 @@ class _DatabaseHostState extends State<_DatabaseHost>
     return (service: service, preview: service.preview);
   }
 
+  static ScanSession _createResearchSession() {
+    final service = CameraScanService(
+      configuration: ScanConfiguration.day1Experimental(),
+    );
+    return (service: service, preview: service.preview);
+  }
+
   @override
   Widget build(BuildContext context) => MorningCheckApp(
     onboardingStore: _store,
     repository: _repository,
     aiRunner: _aiRunner,
     createScanSession: _createSession,
+    createResearchScanSession: _createResearchSession,
+    scanModeStore: DriftScanModeStore(_database),
     reminderService: _reminderService,
     reminderStore: _reminderStore,
     ledService: _ledService,

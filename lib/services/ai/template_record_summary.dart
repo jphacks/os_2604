@@ -18,6 +18,9 @@ class TemplateRecordSummary {
     final condition = scan.selfCondition;
     final temperature = scan.bodyTemperatureC;
     return [
+      '計測モード：${scan.scanMode.label}',
+      if (scan.scanMode == ScanMode.research)
+        '研究用の試験機能です。心拍・顔色を健康状態の判定に使用しないでください。',
       switch (scan.quality) {
         MeasurementQuality.good => '撮影品質：確認済み',
         MeasurementQuality.poor => '撮影品質：不足しています。再測定してください。',
@@ -78,6 +81,17 @@ class TemplateRecordSummary {
     TemperatureSource.healthPlatform => '健康プラットフォーム由来の記録',
     TemperatureSource.none => '出典なし', // Rejected for non-null temperatures.
   };
+
+  /// Formats P2 experimental facial color feature for verification mode only.
+  /// Never included in standard health judgment or P0/P1 [formatRecord] text.
+  String formatExperimentalFaceColor(HealthCheckResult scan) {
+    if (scan.quality != MeasurementQuality.good) {
+      return '顔色特徴量：非表示（撮影品質が不足、または撮影が中断されました）';
+    }
+    final feature = scan.faceColorFeature;
+    if (feature == null) return '顔色特徴量：未測定';
+    return '顔色特徴量：${_number(feature)}（正規化赤み比・実験値。診断値ではありません）';
+  }
 
   // Preserve recorded precision; do not round, estimate or fill missing values.
   String _number(double value) {
