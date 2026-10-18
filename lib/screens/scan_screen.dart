@@ -26,10 +26,12 @@ class ScanScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.createSession,
+    this.createResearchSession,
   });
 
   final HealthRecordRepository repository;
   final ScanSession Function() createSession;
+  final ScanSession Function()? createResearchSession;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -38,7 +40,9 @@ class ScanScreen extends StatefulWidget {
 enum _Stage { idle, running, saving, saveFailed, failed }
 
 class _ScanScreenState extends State<ScanScreen> {
-  late final ScanSession _session = widget.createSession();
+  late ScanSession _session = widget.createSession();
+  bool _researchMode = false;
+  bool _changingMode = false;
   _Stage _stage = _Stage.idle;
   ScanFailureReason? _failure;
   HealthCheckResult? _unsaved;
@@ -56,6 +60,11 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   void initState() {
     super.initState();
+    _bindProgressListener();
+  }
+
+  void _bindProgressListener() {
+    unawaited(_progressSub?.cancel());
     _progressSub = _session.service.progress.listen((p) {
       final seen =
           p.phase == ScanPhase.preparing &&
@@ -99,7 +108,11 @@ class _ScanScreenState extends State<ScanScreen> {
   }();
 
   Future<void> _start() async {
-    if (_leaving || (_stage != _Stage.idle && _stage != _Stage.failed)) return;
+    if (_leaving ||
+        _changingMode ||
+        (_stage != _Stage.idle && _stage != _Stage.failed)) {
+      return;
+    }
     final retry = _stage == _Stage.failed;
     final attempt = ++_attempt;
     setState(() {
@@ -158,6 +171,34 @@ class _ScanScreenState extends State<ScanScreen> {
       Navigator.of(context)
           .pushReplacementNamed(AppRoutes.result, arguments: result.id),
     );
+  }
+
+  Future<void> _setResearchMode(bool enabled) async {
+    final factory = enabled ? widget.createResearchSession : widget.createSession;
+    if (factory == null || _stage != _Stage.idle || _leaving || _changingMode) {
+      return;
+    }
+    setState(() => _changingMode = true);
+    try {
+      await _release();
+      if (!mounted || _leaving) return;
+      final next = factory();
+      setState(() {
+        _session = next;
+        _releasing = null;
+        _seenGuidance = false;
+        _researchMode = enabled;
+      });
+      _bindProgressListener();
+    } catch (_) {
+      if (!mounted || _leaving) return;
+      setState(() {
+        _stage = _Stage.failed;
+        _failure = ScanFailureReason.processingFailed;
+      });
+    } finally {
+      if (mounted) setState(() => _changingMode = false);
+    }
   }
 
   Future<void> _leave() async {
@@ -232,7 +273,10 @@ class _ScanScreenState extends State<ScanScreen> {
               p.phase == ScanPhase.measuring && _stage == _Stage.running;
           final conditions = _conditionsFor(p, _seenGuidance);
           final busy =
-              _leaving || _stage == _Stage.running || _stage == _Stage.saving;
+              _leaving ||
+              _changingMode ||
+              _stage == _Stage.running ||
+              _stage == _Stage.saving;
           return Column(
             children: [
               Expanded(
@@ -278,6 +322,23 @@ class _ScanScreenState extends State<ScanScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (widget.createResearchSession != null) ...[
+                      _ScanModeSelector(
+                        value: _researchMode,
+                        enabled: !busy && _stage == _Stage.idle,
+                        onChanged: _setResearchMode,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '開始前に選択してください。撮影画面を開くたびに通常モードへ戻ります。',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AsakaoStyle.scanMuted,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     _stage == _Stage.saveFailed
                         ? FilledButton(
                             style: _darkFilled,
@@ -741,6 +802,42 @@ class _FailureCopy {
   final IconData icon;
   final bool invalidChip;
   final bool notSavedNote;
+}
+
+class _ScanModeSelector extends StatelessWidget {
+  const _ScanModeSelector({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = value
+        ? const {ScanMode.research}
+        : const {ScanMode.standard};
+    return SegmentedButton<ScanMode>(
+      showSelectedIcon: false,
+      selected: selected,
+      onSelectionChanged: enabled
+          ? (next) => onChanged(next.first == ScanMode.research)
+          : null,
+      segments: const [
+        ButtonSegment<ScanMode>(
+          value: ScanMode.standard,
+          label: Text('通常モード'),
+        ),
+        ButtonSegment<ScanMode>(
+          value: ScanMode.research,
+          label: Text('研究モード'),
+        ),
+      ],
+    );
+  }
 }
 
 enum _Check { ok, problem, unknown }

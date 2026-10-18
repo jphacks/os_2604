@@ -18,6 +18,9 @@ class TemplateRecordSummary {
     final condition = scan.selfCondition;
     final temperature = scan.bodyTemperatureC;
     return [
+      '計測モード：${scan.scanMode.label}',
+      if (scan.scanMode == ScanMode.research)
+        '研究用の試験機能です。心拍・顔色を健康状態の判定に使用しないでください。',
       switch (scan.quality) {
         MeasurementQuality.good => '撮影品質：確認済み',
         MeasurementQuality.poor => '撮影品質：不足しています。再測定してください。',

@@ -207,6 +207,7 @@ class _ResultScreenState extends State<ResultScreen> {
         elapsed: current.elapsed,
         faceDetected: current.faceDetected,
         quality: current.quality,
+        scanMode: current.scanMode,
         estimatedHeartRateBpm: current.estimatedHeartRateBpm,
         heartRateSource: current.heartRateSource,
         faceColorFeature: current.faceColorFeature,
@@ -460,6 +461,13 @@ class _ResultScreenState extends State<ResultScreen> {
           '${formatJaDate(r.measuredAt)} ${formatClock(r.measuredAt)}',
           style: AsakaoStyle.caption,
         ),
+        const SizedBox(height: 4),
+        Text('計測モード: ${r.scanMode.label}', style: AsakaoStyle.caption),
+        if (r.scanMode == ScanMode.research)
+          const Text(
+            '研究用の試験機能です。心拍・顔色を健康状態の判定に使用しないでください。',
+            style: AsakaoStyle.caption,
+          ),
         const SizedBox(height: 12),
         Row(
           children: [

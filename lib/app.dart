@@ -24,6 +24,7 @@ class MorningCheckApp extends StatelessWidget {
     required this.repository,
     required this.aiRunner,
     required this.createScanSession,
+    this.createResearchScanSession,
     required this.reminderService,
     required this.reminderStore,
     this.requestCameraPermission = requestSystemCameraPermission,
@@ -44,6 +45,7 @@ class MorningCheckApp extends StatelessWidget {
 
   /// 撮影画面ごとに1回呼ばれる。本番は CameraScanService、テストは偽物を返す。
   final ScanSession Function() createScanSession;
+  final ScanSession Function()? createResearchScanSession;
 
   Widget _home(BuildContext context) => MainTabsScreen(
     repository: repository,
@@ -80,6 +82,7 @@ class MorningCheckApp extends StatelessWidget {
         AppRoutes.scan: (_) => ScanScreen(
           repository: repository,
           createSession: createScanSession,
+          createResearchSession: createResearchScanSession,
         ),
         AppRoutes.result: (context) {
           final id = ModalRoute.of(context)?.settings.arguments;

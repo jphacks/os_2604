@@ -546,6 +546,7 @@ void main() {
         expect(result.heartRateSource, HeartRateSource.none);
         expect(result.faceColorFeature, isNull);
         expect(scan.lastExperimentalEvaluation, isNull);
+        expect(result.scanMode, ScanMode.standard);
       });
     },
   );
@@ -597,6 +598,7 @@ void main() {
       }
       final result = (outcome as ScanSuccess).result;
       expect(result.quality, MeasurementQuality.good);
+      expect(result.scanMode, ScanMode.research);
       expect(result.faceColorFeature, closeTo(0.45, 0.01));
       expect(result.estimatedHeartRateBpm, isNotNull);
       expect(result.estimatedHeartRateBpm!, closeTo(72.0, 1.0));

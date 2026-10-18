@@ -49,6 +49,8 @@ class HealthRecords extends Table {
   IntColumn get elapsedMicros => integer()();
   BoolColumn get faceDetected => boolean()();
   TextColumn get quality => textEnum<MeasurementQuality>()();
+  TextColumn get scanMode =>
+      textEnum<ScanMode>().withDefault(const Constant('legacyUnknown'))();
   RealColumn get estimatedHeartRateBpm => real().nullable()();
   TextColumn get heartRateSource => textEnum<HeartRateSource>()();
   RealColumn get faceColorFeature => real().nullable()();
@@ -72,7 +74,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.production() : super(driftDatabase(name: 'os_2604'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -94,6 +96,9 @@ class AppDatabase extends _$AppDatabase {
             DateTime.utc(2027).millisecondsSinceEpoch ~/ 1000,
           ],
         );
+      }
+      if (from >= 2 && from < 5) {
+        await m.addColumn(healthRecords, healthRecords.scanMode);
       }
     }),
   );
