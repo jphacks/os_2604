@@ -142,12 +142,20 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           children: [
             Row(
               children: [
-                IconButton(
-                  tooltip: '古い記録',
-                  onPressed: older == null
-                      ? null
-                      : () => setState(() => _id = older.id),
-                  icon: const Icon(Icons.chevron_left),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const ExcludeSemantics(
+                      child: Text('前の日', style: AsakaoStyle.caption),
+                    ),
+                    IconButton(
+                      tooltip: '古い記録',
+                      onPressed: older == null
+                          ? null
+                          : () => setState(() => _id = older.id),
+                      icon: const Icon(Icons.chevron_left),
+                    ),
+                  ],
                 ),
                 Expanded(
                   child: Semantics(
@@ -159,12 +167,20 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  tooltip: '新しい記録',
-                  onPressed: newer == null
-                      ? null
-                      : () => setState(() => _id = newer.id),
-                  icon: const Icon(Icons.chevron_right),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const ExcludeSemantics(
+                      child: Text('次の日', style: AsakaoStyle.caption),
+                    ),
+                    IconButton(
+                      tooltip: '新しい記録',
+                      onPressed: newer == null
+                          ? null
+                          : () => setState(() => _id = newer.id),
+                      icon: const Icon(Icons.chevron_right),
+                    ),
+                  ],
                 ),
               ],
             ),
