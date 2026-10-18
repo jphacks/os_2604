@@ -255,14 +255,39 @@ class _AnchoredPeriodMenuState extends State<_AnchoredPeriodMenu> {
                       constraints: BoxConstraints(
                         maxHeight: available > 80 ? available : 80,
                       ),
-                      child: Material(
-                        key: const ValueKey('history-period-overlay'),
-                        color: Colors.transparent,
-                        elevation: 10,
-                        shadowColor: AsakaoStyle.ink.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(18),
-                        clipBehavior: Clip.antiAlias,
-                        child: SingleChildScrollView(child: widget.panel),
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: media.disableAnimations
+                            ? Duration.zero
+                            : const Duration(milliseconds: 380),
+                        curve: Curves.easeOutQuart,
+                        builder: (context, value, child) => ClipRect(
+                          child: Align(
+                            alignment: upward
+                                ? Alignment.bottomCenter
+                                : Alignment.topCenter,
+                            heightFactor: value,
+                            child: Opacity(
+                              opacity: 0.75 + 0.25 * value,
+                              child: Transform.translate(
+                                offset: Offset(
+                                  0,
+                                  (upward ? 12 : -12) * (1 - value),
+                                ),
+                                child: child,
+                              ),
+                            ),
+                          ),
+                        ),
+                        child: Material(
+                          key: const ValueKey('history-period-overlay'),
+                          color: Colors.transparent,
+                          elevation: 10,
+                          shadowColor: AsakaoStyle.ink.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(18),
+                          clipBehavior: Clip.antiAlias,
+                          child: SingleChildScrollView(child: widget.panel),
+                        ),
                       ),
                     ),
                   ),
