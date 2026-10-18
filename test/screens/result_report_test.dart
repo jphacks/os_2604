@@ -367,6 +367,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('基準値を蓄積中'), findsNothing);
     expect(find.text('普段より +1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('today-insight-card')), findsOneWidget);
+    expect(find.text('自己申告は普段より高めです'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('insight-median'))).data,
+      '3 / 5',
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('insight-difference')))
+          .data,
+      '+1',
+    );
     expect(find.text('今日の記録ができました'), findsOneWidget);
     expect(find.text('いつもどおりの朝です'), findsNothing);
   });

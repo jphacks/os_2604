@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:os_2604/app.dart';
+import 'package:os_2604/ui/asakao_record_widgets.dart';
 import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/models/scan_contract.dart';
 import 'package:os_2604/services/db/app_database.dart';
@@ -100,7 +101,17 @@ void main() {
     await tester.tap(find.text('結果を見る'));
     await tester.pumpAndSettle();
     expect(find.text('今日の記録ができました'), findsOneWidget);
-    expect(find.text('未入力'), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byType(RecordValuesCard),
+        matching: find.text('未入力'),
+      ),
+      findsNWidgets(2),
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('insight-current'))).data,
+      '未入力',
+    );
     expect(find.textContaining('推定心拍'), findsNothing);
     expect(find.text('良好'), findsOneWidget);
     expect(find.text('定型文'), findsOneWidget);
