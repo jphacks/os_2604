@@ -125,15 +125,15 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
 
   // 「この日の記録」より下のカードは画面の左右いっぱいに広げ、角丸にしない。
   static final _dayButtonStyle = TextButton.styleFrom(
-    backgroundColor: const Color(0xFFED742B),
-    foregroundColor: Colors.white,
-    disabledBackgroundColor: const Color(0xFFE3DDD7),
-    disabledForegroundColor: const Color(0xFF827A74),
-    side: const BorderSide(color: Colors.black, width: 3),
+    backgroundColor: AsakaoStyle.coralPale,
+    foregroundColor: AsakaoStyle.coralInk,
+    disabledBackgroundColor: AsakaoStyle.neutralBackground,
+    disabledForegroundColor: AsakaoStyle.muted,
+    side: BorderSide.none,
     shape: const StadiumBorder(),
     padding: const EdgeInsets.symmetric(horizontal: 8),
     minimumSize: const Size(80, 48),
-    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
   );
 
   static const _side = EdgeInsets.symmetric(horizontal: 24);
