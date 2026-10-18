@@ -303,7 +303,7 @@ class _ScanScreenState extends State<ScanScreen>
     final again = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _InterruptedDialog(copy: _failureCopy(reason)),
+      builder: (_) => _InterruptedDialog(copy: _copyForFailure(reason)),
     );
     _dialogOpen = false;
     if (!mounted || _leaving) return;
@@ -850,9 +850,34 @@ class _ScanScreenState extends State<ScanScreen>
 
   // ---- 失敗・中断（明るい）画面 ----
 
+  _FailureCopy _copyForFailure(ScanFailureReason reason) {
+    final guidance = _session.service.currentProgress.guidance;
+    return (reason == ScanFailureReason.poorQuality ||
+                reason == ScanFailureReason.faceNotFound) &&
+            guidance != null
+        ? _FailureCopy(
+            heading: '計測を中断しました',
+            title: switch (guidance) {
+              ScanGuidance.faceNotFound => '顔を検出できなくなりました',
+              ScanGuidance.multipleFaces => '複数の顔が映りました',
+              ScanGuidance.missingData => '顔の情報を取得できませんでした',
+              ScanGuidance.lowLight => '顔の明るさが不足しました',
+              ScanGuidance.offAngle => '顔の向きが計測範囲を外れました',
+              ScanGuidance.offCenter => '顔の位置が計測範囲を外れました',
+              ScanGuidance.faceTooSmall => '顔がカメラから遠すぎます',
+              ScanGuidance.faceTooLarge => '顔がカメラに近すぎます',
+              ScanGuidance.moving => '顔の追跡が途切れました',
+              ScanGuidance.noFrames => 'カメラ画像の更新が途切れました',
+            },
+            body: '顔を正面に向け、明るい場所でもう一度お試しください。',
+            icon: Icons.center_focus_strong_outlined,
+          )
+        : _failureCopy(reason);
+  }
+
   Widget _failedView() {
     final reason = _failure ?? ScanFailureReason.processingFailed;
-    final copy = _failureCopy(reason);
+    final copy = _copyForFailure(reason);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),

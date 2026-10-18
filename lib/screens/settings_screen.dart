@@ -297,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SwitchListTile(
               title: const Text('研究モード'),
               subtitle: const Text(
-                'オフ：通常の記録。オン：心拍推定・顔色特徴量を試験的に取得します。診断には使用できません。次回の撮影から適用されます。',
+                '通常モードでも心拍数を実験的に推定します。オンにすると顔色特徴量も取得します。品質不足時は未測定になります。診断には使用できません。次回の撮影から適用されます。',
               ),
               value: _research ?? false,
               onChanged: _research == null || _savingMode ? null : _saveMode,

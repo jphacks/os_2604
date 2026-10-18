@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../models/scan_contract.dart';
 import 'scan_configuration.dart';
 
@@ -21,6 +23,8 @@ ScanGuidance? assessFaceGeometry(
   FaceGeometry face,
   ScanConfiguration configuration, {
   FaceGeometry? previous,
+  bool trackFace = false,
+  bool continuousTrack = false,
 }) {
   if ([face.left, face.top, face.width, face.height].any((v) => !v.isFinite) ||
       face.width <= 0 ||
@@ -31,12 +35,37 @@ ScanGuidance? assessFaceGeometry(
       face.top < 0 ||
       face.left + face.width > 1 ||
       face.top + face.height > 1 ||
-      (face.centerX - 0.5).abs() > configuration.maxCenterOffset ||
-      (face.centerY - 0.5).abs() > configuration.maxCenterOffset) {
+      (!(trackFace && previous != null) &&
+          ((face.centerX - 0.5).abs() > configuration.maxCenterOffset ||
+              (face.centerY - 0.5).abs() > configuration.maxCenterOffset))) {
     return ScanGuidance.offCenter;
   }
   if (face.width < configuration.minFaceWidth) return ScanGuidance.faceTooSmall;
   if (face.width > configuration.maxFaceWidth) return ScanGuidance.faceTooLarge;
+  // Once acquired, follow the native track instead of treating position changes
+  // as quality failures. Without a native ID, require overlapping detections.
+  // Partial faces and invalid sizes still fail above.
+  if (trackFace && previous != null) {
+    // A continuing native track can move freely inside the image. The overlap
+    // fallback is only needed when the detector supplies no tracking ID.
+    if (continuousTrack) return null;
+    final width = math.max(
+      0.0,
+      math.min(face.left + face.width, previous.left + previous.width) -
+          math.max(face.left, previous.left),
+    );
+    final height = math.max(
+      0.0,
+      math.min(face.top + face.height, previous.top + previous.height) -
+          math.max(face.top, previous.top),
+    );
+    final intersection = width * height;
+    final union =
+        face.width * face.height +
+        previous.width * previous.height -
+        intersection;
+    return intersection / union >= 0.6 ? null : ScanGuidance.moving;
+  }
   if (previous != null &&
       ((face.centerX - previous.centerX).abs() >
               configuration.maxCenterMovement ||

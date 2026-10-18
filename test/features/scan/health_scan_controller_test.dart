@@ -314,6 +314,7 @@ void main() {
         frames.emit(issue: issue);
         time.flushMicrotasks();
         expect((outcome as ScanFailure).reason, ScanFailureReason.poorQuality);
+        expect(scan.currentProgress.guidance, issue);
       });
     });
   }
@@ -576,68 +577,86 @@ void main() {
     },
   );
 
-  test('experimental P2 mode records decoupled 30fps RGB batches across 5Hz face detections', () {
-    withScan((time, frames, scan) {
-      ScanOutcome? outcome;
-      scan.startHealthScan().then((value) => outcome = value);
-      time.flushMicrotasks();
-      const prepSample = FaceRgbSample(red: 250, green: 20, blue: 20);
-      frames.emit(rgbSample: prepSample);
-      for (var i = 0; i < 2; i++) {
-        time.elapse(const Duration(milliseconds: 250));
-        frames.emit(rgbSample: prepSample);
-        time.flushMicrotasks();
-      }
-      // Now at t=500ms, measuring starts. Emit 75 face-detection observations
-      // every 200ms (5Hz), each carrying 6 RGB samples at 30fps (every ~33.3ms).
-      final measureStart = time.elapsed;
-      for (var cycle = 1; cycle <= 75; cycle++) {
-        final batch = <TimedFaceRgbSample>[];
-        for (var sub = 5; sub >= 0; sub--) {
-          final sampleIndex = cycle * 6 - sub;
-          final sampleTime =
-              measureStart +
-              Duration(microseconds: (sampleIndex * 1000000 / 30.0).round());
-          final tSec =
-              (sampleTime - measureStart).inMicroseconds /
-              Duration.microsecondsPerSecond;
-          final pulse = sin(2.0 * pi * (72.0 / 60.0) * tSec);
-          batch.add(
-            TimedFaceRgbSample(
-              capturedAt: sampleTime,
-              sample: FaceRgbSample(
-                red: 180.0 + 0.25 * pulse,
-                green: 120.0 + 1.4 * pulse,
-                blue: 100.0 + 0.45 * pulse,
-              ),
-            ),
-          );
-        }
-        time.elapse(const Duration(milliseconds: 200));
-        frames.emit(
-          capturedAt: time.elapsed,
-          rgbSample: batch.last.sample,
-          rgbSamples: batch,
+  for (final research in [false, true]) {
+    test(
+      'research=$research records decoupled 30fps RGB batches across 5Hz face detections',
+      () {
+        withScan(
+          (time, frames, scan) {
+            ScanOutcome? outcome;
+            scan.startHealthScan().then((value) => outcome = value);
+            time.flushMicrotasks();
+            const prepSample = FaceRgbSample(red: 250, green: 20, blue: 20);
+            frames.emit(rgbSample: prepSample);
+            for (var i = 0; i < 2; i++) {
+              time.elapse(const Duration(milliseconds: 250));
+              frames.emit(rgbSample: prepSample);
+              time.flushMicrotasks();
+            }
+            // Now at t=500ms, measuring starts. Emit 75 face-detection observations
+            // every 200ms (5Hz), each carrying 6 RGB samples at 30fps (every ~33.3ms).
+            final measureStart = time.elapsed;
+            for (var cycle = 1; cycle <= 75; cycle++) {
+              final batch = <TimedFaceRgbSample>[];
+              for (var sub = 5; sub >= 0; sub--) {
+                final sampleIndex = cycle * 6 - sub;
+                final sampleTime =
+                    measureStart +
+                    Duration(
+                      microseconds: (sampleIndex * 1000000 / 30.0).round(),
+                    );
+                final tSec =
+                    (sampleTime - measureStart).inMicroseconds /
+                    Duration.microsecondsPerSecond;
+                final pulse = sin(2.0 * pi * (72.0 / 60.0) * tSec);
+                batch.add(
+                  TimedFaceRgbSample(
+                    capturedAt: sampleTime,
+                    sample: FaceRgbSample(
+                      red: 180.0 + 0.25 * pulse,
+                      green: 120.0 + 1.4 * pulse,
+                      blue: 100.0 + 0.45 * pulse,
+                    ),
+                  ),
+                );
+              }
+              time.elapse(const Duration(milliseconds: 200));
+              frames.emit(
+                capturedAt: time.elapsed,
+                rgbSample: batch.last.sample,
+                rgbSamples: batch,
+              );
+              time.flushMicrotasks();
+            }
+            final result = (outcome as ScanSuccess).result;
+            expect(result.quality, MeasurementQuality.good);
+            expect(
+              result.scanMode,
+              research ? ScanMode.research : ScanMode.standard,
+            );
+            expect(
+              result.faceColorFeature,
+              research ? closeTo(0.45, 0.01) : isNull,
+            );
+            expect(result.estimatedHeartRateBpm, isNotNull);
+            expect(result.estimatedHeartRateBpm!, closeTo(72.0, 1.0));
+            expect(result.heartRateSource, HeartRateSource.rppgExperimental);
+            expect(
+              scan.lastExperimentalEvaluation?.shootingConditions?.sampleCount,
+              greaterThanOrEqualTo(450),
+            );
+            expect(
+              scan.lastExperimentalEvaluation?.shootingConditions?.effectiveFps,
+              closeTo(30.0, 0.5),
+            );
+          },
+          configuration: research
+              ? ScanConfiguration.day1Experimental()
+              : ScanConfiguration.day1Standard(),
         );
-        time.flushMicrotasks();
-      }
-      final result = (outcome as ScanSuccess).result;
-      expect(result.quality, MeasurementQuality.good);
-      expect(result.scanMode, ScanMode.research);
-      expect(result.faceColorFeature, closeTo(0.45, 0.01));
-      expect(result.estimatedHeartRateBpm, isNotNull);
-      expect(result.estimatedHeartRateBpm!, closeTo(72.0, 1.0));
-      expect(result.heartRateSource, HeartRateSource.rppgExperimental);
-      expect(
-        scan.lastExperimentalEvaluation?.shootingConditions?.sampleCount,
-        greaterThanOrEqualTo(450),
-      );
-      expect(
-        scan.lastExperimentalEvaluation?.shootingConditions?.effectiveFps,
-        closeTo(30.0, 0.5),
-      );
-    }, configuration: ScanConfiguration.day1Experimental());
-  });
+      },
+    );
+  }
 
   test('poor rPPG signal quality in experimental mode still completes P0 scan with null BPM', () {
     withScan((time, frames, scan) {

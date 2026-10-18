@@ -219,6 +219,80 @@ void main() {
     expect(observations.last.guidance, ScanGuidance.lowLight);
   });
 
+  test('tracks gradual motion, but resets alignment after face loss', () async {
+    await start();
+    for (final left in [3.0, 3.6, 4.2, 4.8, 5.4]) {
+      faces = [
+        syntheticFace()
+          ..['rect'] = {
+            'left': left,
+            'top': 2.0,
+            'right': left + 4,
+            'bottom': 8.0,
+          },
+      ];
+      camera.emit();
+      await flushFrame();
+      expect(observations.last.guidance, isNull);
+    }
+    faces = [];
+    camera.emit();
+    await flushFrame();
+    expect(observations.last.guidance, ScanGuidance.faceNotFound);
+    faces = [
+      syntheticFace()
+        ..['rect'] = {'left': 5.4, 'top': 2.0, 'right': 9.4, 'bottom': 8.0},
+    ];
+    camera.emit();
+    await flushFrame();
+    expect(observations.last.guidance, ScanGuidance.offCenter);
+  });
+
+  test(
+    'the same native track follows large movement inside the image',
+    () async {
+      await start();
+      faces = [syntheticFace()..['trackingId'] = 1];
+      camera.emit();
+      await flushFrame();
+      for (final left in [5.8, 0.2, 4.0]) {
+        faces = [
+          syntheticFace()
+            ..['trackingId'] = 1
+            ..['rect'] = {
+              'left': left,
+              'top': 2.0,
+              'right': left + 4,
+              'bottom': 8.0,
+            },
+        ];
+        camera.emit();
+        await flushFrame();
+        expect(observations.last.guidance, isNull);
+      }
+      faces = [
+        syntheticFace()
+          ..['trackingId'] = 1
+          ..['rect'] = {'left': 6.2, 'top': 2.0, 'right': 10.2, 'bottom': 8.0},
+      ];
+      camera.emit();
+      await flushFrame();
+      expect(observations.last.guidance, ScanGuidance.offCenter);
+    },
+  );
+
+  test('a different native track cannot silently replace the face', () async {
+    await start();
+    faces = [syntheticFace()..['trackingId'] = 1];
+    camera.emit();
+    await flushFrame();
+    expect(observations.last.guidance, isNull);
+    faces = [syntheticFace()..['trackingId'] = 2];
+    camera.emit();
+    await flushFrame();
+    expect(observations.last.guidance, ScanGuidance.moving);
+  });
+
   test('malformed buffers fail before reaching native inference', () async {
     await start();
     camera.emit(truncated: true);

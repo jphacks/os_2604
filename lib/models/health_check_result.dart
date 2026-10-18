@@ -45,12 +45,8 @@ class HealthCheckResult {
         (!faceDetected || elapsed < const Duration(seconds: 15))) {
       throw ArgumentError('A valid scan needs a face and at least 15 seconds.');
     }
-    if (scanMode == ScanMode.standard &&
-        (heartRateSource == HeartRateSource.rppgExperimental ||
-            faceColorFeature != null)) {
-      throw ArgumentError(
-        'Standard scans cannot contain experimental signals.',
-      );
+    if (scanMode == ScanMode.standard && faceColorFeature != null) {
+      throw ArgumentError('Face color features require research mode.');
     }
     final condition = selfCondition;
     if (condition != null && (condition < 1 || condition > 5)) {

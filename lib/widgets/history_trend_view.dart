@@ -10,10 +10,16 @@ import '../ui/asakao_widgets.dart';
 /// 期間は「今日を最後の日とする直近7日 / 30日」（カレンダー月ではない）。
 /// 外部パッケージは使わず、棒は通常のウィジェット、折れ線は CustomPaint で描く。
 class HistoryTrendView extends StatefulWidget {
-  const HistoryTrendView({super.key, required this.records, required this.now});
+  const HistoryTrendView({
+    super.key,
+    required this.records,
+    required this.now,
+    this.period,
+  });
 
   final List<HealthCheckResult> records;
   final DateTime Function() now;
+  final DateTimeRange? period;
 
   @override
   State<HistoryTrendView> createState() => _HistoryTrendViewState();
@@ -33,31 +39,50 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
 
   @override
   Widget build(BuildContext context) {
+    final period = widget.period;
+    final count = period == null
+        ? _range.days
+        : DateTime.utc(period.end.year, period.end.month, period.end.day)
+                  .difference(
+                    DateTime.utc(
+                      period.start.year,
+                      period.start.month,
+                      period.start.day,
+                    ),
+                  )
+                  .inDays +
+              1;
     final days = buildDailyTrend(
       widget.records,
-      today: widget.now(),
-      days: _range.days,
+      today: period?.end ?? widget.now(),
+      days: count,
     );
+    final label = period == null
+        ? _range.label
+        : count > 31
+        ? '${period.start.year}年'
+        : '${period.start.year}年${period.start.month}月';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            for (final r in _Range.values)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _RangeChip(
-                  label: r.label,
-                  selected: r == _range,
-                  onTap: () => setState(() => _range = r),
+        if (period == null)
+          Row(
+            children: [
+              for (final r in _Range.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _RangeChip(
+                    label: r.label,
+                    selected: r == _range,
+                    onTap: () => setState(() => _range = r),
+                  ),
                 ),
-              ),
-          ],
-        ),
+            ],
+          ),
         const SizedBox(height: 12),
-        _ConditionCard(days: days, rangeLabel: _range.label),
+        _ConditionCard(days: days, rangeLabel: label),
         const SizedBox(height: 12),
-        _HeartRateCard(days: days, rangeLabel: _range.label),
+        _HeartRateCard(days: days, rangeLabel: label),
       ],
     );
   }
@@ -129,7 +154,9 @@ class _DayLabels extends StatelessWidget {
               ? FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    '${days[i].day.day}',
+                    days.length > 31
+                        ? '${days[i].day.month}/${days[i].day.day}'
+                        : '${days[i].day.day}',
                     style: TextStyle(
                       fontSize: days.length <= 7 ? 12 : 10,
                       fontWeight: i == days.length - 1
@@ -196,25 +223,32 @@ class _ConditionCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: _barMaxHeight + 36,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+            _PlotViewport(
+              days: days.length,
+              child: Column(
                 children: [
-                  for (var i = 0; i < days.length; i++)
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: dense ? 1 : 8,
-                        ),
-                        child: _bar(days[i], i == days.length - 1, dense),
-                      ),
+                  SizedBox(
+                    height: _barMaxHeight + 36,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        for (var i = 0; i < days.length; i++)
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: dense ? 1 : 8,
+                              ),
+                              child: _bar(days[i], i == days.length - 1, dense),
+                            ),
+                          ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(height: 6),
+                  _DayLabels(days),
                 ],
               ),
             ),
-            const SizedBox(height: 6),
-            _DayLabels(days),
             const SizedBox(height: 12),
             const Text('破線は記録のない日', style: AsakaoStyle.caption),
           ],
@@ -358,15 +392,23 @@ class _HeartRateCard extends StatelessWidget {
                 ),
               )
             else ...[
-              SizedBox(
-                height: 110,
-                child: CustomPaint(
-                  key: const ValueKey('heart-rate-chart'),
-                  painter: TrendLinePainter(values),
+              _PlotViewport(
+                days: days.length,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: 110,
+                      child: CustomPaint(
+                        key: const ValueKey('heart-rate-chart'),
+                        painter: TrendLinePainter(values),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    _DayLabels(days),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
-              _DayLabels(days),
               const SizedBox(height: 12),
               Text(
                 '推定心拍の記録がある日だけ表示（${real.length}日分）。'
@@ -438,4 +480,32 @@ class TrendLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(TrendLinePainter old) => old.values != values;
+}
+
+/// Long periods retain daily values and gaps; scroll instead of squeezing them.
+class _PlotViewport extends StatelessWidget {
+  const _PlotViewport({required this.days, required this.child});
+  final int days;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => days <= 31
+      ? child
+      : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('左右にスクロールして日別の記録を確認できます', style: AsakaoStyle.caption),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: days * 24.0 > constraints.maxWidth
+                      ? days * 24.0
+                      : constraints.maxWidth,
+                  child: child,
+                ),
+              ),
+            ),
+          ],
+        );
 }

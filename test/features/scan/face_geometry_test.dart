@@ -68,4 +68,46 @@ void main() {
     );
     expect(assessFaceGeometry(center, configuration, previous: center), isNull);
   });
+  test('tracking follows gradual motion beyond initial alignment', () {
+    var previous = center;
+    for (final left in [0.36, 0.42, 0.48, 0.54]) {
+      final face = FaceGeometry(left: left, top: 0.2, width: 0.4, height: 0.6);
+      expect(
+        assessFaceGeometry(
+          face,
+          configuration,
+          previous: previous,
+          trackFace: true,
+        ),
+        isNull,
+      );
+      previous = face;
+    }
+    expect(assessFaceGeometry(previous, configuration), ScanGuidance.offCenter);
+  });
+  test('tracking rejects abrupt jumps, cropped faces and invalid sizes', () {
+    for (final face in [
+      const FaceGeometry(left: 0.55, top: 0.2, width: 0.4, height: 0.6),
+      const FaceGeometry(left: 0.65, top: 0.2, width: 0.4, height: 0.6),
+      const FaceGeometry(left: 0.45, top: 0.2, width: 0.1, height: 0.6),
+    ]) {
+      expect(
+        assessFaceGeometry(
+          face,
+          configuration,
+          previous: center,
+          trackFace: true,
+        ),
+        isNotNull,
+      );
+    }
+    expect(
+      assessFaceGeometry(
+        const FaceGeometry(left: 0.54, top: 0.2, width: 0.4, height: 0.6),
+        configuration,
+        trackFace: true,
+      ),
+      ScanGuidance.offCenter,
+    );
+  });
 }

@@ -94,19 +94,19 @@ void main() {
     // 5-1 ↔ 5-4 はスイッチより下だけ入れ替わる。履歴の見出しは残る。
     await tester.tap(find.text('グラフ'));
     await tester.pumpAndSettle();
-    expect(find.text('1週間'), findsOneWidget);
+    expect(find.text('破線は記録のない日'), findsOneWidget);
     expect(find.text('今週咲いた花'), findsOneWidget);
     await tester.tap(find.text('リスト'));
     await tester.pumpAndSettle();
-    expect(find.text('1週間'), findsNothing);
+    expect(find.text('破線は記録のない日'), findsNothing);
     expect(find.text('グラフ'), findsOneWidget);
     // スイッチを右へなぞるとグラフ、左へなぞるとリスト。
     await tester.fling(find.text('リスト'), const Offset(200, 0), 800);
     await tester.pumpAndSettle();
-    expect(find.text('1週間'), findsOneWidget);
+    expect(find.text('破線は記録のない日'), findsOneWidget);
     await tester.fling(find.text('グラフ'), const Offset(-200, 0), 800);
     await tester.pumpAndSettle();
-    expect(find.text('1週間'), findsNothing);
+    expect(find.text('破線は記録のない日'), findsNothing);
     expect(tester.takeException(), isNull);
     // drift の watch() は購読解除後に Timer を残すため、画面を外して流す。
     await tester.pumpWidget(const SizedBox());

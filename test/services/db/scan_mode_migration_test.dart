@@ -101,22 +101,46 @@ void main() {
     }
   });
 
+  test('standard mode still rejects research-only face color features', () {
+    expect(
+      () => HealthCheckResult(
+        id: 'synthetic-invalid',
+        measuredAt: DateTime(2026),
+        elapsed: const Duration(seconds: 15),
+        faceDetected: true,
+        quality: MeasurementQuality.good,
+        scanMode: ScanMode.standard,
+        faceColorFeature: 0.4,
+      ),
+      throwsArgumentError,
+    );
+  });
   test(
-    'standard mode rejects experimental values instead of relabeling them',
-    () {
-      expect(
-        () => HealthCheckResult(
-          id: 'synthetic-invalid',
-          measuredAt: DateTime(2026),
-          elapsed: const Duration(seconds: 15),
-          faceDetected: true,
-          quality: MeasurementQuality.good,
-          scanMode: ScanMode.standard,
-          estimatedHeartRateBpm: 72,
-          heartRateSource: HeartRateSource.rppgExperimental,
-        ),
-        throwsArgumentError,
-      );
+    'standard mode persists estimated heart rate with its experimental source',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      try {
+        final repo = HealthRecordRepository(db);
+        await repo.insert(
+          HealthCheckResult(
+            id: 'standard-heart-rate',
+            measuredAt: DateTime.utc(2026),
+            elapsed: const Duration(seconds: 15),
+            faceDetected: true,
+            quality: MeasurementQuality.good,
+            scanMode: ScanMode.standard,
+            estimatedHeartRateBpm: 72,
+            heartRateSource: HeartRateSource.rppgExperimental,
+          ),
+        );
+        final stored = (await repo.findById('standard-heart-rate'))!;
+        expect(stored.scanMode, ScanMode.standard);
+        expect(stored.estimatedHeartRateBpm, 72);
+        expect(stored.heartRateSource, HeartRateSource.rppgExperimental);
+        expect(stored.faceColorFeature, isNull);
+      } finally {
+        await db.close();
+      }
     },
   );
 }

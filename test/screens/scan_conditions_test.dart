@@ -49,6 +49,28 @@ void main() {
 
   Finder text(String t) => find.text(t);
 
+  tw('failure displays the specific quality issue instead of generic advice', (
+    tester,
+  ) async {
+    await open(tester);
+    scan.emit(
+      const ScanProgress(
+        phase: ScanPhase.failed,
+        failureReason: ScanFailureReason.poorQuality,
+        guidance: ScanGuidance.noFrames,
+      ),
+    );
+    scan.finish(
+      const ScanFailure(
+        reason: ScanFailureReason.poorQuality,
+        elapsed: Duration(seconds: 1),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(text('カメラ画像の更新が途切れました'), findsOneWidget);
+    expect(text('うまく計測できませんでした'), findsNothing);
+  });
+
   tw('opening: title, unchecked conditions and caption before camera data', (
     tester,
   ) async {
