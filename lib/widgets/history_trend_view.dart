@@ -7,13 +7,20 @@ import '../ui/asakao_widgets.dart';
 
 /// 履歴の「グラフ」表示。体調（棒）と推定心拍 参考値（折れ線）を、実際の記録だけで描く。
 ///
-/// 期間は「今日を最後の日とする直近7日 / 30日」（カレンダー月ではない）。
+/// 期間は「基準日を最後の日とする直近7日 / 30日」（カレンダー月ではない）。
+/// 日付検索時はその1日だけを表示する。
 /// 外部パッケージは使わず、棒は通常のウィジェット、折れ線は CustomPaint で描く。
 class HistoryTrendView extends StatefulWidget {
-  const HistoryTrendView({super.key, required this.records, required this.now});
+  const HistoryTrendView({
+    super.key,
+    required this.records,
+    required this.now,
+    this.singleDay = false,
+  });
 
   final List<HealthCheckResult> records;
   final DateTime Function() now;
+  final bool singleDay;
 
   @override
   State<HistoryTrendView> createState() => _HistoryTrendViewState();
@@ -36,28 +43,42 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
     final days = buildDailyTrend(
       widget.records,
       today: widget.now(),
-      days: _range.days,
+      days: widget.singleDay ? 1 : _range.days,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            for (final r in _Range.values)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _RangeChip(
-                  label: r.label,
-                  selected: r == _range,
-                  onTap: () => setState(() => _range = r),
+        Text(
+          widget.singleDay
+              ? _ymd(days.single.day)
+              : '${_ymd(days.first.day)} 〜 ${_ymd(days.last.day)}',
+          style: AsakaoStyle.caption,
+        ),
+        const SizedBox(height: 8),
+        if (!widget.singleDay)
+          Row(
+            children: [
+              for (final r in _Range.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _RangeChip(
+                    label: r.label,
+                    selected: r == _range,
+                    onTap: () => setState(() => _range = r),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
+        const SizedBox(height: 12),
+        _ConditionCard(
+          days: days,
+          rangeLabel: widget.singleDay ? '選択日' : _range.label,
         ),
         const SizedBox(height: 12),
-        _ConditionCard(days: days, rangeLabel: _range.label),
-        const SizedBox(height: 12),
-        _HeartRateCard(days: days, rangeLabel: _range.label),
+        _HeartRateCard(
+          days: days,
+          rangeLabel: widget.singleDay ? '選択日' : _range.label,
+        ),
       ],
     );
   }
