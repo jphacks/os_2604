@@ -124,6 +124,18 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
   );
 
   // 「この日の記録」より下のカードは画面の左右いっぱいに広げ、角丸にしない。
+  static final _dayButtonStyle = TextButton.styleFrom(
+    backgroundColor: const Color(0xFFED742B),
+    foregroundColor: Colors.white,
+    disabledBackgroundColor: const Color(0xFFE3DDD7),
+    disabledForegroundColor: const Color(0xFF827A74),
+    side: const BorderSide(color: Colors.black, width: 3),
+    shape: const StadiumBorder(),
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    minimumSize: const Size(80, 48),
+    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+  );
+
   static const _side = EdgeInsets.symmetric(horizontal: 24);
   static const _label = EdgeInsets.fromLTRB(28, 16, 28, 8);
 
@@ -148,11 +160,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                     onPressed: older == null
                         ? null
                         : () => setState(() => _id = older.id),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      minimumSize: const Size(48, 48),
-                      textStyle: const TextStyle(fontSize: 12),
-                    ),
+                    style: _dayButtonStyle,
                     iconAlignment: IconAlignment.start,
                     icon: const Icon(Icons.chevron_left, size: 18),
                     label: const Text('前の日'),
@@ -174,11 +182,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                     onPressed: newer == null
                         ? null
                         : () => setState(() => _id = newer.id),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      minimumSize: const Size(48, 48),
-                      textStyle: const TextStyle(fontSize: 12),
-                    ),
+                    style: _dayButtonStyle,
                     iconAlignment: IconAlignment.end,
                     icon: const Icon(Icons.chevron_right, size: 18),
                     label: const Text('次の日'),
