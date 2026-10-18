@@ -39,9 +39,9 @@ class FeedbackPreferences extends Table {
   IntColumn get id => integer().customConstraint('NOT NULL CHECK (id = 1)')();
   BoolColumn get sound => boolean()();
   BoolColumn get haptics => boolean()();
-  TextColumn get instrument => textEnum<MeasureInstrument>().withDefault(
-    Constant(MeasureInstrument.marimba.name),
-  )();
+  // 楽器名を文字で保存する（列の型は以前と同じ TEXT）。読むときに知らない名前は木琴にする。
+  TextColumn get instrument =>
+      text().withDefault(Constant(MeasureInstrument.marimba.name))();
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -311,7 +311,7 @@ class DriftFeedbackSettingsStore implements FeedbackSettingsStore {
         : FeedbackSettings(
             sound: row.sound,
             haptics: row.haptics,
-            instrument: row.instrument,
+            instrument: MeasureInstrument.fromStored(row.instrument),
           );
   }
 
@@ -324,7 +324,7 @@ class DriftFeedbackSettingsStore implements FeedbackSettingsStore {
             id: const Value(1),
             sound: settings.sound,
             haptics: settings.haptics,
-            instrument: Value(settings.instrument),
+            instrument: Value(settings.instrument.name),
           ),
         );
   }

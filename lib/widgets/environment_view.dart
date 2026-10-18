@@ -4,6 +4,9 @@ import '../models/environment_snapshot.dart';
 import '../services/db/environment_record_repository.dart';
 import '../services/device/environment_save_service.dart';
 import '../services/device/led_notification_service.dart';
+import '../ui/asakao_record_widgets.dart';
+import '../ui/asakao_style.dart';
+import '../ui/asakao_widgets.dart';
 
 String environmentReason(EnvironmentState state) => switch (state) {
   EnvironmentState.available => '更新中',
@@ -139,4 +142,163 @@ class _SavedEnvironmentViewState extends State<SavedEnvironmentView> {
       },
     ),
   );
+}
+
+/// 履歴詳細の「キット」カード。「この日の記録」と同じ作り（全幅・区切り線・行）で、
+/// 今のキットの接続と、計測終了時に保存したキット付近の室温・湿度を並べる。
+/// 保存中・保存の失敗・読み込みの失敗は、カードの中で知らせて再試行できる。
+class KitRecordCard extends StatefulWidget {
+  const KitRecordCard({
+    super.key,
+    required this.recordId,
+    this.ledService,
+    this.saves,
+  });
+
+  final String recordId;
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? saves;
+
+  @override
+  State<KitRecordCard> createState() => _KitRecordCardState();
+}
+
+class _KitRecordCardState extends State<KitRecordCard> {
+  late Stream<EnvironmentSnapshot?>? _stream = widget.saves?.store.watch(
+    widget.recordId,
+  );
+
+  static Widget _row(Widget child) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 24),
+    child: child,
+  );
+
+  static Widget _note(String text) => Padding(
+    padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+    child: Text(text, style: AsakaoStyle.caption),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final saves = widget.saves;
+    final led = widget.ledService;
+    return ListenableBuilder(
+      listenable: Listenable.merge([?saves, ?led]),
+      builder: (context, _) => StreamBuilder<EnvironmentSnapshot?>(
+        stream: _stream,
+        builder: (context, snapshot) {
+          final env = snapshot.data;
+          final state = saves?.stateFor(widget.recordId);
+          final available = env?.state == EnvironmentState.available;
+          String value(double? v, String unit, int digits) =>
+              v == null ? '未測定' : '${v.toStringAsFixed(digits)} $unit';
+          final subtitle = env == null || available
+              ? 'キット付近・計測終了時'
+              : environmentReason(env.state);
+          final received = env?.receivedAt?.toLocal();
+          final rows = <Widget>[
+            if (led != null)
+              _row(
+                RecordRow(
+                  title: 'キットの接続',
+                  subtitle: '今の状態',
+                  value: led.ready ? '接続中' : '未接続',
+                ),
+              ),
+            if (saves != null) ...[
+              _row(
+                RecordRow(
+                  title: '室温',
+                  subtitle: subtitle,
+                  value: value(env?.ambientTemperatureC, '℃', 1),
+                ),
+              ),
+              _row(
+                RecordRow(
+                  title: '湿度',
+                  subtitle: subtitle,
+                  value: value(env?.relativeHumidityPct, '%RH', 1),
+                ),
+              ),
+            ],
+          ];
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AsakaoCard(
+                padding: EdgeInsets.zero,
+                fullBleed: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (i, row) in rows.indexed) ...[
+                      if (i > 0) const Divider(),
+                      row,
+                    ],
+                    if (snapshot.hasError) ...[
+                      const Divider(),
+                      _row(
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                '環境情報を読み込めませんでした。',
+                                style: AsakaoStyle.caption,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => setState(
+                                () => _stream = saves?.store.watch(
+                                  widget.recordId,
+                                ),
+                              ),
+                              child: const Text('環境情報を再読み込み'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (state == EnvironmentSaveState.failed) ...[
+                      const Divider(),
+                      _row(
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'チェックは保存済みです。環境情報を保存できませんでした',
+                                style: AsakaoStyle.caption,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => saves?.retry(widget.recordId),
+                              child: const Text('環境情報の保存を再試行'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (saves != null) ...[
+                if (state == EnvironmentSaveState.saving)
+                  _note('チェックは保存済みです。環境情報を保存しています…')
+                else if (env == null &&
+                    !snapshot.hasError &&
+                    snapshot.connectionState != ConnectionState.waiting &&
+                    state != EnvironmentSaveState.failed)
+                  _note('環境情報の保存なし')
+                else if (available)
+                  _note(
+                    '計測終了時点の直近1サンプルです（15秒間の平均ではありません）。'
+                    '取得元：E84キットのSHT40'
+                    '${received == null ? '' : '　受信：${received.month}/${received.day} ${received.hour}:${received.minute.toString().padLeft(2, '0')}'}',
+                  ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
 }

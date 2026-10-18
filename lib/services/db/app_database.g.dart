@@ -2220,19 +2220,18 @@ class $FeedbackPreferencesTable extends FeedbackPreferences
       'CHECK ("haptics" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _instrumentMeta = const VerificationMeta(
+    'instrument',
+  );
   @override
-  late final GeneratedColumnWithTypeConverter<MeasureInstrument, String>
-  instrument =
-      GeneratedColumn<String>(
-        'instrument',
-        aliasedName,
-        false,
-        type: DriftSqlType.string,
-        requiredDuringInsert: false,
-        defaultValue: Constant(MeasureInstrument.marimba.name),
-      ).withConverter<MeasureInstrument>(
-        $FeedbackPreferencesTable.$converterinstrument,
-      );
+  late final GeneratedColumn<String> instrument = GeneratedColumn<String>(
+    'instrument',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: Constant(MeasureInstrument.marimba.name),
+  );
   @override
   List<GeneratedColumn> get $columns => [id, sound, haptics, instrument];
   @override
@@ -2266,6 +2265,12 @@ class $FeedbackPreferencesTable extends FeedbackPreferences
     } else if (isInserting) {
       context.missing(_hapticsMeta);
     }
+    if (data.containsKey('instrument')) {
+      context.handle(
+        _instrumentMeta,
+        instrument.isAcceptableOrUnknown(data['instrument']!, _instrumentMeta),
+      );
+    }
     return context;
   }
 
@@ -2287,12 +2292,10 @@ class $FeedbackPreferencesTable extends FeedbackPreferences
         DriftSqlType.bool,
         data['${effectivePrefix}haptics'],
       )!,
-      instrument: $FeedbackPreferencesTable.$converterinstrument.fromSql(
-        attachedDatabase.typeMapping.read(
-          DriftSqlType.string,
-          data['${effectivePrefix}instrument'],
-        )!,
-      ),
+      instrument: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}instrument'],
+      )!,
     );
   }
 
@@ -2300,11 +2303,6 @@ class $FeedbackPreferencesTable extends FeedbackPreferences
   $FeedbackPreferencesTable createAlias(String alias) {
     return $FeedbackPreferencesTable(attachedDatabase, alias);
   }
-
-  static JsonTypeConverter2<MeasureInstrument, String, String>
-  $converterinstrument = const EnumNameConverter<MeasureInstrument>(
-    MeasureInstrument.values,
-  );
 }
 
 class FeedbackPreference extends DataClass
@@ -2312,7 +2310,7 @@ class FeedbackPreference extends DataClass
   final int id;
   final bool sound;
   final bool haptics;
-  final MeasureInstrument instrument;
+  final String instrument;
   const FeedbackPreference({
     required this.id,
     required this.sound,
@@ -2325,11 +2323,7 @@ class FeedbackPreference extends DataClass
     map['id'] = Variable<int>(id);
     map['sound'] = Variable<bool>(sound);
     map['haptics'] = Variable<bool>(haptics);
-    {
-      map['instrument'] = Variable<String>(
-        $FeedbackPreferencesTable.$converterinstrument.toSql(instrument),
-      );
-    }
+    map['instrument'] = Variable<String>(instrument);
     return map;
   }
 
@@ -2351,9 +2345,7 @@ class FeedbackPreference extends DataClass
       id: serializer.fromJson<int>(json['id']),
       sound: serializer.fromJson<bool>(json['sound']),
       haptics: serializer.fromJson<bool>(json['haptics']),
-      instrument: $FeedbackPreferencesTable.$converterinstrument.fromJson(
-        serializer.fromJson<String>(json['instrument']),
-      ),
+      instrument: serializer.fromJson<String>(json['instrument']),
     );
   }
   @override
@@ -2363,9 +2355,7 @@ class FeedbackPreference extends DataClass
       'id': serializer.toJson<int>(id),
       'sound': serializer.toJson<bool>(sound),
       'haptics': serializer.toJson<bool>(haptics),
-      'instrument': serializer.toJson<String>(
-        $FeedbackPreferencesTable.$converterinstrument.toJson(instrument),
-      ),
+      'instrument': serializer.toJson<String>(instrument),
     };
   }
 
@@ -2373,7 +2363,7 @@ class FeedbackPreference extends DataClass
     int? id,
     bool? sound,
     bool? haptics,
-    MeasureInstrument? instrument,
+    String? instrument,
   }) => FeedbackPreference(
     id: id ?? this.id,
     sound: sound ?? this.sound,
@@ -2418,7 +2408,7 @@ class FeedbackPreferencesCompanion extends UpdateCompanion<FeedbackPreference> {
   final Value<int> id;
   final Value<bool> sound;
   final Value<bool> haptics;
-  final Value<MeasureInstrument> instrument;
+  final Value<String> instrument;
   const FeedbackPreferencesCompanion({
     this.id = const Value.absent(),
     this.sound = const Value.absent(),
@@ -2450,7 +2440,7 @@ class FeedbackPreferencesCompanion extends UpdateCompanion<FeedbackPreference> {
     Value<int>? id,
     Value<bool>? sound,
     Value<bool>? haptics,
-    Value<MeasureInstrument>? instrument,
+    Value<String>? instrument,
   }) {
     return FeedbackPreferencesCompanion(
       id: id ?? this.id,
@@ -2473,9 +2463,7 @@ class FeedbackPreferencesCompanion extends UpdateCompanion<FeedbackPreference> {
       map['haptics'] = Variable<bool>(haptics.value);
     }
     if (instrument.present) {
-      map['instrument'] = Variable<String>(
-        $FeedbackPreferencesTable.$converterinstrument.toSql(instrument.value),
-      );
+      map['instrument'] = Variable<String>(instrument.value);
     }
     return map;
   }
@@ -3963,14 +3951,14 @@ typedef $$FeedbackPreferencesTableCreateCompanionBuilder =
       Value<int> id,
       required bool sound,
       required bool haptics,
-      Value<MeasureInstrument> instrument,
+      Value<String> instrument,
     });
 typedef $$FeedbackPreferencesTableUpdateCompanionBuilder =
     FeedbackPreferencesCompanion Function({
       Value<int> id,
       Value<bool> sound,
       Value<bool> haptics,
-      Value<MeasureInstrument> instrument,
+      Value<String> instrument,
     });
 
 class $$FeedbackPreferencesTableFilterComposer
@@ -3997,10 +3985,9 @@ class $$FeedbackPreferencesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<MeasureInstrument, MeasureInstrument, String>
-  get instrument => $composableBuilder(
+  ColumnFilters<String> get instrument => $composableBuilder(
     column: $table.instrument,
-    builder: (column) => ColumnWithTypeConverterFilters(column),
+    builder: (column) => ColumnFilters(column),
   );
 }
 
@@ -4052,11 +4039,10 @@ class $$FeedbackPreferencesTableAnnotationComposer
   GeneratedColumn<bool> get haptics =>
       $composableBuilder(column: $table.haptics, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<MeasureInstrument, String> get instrument =>
-      $composableBuilder(
-        column: $table.instrument,
-        builder: (column) => column,
-      );
+  GeneratedColumn<String> get instrument => $composableBuilder(
+    column: $table.instrument,
+    builder: (column) => column,
+  );
 }
 
 class $$FeedbackPreferencesTableTableManager
@@ -4105,7 +4091,7 @@ class $$FeedbackPreferencesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<bool> sound = const Value.absent(),
                 Value<bool> haptics = const Value.absent(),
-                Value<MeasureInstrument> instrument = const Value.absent(),
+                Value<String> instrument = const Value.absent(),
               }) => FeedbackPreferencesCompanion(
                 id: id,
                 sound: sound,
@@ -4117,7 +4103,7 @@ class $$FeedbackPreferencesTableTableManager
                 Value<int> id = const Value.absent(),
                 required bool sound,
                 required bool haptics,
-                Value<MeasureInstrument> instrument = const Value.absent(),
+                Value<String> instrument = const Value.absent(),
               }) => FeedbackPreferencesCompanion.insert(
                 id: id,
                 sound: sound,

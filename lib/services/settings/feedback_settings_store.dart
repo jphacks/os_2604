@@ -2,9 +2,7 @@
 enum MeasureInstrument {
   none('なし', null),
   marimba('木琴', 'marimba'),
-  glockenspiel('鉄琴', 'glockenspiel'),
   musicBox('オルゴール', 'musicbox'),
-  kalimba('カリンバ', 'kalimba'),
   harp('ハープ', 'harp'),
   koto('琴', 'koto'),
   soft('やさしい電子音', 'soft'),
@@ -15,6 +13,10 @@ enum MeasureInstrument {
   const MeasureInstrument(this.label, this.folder);
   final String label;
   final String? folder;
+
+  /// 保存された名前から戻す。なくなった楽器（鉄琴・カリンバ）などは木琴にする。
+  static MeasureInstrument fromStored(String? name) =>
+      values.asNameMap()[name] ?? marimba;
 
   /// [note]（0〜14）番目の音のファイル（assets/sounds/scale/[folder]/ の下）。
   /// パチンコ風は12段階の素材を15秒に均等に割り当てる。
