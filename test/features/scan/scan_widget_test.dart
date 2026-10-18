@@ -27,6 +27,34 @@ class FakeService implements HealthScanService {
 }
 
 void main() {
+  for (final ratio in [3 / 4, 9 / 16, 4 / 3]) {
+    testWidgets('preview keeps $ratio aspect ratio in a tight oval guide', (
+      tester,
+    ) async {
+      const imageKey = ValueKey('camera-image');
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: SizedBox(
+              width: 240,
+              height: 320,
+              child: CameraPreviewViewport(
+                aspectRatio: ratio,
+                child: const SizedBox.expand(key: imageKey),
+              ),
+            ),
+          ),
+        ),
+      );
+      final size = tester.getSize(find.byKey(imageKey));
+      expect(size.width / size.height, closeTo(ratio, 0.000001));
+      final fit = tester.widget<FittedBox>(find.byType(FittedBox));
+      expect(fit.fit, BoxFit.cover);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'permission dialog inactivity waits, backgrounding still cancels',
     (tester) async {
