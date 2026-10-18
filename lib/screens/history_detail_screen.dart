@@ -142,20 +142,21 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           children: [
             Row(
               children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const ExcludeSemantics(
-                      child: Text('前の日', style: AsakaoStyle.caption),
+                Tooltip(
+                  message: '古い記録',
+                  child: TextButton.icon(
+                    onPressed: older == null
+                        ? null
+                        : () => setState(() => _id = older.id),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: const Size(48, 48),
+                      textStyle: const TextStyle(fontSize: 12),
                     ),
-                    IconButton(
-                      tooltip: '古い記録',
-                      onPressed: older == null
-                          ? null
-                          : () => setState(() => _id = older.id),
-                      icon: const Icon(Icons.chevron_left),
-                    ),
-                  ],
+                    iconAlignment: IconAlignment.start,
+                    icon: const Icon(Icons.chevron_left, size: 18),
+                    label: const Text('前の日'),
+                  ),
                 ),
                 Expanded(
                   child: Semantics(
@@ -167,20 +168,21 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                     ),
                   ),
                 ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const ExcludeSemantics(
-                      child: Text('次の日', style: AsakaoStyle.caption),
+                Tooltip(
+                  message: '新しい記録',
+                  child: TextButton.icon(
+                    onPressed: newer == null
+                        ? null
+                        : () => setState(() => _id = newer.id),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: const Size(48, 48),
+                      textStyle: const TextStyle(fontSize: 12),
                     ),
-                    IconButton(
-                      tooltip: '新しい記録',
-                      onPressed: newer == null
-                          ? null
-                          : () => setState(() => _id = newer.id),
-                      icon: const Icon(Icons.chevron_right),
-                    ),
-                  ],
+                    iconAlignment: IconAlignment.end,
+                    icon: const Icon(Icons.chevron_right, size: 18),
+                    label: const Text('次の日'),
+                  ),
                 ),
               ],
             ),
