@@ -2,9 +2,9 @@
 
 ## 2026-10-18 最新mainのマージ修復・実機更新
 
-- 依頼：ユーザーがPR #16をmainへマージしたため、最新mainをUSB接続した実物のiPhoneへインストールする。再開依頼と、修復差分をコミットする依頼あり。push・PR作成・マージ・main直接pushは行わない。
+- 依頼：ユーザーがPR #16をmainへマージしたため、最新mainをUSB接続した実物のiPhoneへインストールする。再開・修復差分のコミットに続き、pushと日本語PR作成の依頼あり。マージ・main直接pushは行わない。
 - 元チェックアウト：`/Users/shindenfuta/os_2604` は `codex/e84-environment-recording`／3551efcのまま保護。以前のmain-build worktreeの未コミットSTATEも保護。
-- 作業先：`/Users/shindenfuta/.codex/worktrees/merged-main-device-install/os_2604`、`codex/fix-main-environment-merge`。origin/mainの9e64bf12611fa419f7a043210012aed71df5d719を起点とする専用managed worktree。再fetchでもmainは同じ。今回の修復はユーザー依頼でこのブランチにコミットする。コミット識別子はGit履歴を参照。pushは未実施。
+- 作業先：`/Users/shindenfuta/.codex/worktrees/merged-main-device-install/os_2604`、`codex/fix-main-environment-merge`。origin/mainの9e64bf12611fa419f7a043210012aed71df5d719を起点とする専用managed worktree。再fetchでもmainは同じ。修復コミット5f1010cをoriginの同名ブランチへpush済み。main向けの日本語PR #18（https://github.com/jphacks/os_2604/pull/18）を通常のOpen状態で作成し、チャットへ添付済み。作成時はMERGEABLE。
 - 発見：PR #16のマージコミットに競合マーカーが残り、そのままではコンパイル不能。ユーザーへ説明し、導入に必要な修復をこのブランチで実施。
 - 修復：DBと生成物・移行fixtureは環境対応v7を維持。最新mainのタブ／オンボーディング／研究モード／自動開始／撮影音と計測UIを保持し、設定・ScanModeGate・結果・新しい履歴詳細へLED／環境サービスを接続。計測終了時の環境固定、健康保存成功後の環境関連付け・LED通知、現在接続と過去の環境値の区別を維持。履歴の前後移動では記録IDのkeyで環境ストリームを切り替える。
 - 変更対象：lib/app.dart、screens/{home,main_tabs,settings,scan,result,history_detail}_screen.dart、widgets/scan_mode_gate.dart、DB／生成物、関連試験、README、STATE。カメラ・AI本体、依存lock、既存署名設定は今回の修復で変更していない。
@@ -13,7 +13,7 @@
 - データ保護：schema v7維持、アプリの削除・DB再作成・記録削除は行わない。更新前の健康記録DB全体をMacの一時領域へコピーする操作は、自動承認レビューが明示承認不足の機微データ移出として拒否し、未実行。迂回しない。DB全行の更新前後照合は未確認とし、同bundleでの更新と起動確認を進める。実データはログ・Gitへ含めない。
 - 実機UI：この修復版での15秒計測・履歴・LED／環境の再試験は未実施。旧環境対応版のユーザー確認と混同しない。
 - ログ：/private/tmp/merged-main-{pub,format,format-check,analyze,tests-final,ios-config,ios-build,signed-build,install,launch}.log。Flutter／Dart、PUB_CACHE等は以前の一時ランタイムを使用し、tool/flutter_with_xcode.shでコマンド限定のSDK選択。
-- 完了／次：依頼された実機インストールと起動確認は完了。ユーザーによる最新UIの既存履歴表示・15秒計測・キットの再確認は未実施。導入版はmain 9e64bf1にこの修復を加えた版であり、未修正mainそのものではない。修復はユーザー依頼でこのブランチにコミットする。push／PR作成／マージは未実施。mainへ反映する場合は別途依頼に応じて進める。
+- 完了／次：依頼された実機インストールと起動確認は完了。ユーザーによる最新UIの既存履歴表示・15秒計測・キットの再確認は未実施。導入版はmain 9e64bf1にこの修復を加えた版であり、未修正mainそのものではない。修復のコミット・push・日本語PR #18作成は完了。この引き継ぎ更新も同ブランチへコミット・pushする。実装コードは検証済み5f1010cと同じ。PRのレビューとマージは人間が行う。
 
 ## 以下は以前の作業記録（現在地は上記）
 
