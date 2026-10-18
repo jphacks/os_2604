@@ -303,7 +303,7 @@ class _ScanScreenState extends State<ScanScreen>
     final again = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _InterruptedDialog(copy: _failureCopy(reason)),
+      builder: (_) => _InterruptedDialog(copy: _copyForFailure(reason)),
     );
     _dialogOpen = false;
     if (!mounted || _leaving) return;
@@ -850,11 +850,9 @@ class _ScanScreenState extends State<ScanScreen>
 
   // ---- 失敗・中断（明るい）画面 ----
 
-  Widget _failedView() {
-    final reason = _failure ?? ScanFailureReason.processingFailed;
+  _FailureCopy _copyForFailure(ScanFailureReason reason) {
     final guidance = _session.service.currentProgress.guidance;
-    final copy =
-        (reason == ScanFailureReason.poorQuality ||
+    return (reason == ScanFailureReason.poorQuality ||
                 reason == ScanFailureReason.faceNotFound) &&
             guidance != null
         ? _FailureCopy(
@@ -875,6 +873,11 @@ class _ScanScreenState extends State<ScanScreen>
             icon: Icons.center_focus_strong_outlined,
           )
         : _failureCopy(reason);
+  }
+
+  Widget _failedView() {
+    final reason = _failure ?? ScanFailureReason.processingFailed;
+    final copy = _copyForFailure(reason);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
