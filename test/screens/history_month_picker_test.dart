@@ -140,6 +140,13 @@ void main() {
     await roll(t, 'month', 9);
     await apply(t);
     expect(t.widget<Text>(key('history-period-count')).data, '1件');
+    await t.ensureVisible(find.text('グラフ'));
+    await t.tap(find.text('グラフ'));
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.text('1週間'));
+    await t.tap(find.text('1週間'));
+    await t.pumpAndSettle();
+    expect(key('graph-week-period'), findsOneWidget);
     expect(t.takeException(), isNull);
   });
   historyTest('outside tap and back discard draft without shifting records', (

@@ -18,7 +18,9 @@ class HistoryPeriodPicker extends StatelessWidget {
     required this.onYear,
     required this.onMonth,
     required this.onWholeYear,
+    this.controls,
   });
+  final Widget? controls;
   final int year;
   final int? month;
   final bool expanded;
@@ -62,6 +64,7 @@ class HistoryPeriodPicker extends StatelessWidget {
             ],
           ),
         ),
+        ?controls,
         Text(
           '$count件',
           key: const ValueKey('history-period-count'),

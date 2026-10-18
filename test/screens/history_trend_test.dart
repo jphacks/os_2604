@@ -70,7 +70,18 @@ void main() {
     await openGraph(tester, screen: true);
     expect(find.byKey(const ValueKey('history-row-a')), findsNothing);
     expect(find.text('2026年10月'), findsOneWidget);
-    expect(find.text('1週間'), findsNothing);
+    expect(find.text('1週間'), findsOneWidget);
+    expect(
+      tester.getCenter(find.text('1週間')).dx,
+      greaterThan(
+        tester
+            .getCenter(find.byKey(const ValueKey('history-period-toggle')))
+            .dx,
+      ),
+    );
+    await tester.tap(find.text('1週間'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('graph-week-period')), findsOneWidget);
     expect(find.text('破線は記録のない日'), findsOneWidget);
     await tester.tap(find.text('リスト'));
     await tester.pumpAndSettle();
