@@ -460,10 +460,20 @@ class _ScanScreenState extends State<ScanScreen> {
                 ),
               ),
               IgnorePointer(
-                child: CustomPaint(
-                  painter: _GuidePainter(
-                    mode: mode,
-                    progress: progress.clamp(0.0, 1.0),
+                child: TweenAnimationBuilder<double>(
+                  key: ValueKey(mode),
+                  tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
+                  // Smooth the controller's 100 ms updates at display refresh
+                  // rate. This never advances the measurement clock itself.
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 100),
+                  curve: Curves.linear,
+                  builder: (context, displayedProgress, child) => CustomPaint(
+                    painter: _GuidePainter(
+                      mode: mode,
+                      progress: displayedProgress,
+                    ),
                   ),
                 ),
               ),

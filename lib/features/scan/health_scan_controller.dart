@@ -344,6 +344,19 @@ class HealthScanController implements HealthScanService {
   }
 
   void _emit(ScanProgress value) {
+    // Timer updates use delivery time; frame updates use capture time. A frame
+    // processed later must not rewind the same attempt's displayed progress.
+    // Completion still requires a valid terminal frame in _observe.
+    if (value.phase == ScanPhase.measuring &&
+        _current.phase == ScanPhase.measuring &&
+        value.elapsed < _current.elapsed) {
+      value = ScanProgress(
+        phase: value.phase,
+        elapsed: _current.elapsed,
+        guidance: value.guidance,
+        failureReason: value.failureReason,
+      );
+    }
     _current = value;
     if (!_progress.isClosed) _progress.add(value);
   }

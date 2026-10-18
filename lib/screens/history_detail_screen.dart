@@ -101,22 +101,6 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               label: const Text('履歴'),
             ),
           ),
-          actions: [
-            IconButton(
-              tooltip: '古い記録',
-              onPressed: older == null
-                  ? null
-                  : () => setState(() => _id = older.id),
-              icon: const Icon(Icons.chevron_left),
-            ),
-            IconButton(
-              tooltip: '新しい記録',
-              onPressed: newer == null
-                  ? null
-                  : () => setState(() => _id = newer.id),
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
         ),
         body: SafeArea(
           child: snapshot.hasError
@@ -133,17 +117,34 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               ? const Center(
                   child: Text('該当する記録が見つかりません。', style: AsakaoStyle.body),
                 )
-              : _content(record, sorted),
+              : _content(record, sorted, older: older, newer: newer),
         ),
       );
     },
   );
 
   // 「この日の記録」より下のカードは画面の左右いっぱいに広げ、角丸にしない。
+  static final _dayButtonStyle = TextButton.styleFrom(
+    backgroundColor: AsakaoStyle.coralPale,
+    foregroundColor: AsakaoStyle.coralInk,
+    disabledBackgroundColor: AsakaoStyle.neutralBackground,
+    disabledForegroundColor: AsakaoStyle.muted,
+    side: BorderSide.none,
+    shape: const StadiumBorder(),
+    padding: EdgeInsets.zero,
+    fixedSize: const Size(80, 48),
+    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+  );
+
   static const _side = EdgeInsets.symmetric(horizontal: 24);
   static const _label = EdgeInsets.fromLTRB(28, 16, 28, 8);
 
-  Widget _content(HealthCheckResult r, List<HealthCheckResult> all) => ListView(
+  Widget _content(
+    HealthCheckResult r,
+    List<HealthCheckResult> all, {
+    HealthCheckResult? older,
+    HealthCheckResult? newer,
+  }) => ListView(
     padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
     children: [
       Padding(
@@ -151,14 +152,45 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${formatClock(r.measuredAt)} に記録',
-              style: AsakaoStyle.caption,
+            Row(
+              children: [
+                Tooltip(
+                  message: '古い記録',
+                  child: TextButton(
+                    onPressed: older == null
+                        ? null
+                        : () => setState(() => _id = older.id),
+                    style: _dayButtonStyle,
+                    child: const Text('前の日'),
+                  ),
+                ),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      formatJaDate(r.measuredAt),
+                      textAlign: TextAlign.center,
+                      style: AsakaoStyle.title,
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: '新しい記録',
+                  child: TextButton(
+                    onPressed: newer == null
+                        ? null
+                        : () => setState(() => _id = newer.id),
+                    style: _dayButtonStyle,
+                    child: const Text('次の日'),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Semantics(
-              header: true,
-              child: Text(formatJaDate(r.measuredAt), style: AsakaoStyle.title),
+            Center(
+              child: Text(
+                '${formatClock(r.measuredAt)} に記録',
+                style: AsakaoStyle.caption,
+              ),
             ),
             const SizedBox(height: 16),
           ],

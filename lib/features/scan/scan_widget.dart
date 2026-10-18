@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/scan_contract.dart';
 
@@ -74,6 +75,42 @@ class _ScanWidgetState extends State<ScanWidget> with WidgetsBindingObserver {
         builder: (context, camera, child) =>
             camera == null || !camera.value.isInitialized
             ? widget.placeholder
-            : CameraPreview(camera, child: widget.overlay),
+            : ValueListenableBuilder<CameraValue>(
+                valueListenable: camera,
+                builder: (context, value, child) {
+                  final orientation = value.isRecordingVideo
+                      ? value.recordingOrientation
+                      : (value.previewPauseOrientation ??
+                            value.lockedCaptureOrientation ??
+                            value.deviceOrientation);
+                  final landscape =
+                      orientation == DeviceOrientation.landscapeLeft ||
+                      orientation == DeviceOrientation.landscapeRight;
+                  return CameraPreviewViewport(
+                    aspectRatio: landscape
+                        ? value.aspectRatio
+                        : 1 / value.aspectRatio,
+                    child: CameraPreview(camera, child: widget.overlay),
+                  );
+                },
+              ),
       );
+}
+
+/// Fill the guide by cropping, never by stretching the camera image.
+class CameraPreviewViewport extends StatelessWidget {
+  const CameraPreviewViewport({
+    super.key,
+    required this.aspectRatio,
+    required this.child,
+  });
+  final double aspectRatio;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => ClipRect(
+    child: FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(width: aspectRatio * 1000, height: 1000, child: child),
+    ),
+  );
 }

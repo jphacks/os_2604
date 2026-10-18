@@ -111,6 +111,31 @@ void prepare(FakeAsync time, FakeFrames frames) {
 }
 
 void main() {
+  test(
+    'delayed valid frames never roll progress backwards after a timer tick',
+    () {
+      withScan((time, frames, scan) {
+        scan.startHealthScan();
+        prepare(time, frames);
+        goodFrames(time, frames, 900);
+        time.elapse(const Duration(milliseconds: 100));
+        final before = scan.currentProgress.elapsed;
+        expect(before, const Duration(seconds: 1));
+        frames.emit(
+          capturedAt: time.elapsed - const Duration(milliseconds: 50),
+        );
+        expect(scan.currentProgress.elapsed, before);
+        goodFrames(time, frames, 200);
+        expect(scan.currentProgress.elapsed, greaterThan(before));
+        scan.cancelScan();
+        time.flushMicrotasks();
+        scan.startHealthScan();
+        prepare(time, frames);
+        expect(scan.currentProgress.elapsed, Duration.zero);
+      });
+    },
+  );
+
   test('permission wait is excluded from startup timeout and 15 seconds', () {
     fakeAsync((time) {
       final frames = FakeFrames();
