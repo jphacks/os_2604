@@ -16,6 +16,7 @@ import 'package:os_2604/services/settings/onboarding_store.dart';
 import 'package:os_2604/services/settings/reminder_settings_store.dart';
 
 import 'package:os_2604/ui/asakao_flower.dart';
+import 'package:os_2604/ui/asakao_widgets.dart';
 
 import '../support/fake_reminder.dart';
 import '../support/fake_scan.dart';
@@ -503,9 +504,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('音と振動'), findsOneWidget);
+      expect(find.text('計測'), findsOneWidget);
       Finder toggle(String title) => find.descendant(
-        of: find.ancestor(of: find.text(title), matching: find.byType(Row)),
+        of: find.widgetWithText(AsakaoSwitchRow, title),
         matching: find.byType(Switch),
       );
       expect(tester.widget<Switch>(toggle('効果音')).value, isTrue);
@@ -534,7 +535,7 @@ void main() {
       await openSettings(tester);
       expect(find.byKey(const ValueKey('settings-title')), findsOneWidget);
       for (final text in [
-        '通知',
+        '毎日の記録',
         '毎朝の通知',
         'オフ',
         '情報',
@@ -545,7 +546,7 @@ void main() {
       ]) {
         expect(find.text(text), findsOneWidget, reason: text);
       }
-      // 研究・実験モードの設定はこのアプリに無いので行も出さない。
+      // 研究モードの保存先がないときは行も出さない。
       expect(find.textContaining('研究'), findsNothing);
       expect(find.textContaining('プライバシーポリシー'), findsNothing);
     });
