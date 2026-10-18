@@ -23,6 +23,7 @@ class IosCameraFrameSource implements ScanFrameSource {
   CameraController? _camera;
   FaceDetector? _detector;
   FaceGeometry? _previousFace;
+  int? _trackingId;
   FrameRegion? _lastValidFaceRegion;
   Duration? _lastDetectionAt;
   final List<TimedFaceRgbSample> _pendingRgbSamples = [];
@@ -41,6 +42,7 @@ class IosCameraFrameSource implements ScanFrameSource {
     }
     final generation = ++_generation;
     _previousFace = null;
+    _trackingId = null;
     _lastValidFaceRegion = null;
     _lastDetectionAt = null;
     _pendingRgbSamples.clear();
@@ -81,6 +83,7 @@ class IosCameraFrameSource implements ScanFrameSource {
       final detector = FaceDetector(
         options: FaceDetectorOptions(
           performanceMode: FaceDetectorMode.accurate,
+          enableTracking: true,
         ),
       );
       _detector = detector;
@@ -250,6 +253,7 @@ class IosCameraFrameSource implements ScanFrameSource {
       var batchSamples = const <TimedFaceRgbSample>[];
       if (faces.length != 1) {
         _previousFace = null;
+        _trackingId = null;
         _lastValidFaceRegion = null;
         _pendingRgbSamples.clear();
         guidance = faces.isEmpty
@@ -264,12 +268,23 @@ class IosCameraFrameSource implements ScanFrameSource {
           width: rect.width / detectionFrame.width,
           height: rect.height / detectionFrame.height,
         );
+        final trackChanged =
+            _trackingId != null && face.trackingId != _trackingId;
+        if (trackChanged) {
+          // A new track must satisfy initial alignment again.
+          _previousFace = null;
+          _lastValidFaceRegion = null;
+          _pendingRgbSamples.clear();
+        }
+        _trackingId = face.trackingId;
         guidance = assessFaceGeometry(
           geometry,
           configuration,
           previous: _previousFace,
+          trackFace: true,
         );
-        _previousFace = geometry;
+        if (trackChanged) guidance = ScanGuidance.moving;
+        _previousFace = guidance == null ? geometry : null;
         if (guidance != null) {
           _lastValidFaceRegion = null;
           _pendingRgbSamples.clear();
@@ -321,6 +336,8 @@ class IosCameraFrameSource implements ScanFrameSource {
             FrameSignalIssue.offAngle => ScanGuidance.offAngle,
           };
           if (guidance != null) {
+            _previousFace = null;
+            _trackingId = null;
             _lastValidFaceRegion = null;
             _pendingRgbSamples.clear();
           } else if (experimentalConfig != null) {
@@ -385,6 +402,7 @@ class IosCameraFrameSource implements ScanFrameSource {
   Future<void> stop() async {
     ++_generation;
     _previousFace = null;
+    _trackingId = null;
     _lastValidFaceRegion = null;
     _lastDetectionAt = null;
     _pendingRgbSamples.clear();
