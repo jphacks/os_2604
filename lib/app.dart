@@ -98,6 +98,7 @@ class MorningCheckApp extends StatelessWidget {
               aiRunner: aiRunner,
               ledService: ledService,
               environmentSaves: environmentSaves,
+              scanModeStore: scanModeStore,
               recordId: id is String ? id : null,
               onBackToHome: () =>
                   Navigator.of(context)
