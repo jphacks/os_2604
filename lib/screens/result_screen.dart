@@ -17,6 +17,8 @@ import '../widgets/self_condition_input.dart';
 import '../widgets/today_insight_card.dart';
 import '../services/device/environment_save_service.dart';
 import '../services/device/led_notification_service.dart';
+import '../services/settings/scan_mode_store.dart';
+import '../widgets/environment_view.dart';
 import '../widgets/led_kit_controls.dart';
 
 /// 計測直後の自己申告（4-1）→ レポート生成（4-2）→ 結果（4-3）。
@@ -31,6 +33,7 @@ class ResultScreen extends StatefulWidget {
     required this.onBackToHome,
     this.ledService,
     this.environmentSaves,
+    this.scanModeStore,
   });
 
   final HealthRecordRepository repository;
@@ -41,6 +44,9 @@ class ResultScreen extends StatefulWidget {
   final VoidCallback onBackToHome;
   final LedNotificationService? ledService;
   final EnvironmentSaveService? environmentSaves;
+
+  /// 研究モードの設定。null なら研究モードではないとして扱う。
+  final ScanModeStore? scanModeStore;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -61,6 +67,10 @@ class _ResultScreenState extends State<ResultScreen> {
   bool _temperatureValid = true;
   bool _saving = false;
   String? _inputMsg;
+
+  // 研究モードがオンで、結果を開いた時点でキットが接続中のときだけ室温・湿度を出す。
+  // どちらも読み込み時に1度だけ決める（その後の接続の増減では出し入れしない）。
+  bool _showEnvironment = false;
 
   // 世代番号。新しい生成要求・破棄で進め、古い結果を捨てる。
   int _gen = 0;
@@ -183,8 +193,15 @@ class _ResultScreenState extends State<ResultScreen> {
           baseline = null; // 比較は表示しない（捏造しない）。
         }
       }
+      var research = false;
+      try {
+        research = await widget.scanModeStore?.loadResearchMode() ?? false;
+      } catch (_) {
+        // 読めなければ出さない（捏造しない）。
+      }
       if (!mounted) return;
       setState(() {
+        _showEnvironment = research && (widget.ledService?.ready ?? false);
         _record = r;
         _baseline = baseline;
         _condition = r?.selfCondition;
@@ -372,8 +389,9 @@ class _ResultScreenState extends State<ResultScreen> {
     };
   }
 
-  /// キットは接続中か未接続かだけを出す。保存した環境の値は履歴の詳細で見られる。
-  /// ただし環境情報の保存に失敗したときは、隠さずに知らせて再試行できるようにする。
+  /// ここではキットの接続バッジと、環境情報の保存失敗の知らせ・再試行だけを出す。
+  /// 保存した室温・湿度は、研究モードでキット接続中なら「今日の記録」の行（[_environmentRows]）に、
+  /// それ以外は履歴の詳細で見られる。
   List<Widget> _kitInformation() => [
     if (widget.ledService case final service?) ...[
       const SizedBox(height: 16),
@@ -404,6 +422,16 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
       ),
   ];
+
+  Widget? _environmentRows() =>
+      switch ((_showEnvironment, widget.environmentSaves, widget.recordId)) {
+        (true, final saves?, final id?) => ResultEnvironmentRows(
+          key: ValueKey(id),
+          recordId: id,
+          saves: saves,
+        ),
+        _ => null,
+      };
 
   // ---- 4-1 自己申告 ----
 
@@ -570,7 +598,7 @@ class _ResultScreenState extends State<ResultScreen> {
               : 'この日の気づき',
         ),
         const AsakaoSectionLabel('今日の記録'),
-        RecordValuesCard(r, conditionDiff: diff),
+        RecordValuesCard(r, conditionDiff: diff, extra: _environmentRows()),
         ..._kitInformation(),
         const AsakaoSectionLabel('今日のレポート'),
         RecordReportCard(

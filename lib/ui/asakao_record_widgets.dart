@@ -129,10 +129,14 @@ class RecordValuesCard extends StatelessWidget {
     super.key,
     this.conditionDiff,
     this.fullBleed = false,
+    this.extra,
   });
 
   final HealthCheckResult record;
   final double? conditionDiff;
+
+  /// 末尾に足す行（区切り線も含めて渡す）。例: 結果画面の室温・湿度。
+  final Widget? extra;
 
   /// 画面の左右いっぱいに広げ、角丸にしない。
   final bool fullBleed;
@@ -201,6 +205,7 @@ class RecordValuesCard extends StatelessWidget {
               RecordRow(title: '顔色特徴量', subtitle: '研究モード', value: '$feature'),
             ),
           ],
+          ?extra,
         ],
       ),
     );

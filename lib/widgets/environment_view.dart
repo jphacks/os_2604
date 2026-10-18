@@ -287,3 +287,73 @@ class _KitRecordCardState extends State<KitRecordCard> {
     );
   }
 }
+
+/// 結果画面の「今日の記録」に足す、この記録に保存した室温・相対湿度の行（区切り線つき）。
+/// 値は [EnvironmentRecordStore] に保存済みのこの記録のスナップショットだけから出す。
+/// 保存中・読み込み中は「取得中」、値が無い・取れていない・保存失敗は「未測定」。
+class ResultEnvironmentRows extends StatefulWidget {
+  const ResultEnvironmentRows({
+    super.key,
+    required this.recordId,
+    required this.saves,
+  });
+  final String recordId;
+  final EnvironmentSaveService saves;
+
+  @override
+  State<ResultEnvironmentRows> createState() => _ResultEnvironmentRowsState();
+}
+
+class _ResultEnvironmentRowsState extends State<ResultEnvironmentRows> {
+  late final Stream<EnvironmentSnapshot?> _stream = widget.saves.store.watch(
+    widget.recordId,
+  );
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.saves,
+    builder: (context, _) => StreamBuilder<EnvironmentSnapshot?>(
+      stream: _stream,
+      builder: (context, snapshot) {
+        final env = snapshot.data;
+        final saving =
+            widget.saves.stateFor(widget.recordId) ==
+            EnvironmentSaveState.saving;
+        final pending =
+            env == null &&
+            !snapshot.hasError &&
+            (saving || snapshot.connectionState == ConnectionState.waiting);
+        final available = env?.state == EnvironmentState.available;
+        final t = available ? env?.ambientTemperatureC : null;
+        final h = available ? env?.relativeHumidityPct : null;
+        final subtitle = available
+            ? 'キット（研究モード）'
+            : pending
+            ? 'キットから保存しています'
+            : env != null
+            ? environmentReason(env.state)
+            : widget.saves.stateFor(widget.recordId) ==
+                  EnvironmentSaveState.failed
+            ? '環境情報を保存できませんでした'
+            : 'キットの環境情報なし';
+        String value(String? v) => pending ? '取得中' : v ?? '未測定';
+        return Column(
+          children: [
+            const Divider(),
+            RecordRow(
+              title: '室温',
+              subtitle: subtitle,
+              value: value(t == null ? null : '${t.toStringAsFixed(1)}℃'),
+            ),
+            const Divider(),
+            RecordRow(
+              title: '相対湿度',
+              subtitle: subtitle,
+              value: value(h == null ? null : '${h.round()}%'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
