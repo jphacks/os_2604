@@ -197,6 +197,16 @@ class $HealthRecordsTable extends HealthRecords
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   ).withConverter<MeasurementQuality>($HealthRecordsTable.$converterquality);
+  @override
+  late final GeneratedColumnWithTypeConverter<ScanMode, String> scanMode =
+      GeneratedColumn<String>(
+        'scan_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('legacyUnknown'),
+      ).withConverter<ScanMode>($HealthRecordsTable.$converterscanMode);
   static const VerificationMeta _estimatedHeartRateBpmMeta =
       const VerificationMeta('estimatedHeartRateBpm');
   @override
@@ -292,6 +302,7 @@ class $HealthRecordsTable extends HealthRecords
     elapsedMicros,
     faceDetected,
     quality,
+    scanMode,
     estimatedHeartRateBpm,
     heartRateSource,
     faceColorFeature,
@@ -415,6 +426,12 @@ class $HealthRecordsTable extends HealthRecords
           data['${effectivePrefix}quality'],
         )!,
       ),
+      scanMode: $HealthRecordsTable.$converterscanMode.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}scan_mode'],
+        )!,
+      ),
       estimatedHeartRateBpm: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}estimated_heart_rate_bpm'],
@@ -468,6 +485,8 @@ class $HealthRecordsTable extends HealthRecords
   $converterquality = const EnumNameConverter<MeasurementQuality>(
     MeasurementQuality.values,
   );
+  static JsonTypeConverter2<ScanMode, String, String> $converterscanMode =
+      const EnumNameConverter<ScanMode>(ScanMode.values);
   static JsonTypeConverter2<HeartRateSource, String, String>
   $converterheartRateSource = const EnumNameConverter<HeartRateSource>(
     HeartRateSource.values,
@@ -488,6 +507,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
   final int elapsedMicros;
   final bool faceDetected;
   final MeasurementQuality quality;
+  final ScanMode scanMode;
   final double? estimatedHeartRateBpm;
   final HeartRateSource heartRateSource;
   final double? faceColorFeature;
@@ -502,6 +522,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     required this.elapsedMicros,
     required this.faceDetected,
     required this.quality,
+    required this.scanMode,
     this.estimatedHeartRateBpm,
     required this.heartRateSource,
     this.faceColorFeature,
@@ -525,6 +546,11 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     {
       map['quality'] = Variable<String>(
         $HealthRecordsTable.$converterquality.toSql(quality),
+      );
+    }
+    {
+      map['scan_mode'] = Variable<String>(
+        $HealthRecordsTable.$converterscanMode.toSql(scanMode),
       );
     }
     if (!nullToAbsent || estimatedHeartRateBpm != null) {
@@ -569,6 +595,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
       elapsedMicros: Value(elapsedMicros),
       faceDetected: Value(faceDetected),
       quality: Value(quality),
+      scanMode: Value(scanMode),
       estimatedHeartRateBpm: estimatedHeartRateBpm == null && nullToAbsent
           ? const Value.absent()
           : Value(estimatedHeartRateBpm),
@@ -605,6 +632,9 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
       quality: $HealthRecordsTable.$converterquality.fromJson(
         serializer.fromJson<String>(json['quality']),
       ),
+      scanMode: $HealthRecordsTable.$converterscanMode.fromJson(
+        serializer.fromJson<String>(json['scanMode']),
+      ),
       estimatedHeartRateBpm: serializer.fromJson<double?>(
         json['estimatedHeartRateBpm'],
       ),
@@ -633,6 +663,9 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
       'quality': serializer.toJson<String>(
         $HealthRecordsTable.$converterquality.toJson(quality),
       ),
+      'scanMode': serializer.toJson<String>(
+        $HealthRecordsTable.$converterscanMode.toJson(scanMode),
+      ),
       'estimatedHeartRateBpm': serializer.toJson<double?>(
         estimatedHeartRateBpm,
       ),
@@ -660,6 +693,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     int? elapsedMicros,
     bool? faceDetected,
     MeasurementQuality? quality,
+    ScanMode? scanMode,
     Value<double?> estimatedHeartRateBpm = const Value.absent(),
     HeartRateSource? heartRateSource,
     Value<double?> faceColorFeature = const Value.absent(),
@@ -674,6 +708,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     elapsedMicros: elapsedMicros ?? this.elapsedMicros,
     faceDetected: faceDetected ?? this.faceDetected,
     quality: quality ?? this.quality,
+    scanMode: scanMode ?? this.scanMode,
     estimatedHeartRateBpm: estimatedHeartRateBpm.present
         ? estimatedHeartRateBpm.value
         : this.estimatedHeartRateBpm,
@@ -704,6 +739,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
           ? data.faceDetected.value
           : this.faceDetected,
       quality: data.quality.present ? data.quality.value : this.quality,
+      scanMode: data.scanMode.present ? data.scanMode.value : this.scanMode,
       estimatedHeartRateBpm: data.estimatedHeartRateBpm.present
           ? data.estimatedHeartRateBpm.value
           : this.estimatedHeartRateBpm,
@@ -737,6 +773,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
           ..write('elapsedMicros: $elapsedMicros, ')
           ..write('faceDetected: $faceDetected, ')
           ..write('quality: $quality, ')
+          ..write('scanMode: $scanMode, ')
           ..write('estimatedHeartRateBpm: $estimatedHeartRateBpm, ')
           ..write('heartRateSource: $heartRateSource, ')
           ..write('faceColorFeature: $faceColorFeature, ')
@@ -756,6 +793,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
     elapsedMicros,
     faceDetected,
     quality,
+    scanMode,
     estimatedHeartRateBpm,
     heartRateSource,
     faceColorFeature,
@@ -774,6 +812,7 @@ class HealthRecord extends DataClass implements Insertable<HealthRecord> {
           other.elapsedMicros == this.elapsedMicros &&
           other.faceDetected == this.faceDetected &&
           other.quality == this.quality &&
+          other.scanMode == this.scanMode &&
           other.estimatedHeartRateBpm == this.estimatedHeartRateBpm &&
           other.heartRateSource == this.heartRateSource &&
           other.faceColorFeature == this.faceColorFeature &&
@@ -790,6 +829,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
   final Value<int> elapsedMicros;
   final Value<bool> faceDetected;
   final Value<MeasurementQuality> quality;
+  final Value<ScanMode> scanMode;
   final Value<double?> estimatedHeartRateBpm;
   final Value<HeartRateSource> heartRateSource;
   final Value<double?> faceColorFeature;
@@ -805,6 +845,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     this.elapsedMicros = const Value.absent(),
     this.faceDetected = const Value.absent(),
     this.quality = const Value.absent(),
+    this.scanMode = const Value.absent(),
     this.estimatedHeartRateBpm = const Value.absent(),
     this.heartRateSource = const Value.absent(),
     this.faceColorFeature = const Value.absent(),
@@ -821,6 +862,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     required int elapsedMicros,
     required bool faceDetected,
     required MeasurementQuality quality,
+    this.scanMode = const Value.absent(),
     this.estimatedHeartRateBpm = const Value.absent(),
     required HeartRateSource heartRateSource,
     this.faceColorFeature = const Value.absent(),
@@ -843,6 +885,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     Expression<int>? elapsedMicros,
     Expression<bool>? faceDetected,
     Expression<String>? quality,
+    Expression<String>? scanMode,
     Expression<double>? estimatedHeartRateBpm,
     Expression<String>? heartRateSource,
     Expression<double>? faceColorFeature,
@@ -859,6 +902,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
       if (elapsedMicros != null) 'elapsed_micros': elapsedMicros,
       if (faceDetected != null) 'face_detected': faceDetected,
       if (quality != null) 'quality': quality,
+      if (scanMode != null) 'scan_mode': scanMode,
       if (estimatedHeartRateBpm != null)
         'estimated_heart_rate_bpm': estimatedHeartRateBpm,
       if (heartRateSource != null) 'heart_rate_source': heartRateSource,
@@ -878,6 +922,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     Value<int>? elapsedMicros,
     Value<bool>? faceDetected,
     Value<MeasurementQuality>? quality,
+    Value<ScanMode>? scanMode,
     Value<double?>? estimatedHeartRateBpm,
     Value<HeartRateSource>? heartRateSource,
     Value<double?>? faceColorFeature,
@@ -894,6 +939,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
       elapsedMicros: elapsedMicros ?? this.elapsedMicros,
       faceDetected: faceDetected ?? this.faceDetected,
       quality: quality ?? this.quality,
+      scanMode: scanMode ?? this.scanMode,
       estimatedHeartRateBpm:
           estimatedHeartRateBpm ?? this.estimatedHeartRateBpm,
       heartRateSource: heartRateSource ?? this.heartRateSource,
@@ -927,6 +973,11 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
     if (quality.present) {
       map['quality'] = Variable<String>(
         $HealthRecordsTable.$converterquality.toSql(quality.value),
+      );
+    }
+    if (scanMode.present) {
+      map['scan_mode'] = Variable<String>(
+        $HealthRecordsTable.$converterscanMode.toSql(scanMode.value),
       );
     }
     if (estimatedHeartRateBpm.present) {
@@ -979,6 +1030,7 @@ class HealthRecordsCompanion extends UpdateCompanion<HealthRecord> {
           ..write('elapsedMicros: $elapsedMicros, ')
           ..write('faceDetected: $faceDetected, ')
           ..write('quality: $quality, ')
+          ..write('scanMode: $scanMode, ')
           ..write('estimatedHeartRateBpm: $estimatedHeartRateBpm, ')
           ..write('heartRateSource: $heartRateSource, ')
           ..write('faceColorFeature: $faceColorFeature, ')
@@ -1290,6 +1342,200 @@ class ReminderPreferencesCompanion extends UpdateCompanion<ReminderPreference> {
   }
 }
 
+class $ScanPreferencesTable extends ScanPreferences
+    with TableInfo<$ScanPreferencesTable, ScanPreference> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ScanPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL CHECK (id = 1)',
+  );
+  static const VerificationMeta _researchMeta = const VerificationMeta(
+    'research',
+  );
+  @override
+  late final GeneratedColumn<bool> research = GeneratedColumn<bool>(
+    'research',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("research" IN (0, 1))',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, research];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'scan_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ScanPreference> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('research')) {
+      context.handle(
+        _researchMeta,
+        research.isAcceptableOrUnknown(data['research']!, _researchMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_researchMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ScanPreference map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ScanPreference(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      research: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}research'],
+      )!,
+    );
+  }
+
+  @override
+  $ScanPreferencesTable createAlias(String alias) {
+    return $ScanPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class ScanPreference extends DataClass implements Insertable<ScanPreference> {
+  final int id;
+  final bool research;
+  const ScanPreference({required this.id, required this.research});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['research'] = Variable<bool>(research);
+    return map;
+  }
+
+  ScanPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return ScanPreferencesCompanion(id: Value(id), research: Value(research));
+  }
+
+  factory ScanPreference.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ScanPreference(
+      id: serializer.fromJson<int>(json['id']),
+      research: serializer.fromJson<bool>(json['research']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'research': serializer.toJson<bool>(research),
+    };
+  }
+
+  ScanPreference copyWith({int? id, bool? research}) =>
+      ScanPreference(id: id ?? this.id, research: research ?? this.research);
+  ScanPreference copyWithCompanion(ScanPreferencesCompanion data) {
+    return ScanPreference(
+      id: data.id.present ? data.id.value : this.id,
+      research: data.research.present ? data.research.value : this.research,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScanPreference(')
+          ..write('id: $id, ')
+          ..write('research: $research')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, research);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ScanPreference &&
+          other.id == this.id &&
+          other.research == this.research);
+}
+
+class ScanPreferencesCompanion extends UpdateCompanion<ScanPreference> {
+  final Value<int> id;
+  final Value<bool> research;
+  const ScanPreferencesCompanion({
+    this.id = const Value.absent(),
+    this.research = const Value.absent(),
+  });
+  ScanPreferencesCompanion.insert({
+    this.id = const Value.absent(),
+    required bool research,
+  }) : research = Value(research);
+  static Insertable<ScanPreference> custom({
+    Expression<int>? id,
+    Expression<bool>? research,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (research != null) 'research': research,
+    });
+  }
+
+  ScanPreferencesCompanion copyWith({Value<int>? id, Value<bool>? research}) {
+    return ScanPreferencesCompanion(
+      id: id ?? this.id,
+      research: research ?? this.research,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (research.present) {
+      map['research'] = Variable<bool>(research.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScanPreferencesCompanion(')
+          ..write('id: $id, ')
+          ..write('research: $research')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1298,6 +1544,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $HealthRecordsTable healthRecords = $HealthRecordsTable(this);
   late final $ReminderPreferencesTable reminderPreferences =
       $ReminderPreferencesTable(this);
+  late final $ScanPreferencesTable scanPreferences = $ScanPreferencesTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1306,6 +1555,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     onboardingCompletions,
     healthRecords,
     reminderPreferences,
+    scanPreferences,
   ];
 }
 
@@ -1453,6 +1703,7 @@ typedef $$HealthRecordsTableCreateCompanionBuilder =
       required int elapsedMicros,
       required bool faceDetected,
       required MeasurementQuality quality,
+      Value<ScanMode> scanMode,
       Value<double?> estimatedHeartRateBpm,
       required HeartRateSource heartRateSource,
       Value<double?> faceColorFeature,
@@ -1470,6 +1721,7 @@ typedef $$HealthRecordsTableUpdateCompanionBuilder =
       Value<int> elapsedMicros,
       Value<bool> faceDetected,
       Value<MeasurementQuality> quality,
+      Value<ScanMode> scanMode,
       Value<double?> estimatedHeartRateBpm,
       Value<HeartRateSource> heartRateSource,
       Value<double?> faceColorFeature,
@@ -1516,6 +1768,12 @@ class $$HealthRecordsTableFilterComposer
     column: $table.quality,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<ScanMode, ScanMode, String> get scanMode =>
+      $composableBuilder(
+        column: $table.scanMode,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<double> get estimatedHeartRateBpm => $composableBuilder(
     column: $table.estimatedHeartRateBpm,
@@ -1595,6 +1853,11 @@ class $$HealthRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get scanMode => $composableBuilder(
+    column: $table.scanMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get estimatedHeartRateBpm => $composableBuilder(
     column: $table.estimatedHeartRateBpm,
     builder: (column) => ColumnOrderings(column),
@@ -1666,6 +1929,9 @@ class $$HealthRecordsTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<MeasurementQuality, String> get quality =>
       $composableBuilder(column: $table.quality, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<ScanMode, String> get scanMode =>
+      $composableBuilder(column: $table.scanMode, builder: (column) => column);
 
   GeneratedColumn<double> get estimatedHeartRateBpm => $composableBuilder(
     column: $table.estimatedHeartRateBpm,
@@ -1744,6 +2010,7 @@ class $$HealthRecordsTableTableManager
                 Value<int> elapsedMicros = const Value.absent(),
                 Value<bool> faceDetected = const Value.absent(),
                 Value<MeasurementQuality> quality = const Value.absent(),
+                Value<ScanMode> scanMode = const Value.absent(),
                 Value<double?> estimatedHeartRateBpm = const Value.absent(),
                 Value<HeartRateSource> heartRateSource = const Value.absent(),
                 Value<double?> faceColorFeature = const Value.absent(),
@@ -1760,6 +2027,7 @@ class $$HealthRecordsTableTableManager
                 elapsedMicros: elapsedMicros,
                 faceDetected: faceDetected,
                 quality: quality,
+                scanMode: scanMode,
                 estimatedHeartRateBpm: estimatedHeartRateBpm,
                 heartRateSource: heartRateSource,
                 faceColorFeature: faceColorFeature,
@@ -1777,6 +2045,7 @@ class $$HealthRecordsTableTableManager
                 required int elapsedMicros,
                 required bool faceDetected,
                 required MeasurementQuality quality,
+                Value<ScanMode> scanMode = const Value.absent(),
                 Value<double?> estimatedHeartRateBpm = const Value.absent(),
                 required HeartRateSource heartRateSource,
                 Value<double?> faceColorFeature = const Value.absent(),
@@ -1792,6 +2061,7 @@ class $$HealthRecordsTableTableManager
                 elapsedMicros: elapsedMicros,
                 faceDetected: faceDetected,
                 quality: quality,
+                scanMode: scanMode,
                 estimatedHeartRateBpm: estimatedHeartRateBpm,
                 heartRateSource: heartRateSource,
                 faceColorFeature: faceColorFeature,
@@ -2038,6 +2308,144 @@ typedef $$ReminderPreferencesTableProcessedTableManager =
       ReminderPreference,
       PrefetchHooks Function()
     >;
+typedef $$ScanPreferencesTableCreateCompanionBuilder =
+    ScanPreferencesCompanion Function({Value<int> id, required bool research});
+typedef $$ScanPreferencesTableUpdateCompanionBuilder =
+    ScanPreferencesCompanion Function({Value<int> id, Value<bool> research});
+
+class $$ScanPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $ScanPreferencesTable> {
+  $$ScanPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get research => $composableBuilder(
+    column: $table.research,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ScanPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ScanPreferencesTable> {
+  $$ScanPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get research => $composableBuilder(
+    column: $table.research,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ScanPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ScanPreferencesTable> {
+  $$ScanPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get research =>
+      $composableBuilder(column: $table.research, builder: (column) => column);
+}
+
+class $$ScanPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ScanPreferencesTable,
+          ScanPreference,
+          $$ScanPreferencesTableFilterComposer,
+          $$ScanPreferencesTableOrderingComposer,
+          $$ScanPreferencesTableAnnotationComposer,
+          $$ScanPreferencesTableCreateCompanionBuilder,
+          $$ScanPreferencesTableUpdateCompanionBuilder,
+          (
+            ScanPreference,
+            BaseReferences<
+              _$AppDatabase,
+              $ScanPreferencesTable,
+              ScanPreference
+            >,
+          ),
+          ScanPreference,
+          PrefetchHooks Function()
+        > {
+  $$ScanPreferencesTableTableManager(
+    _$AppDatabase db,
+    $ScanPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ScanPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ScanPreferencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ScanPreferencesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<bool> research = const Value.absent(),
+          }) => ScanPreferencesCompanion(id: id, research: research),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required bool research,
+          }) => ScanPreferencesCompanion.insert(id: id, research: research),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ScanPreferencesTable, ScanPreference>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ScanPreferencesTable,
+                    ScanPreference
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ScanPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ScanPreferencesTable,
+      ScanPreference,
+      $$ScanPreferencesTableFilterComposer,
+      $$ScanPreferencesTableOrderingComposer,
+      $$ScanPreferencesTableAnnotationComposer,
+      $$ScanPreferencesTableCreateCompanionBuilder,
+      $$ScanPreferencesTableUpdateCompanionBuilder,
+      (
+        ScanPreference,
+        BaseReferences<_$AppDatabase, $ScanPreferencesTable, ScanPreference>,
+      ),
+      ScanPreference,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2048,4 +2456,6 @@ class $AppDatabaseManager {
       $$HealthRecordsTableTableManager(_db, _db.healthRecords);
   $$ReminderPreferencesTableTableManager get reminderPreferences =>
       $$ReminderPreferencesTableTableManager(_db, _db.reminderPreferences);
+  $$ScanPreferencesTableTableManager get scanPreferences =>
+      $$ScanPreferencesTableTableManager(_db, _db.scanPreferences);
 }

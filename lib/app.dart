@@ -17,6 +17,8 @@ import 'services/settings/onboarding_store.dart';
 import 'services/settings/reminder_settings_store.dart';
 import 'ui/asakao_style.dart';
 import 'widgets/onboarding_gate.dart';
+import 'widgets/scan_mode_gate.dart';
+import 'services/settings/scan_mode_store.dart';
 
 class MorningCheckApp extends StatelessWidget {
   const MorningCheckApp({
@@ -25,6 +27,8 @@ class MorningCheckApp extends StatelessWidget {
     required this.repository,
     required this.aiRunner,
     required this.createScanSession,
+    this.createResearchScanSession,
+    this.scanModeStore,
     required this.reminderService,
     required this.reminderStore,
     this.requestCameraPermission = requestSystemCameraPermission,
@@ -45,12 +49,15 @@ class MorningCheckApp extends StatelessWidget {
 
   /// 撮影画面ごとに1回呼ばれる。本番は CameraScanService、テストは偽物を返す。
   final ScanSession Function() createScanSession;
+  final ScanSession Function()? createResearchScanSession;
+  final ScanModeStore? scanModeStore;
 
   Widget _home(BuildContext context) => MainTabsScreen(
     repository: repository,
     now: now,
     reminderService: reminderService,
     reminderStore: reminderStore,
+    scanModeStore: scanModeStore,
     onStartCheck: () => Navigator.of(context).pushNamed(AppRoutes.scan),
   );
 
@@ -59,9 +66,11 @@ class MorningCheckApp extends StatelessWidget {
   Route<void>? _generateRoute(RouteSettings settings) =>
       switch (settings.name) {
         AppRoutes.scan => AppTransitions.cover(
-          (_) => ScanScreen(
+          (_) => ScanModeGate(
             repository: repository,
-            createSession: createScanSession,
+            standard: createScanSession,
+            research: createResearchScanSession,
+            store: scanModeStore,
           ),
           settings: settings,
         ),
@@ -117,6 +126,7 @@ class MorningCheckApp extends StatelessWidget {
         ),
         AppRoutes.history: (_) => HistoryScreen(store: repository, now: now),
         AppRoutes.settings: (_) => SettingsScreen(
+          scanModeStore: scanModeStore,
           repository: repository,
           reminderService: reminderService,
           reminderStore: reminderStore,

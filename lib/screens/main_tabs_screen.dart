@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/db/health_record_repository.dart';
 import '../services/notifications/daily_reminder_service.dart';
 import '../services/settings/reminder_settings_store.dart';
+import '../services/settings/scan_mode_store.dart';
 import '../widgets/camera_tab_bar.dart';
 import '../ui/asakao_style.dart';
 import 'history_screen.dart';
@@ -16,6 +17,7 @@ class MainTabsScreen extends StatefulWidget {
     required this.repository,
     required this.reminderService,
     required this.reminderStore,
+    this.scanModeStore,
     required this.onStartCheck,
     this.now = DateTime.now,
   });
@@ -23,6 +25,7 @@ class MainTabsScreen extends StatefulWidget {
   final HealthRecordRepository repository;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
+  final ScanModeStore? scanModeStore;
 
   /// 計測を開き、計測の流れ（cover）が閉じたら完了する。
   final Future<void> Function() onStartCheck;
@@ -113,6 +116,7 @@ class _MainTabsScreenState extends State<MainTabsScreen>
           _tab(
             settings: true,
             child: SettingsScreen(
+              scanModeStore: widget.scanModeStore,
               repository: widget.repository,
               reminderService: widget.reminderService,
               reminderStore: widget.reminderStore,

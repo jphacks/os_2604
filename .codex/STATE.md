@@ -1,3 +1,12 @@
+# 2026-10-18 PR #13 と研究モードの統合
+
+- ブランチ: `codex/ui-navigation-transitions`。main `d2179fd`（PR #12）を取り込み、app.dart・scan_screen.dartの競合を解消。
+- ユーザー承認: 通常／研究切替を設定画面へ移し、新UI・自動開始・アニメーション・フォント・キャラクター・効果音を維持。Liquid Glassの既存PR内実装を追加変更せず維持。
+- 設定の研究モードは初期オフ、端末内保存。撮影ルートで読み込んでから該当サービスのみ生成・自動開始。撮影中はモード固定。読込失敗はカメラを作らず再試行、保存失敗は設定を変更せず表示。
+- DB schema v6: scan_preferencesテーブル追加のみ。v5からの移行で既存の測定モード・履歴保持、設定の再起動後保持をテスト。Cの通常／研究処理・null・品質条件・結果のモード表示を保持。
+- 検証: 整形95ファイル変更なし、analyze指摘なし、全338テスト成功。iPhone向け署名付きRelease最終ビルド成功（88.7MB）。今回の統合版の実機操作は未確認。
+- PR #13へpushしレビュー可能にする。mainへのマージは今回行わない。
+
 ## 2026-10-18 画面遷移仕様（push/fade/cover/sheet）の反映
 - ブランチ `codex/ui-navigation-transitions`（main `444390f` 起点）。未コミット。ユーザー提供の「あさかお 画面遷移仕様」に従う。
 - 共通：`lib/navigation/app_transitions.dart`（push=CupertinoPageRoute／fade=0.25秒／cover=下から・下へ／cover内fadeは閉じると下へ）。
@@ -20,6 +29,8 @@
 - 関連24テスト成功、静的解析問題なし、署名付きReleaseビルド成功。iPhone15へ上書きインストール・起動成功。ユーザーより15秒完走を確認済み。最新origin/mainとの競合なし（merge-tree検証）。ユーザー依頼で全画面UIと修正をmainへ統合する。
 
 # 現在の作業状態
+
+## 2026-10-18 PR提出
 
 ## 2026-10-18 アサカオデザインを全画面へ反映（Liquid Glassタブバー除く）
 
@@ -46,116 +57,87 @@
 
 ## 2026-10-17 P2（30fps分離RGBサンプリング・rPPG・顔色特徴量）および B担当DB/履歴・P1 Swift Foundation Models 統合検証
 
-- 作業ブランチ：`rppg_accuracy_validation_integration`（`origin/c` `0e3d79a` を取り込み、BのDB/画面・カメラタブUI・P1 Swift Foundation ModelsブリッジとP2を統合）。
-- 実装内容：
-  1. **顔検出間引き（180ms）・4倍縮小検出バッファと分離した30fps RGBサンプリング**：
-     - `lib/features/scan/experimental_face_signals.dart` に `faceDetectionInterval: Duration(milliseconds: 180)`、`faceDetectionDownsampleFactor: 4`、`downsampleBgra8888ForDetection`、`stabilizeFaceRegion`（3%デッドバンド）、`ShootingConditionSummary.effectiveFps` を実装。
-     - `lib/features/scan/ios_camera_frame_source.dart` で ML Kit 実行中（`_busy`）および間引き間隔内のカメラフレームからフル解像度BGRAの内側皮膚ROI平均RGBを `_pendingRgbSamples` に30fpsで採取し、次の `ScanObservation.rgbSamples` で時系列順に `HealthScanController` へ引き渡す。P2有効時は `ExposureMode.locked` をベストエフォート適用。
-     - `lib/main.dart` の `_createSession` を `CameraScanService(configuration: ScanConfiguration.day1Experimental())` に接続。
-  2. **B担当DB・結果/履歴画面・P1オンデバイスAIとの統合テスト**：
-     - `test/bc_integration_test.dart` にP2推定値（`estimatedHeartRateBpm`・`HeartRateSource.rppgExperimental`・`faceColorFeature`）の計測直後DB保存、`ResultScreen` 表示（`心拍数は試験的な推定値です`・`顔色特徴量`）、`OnDeviceAiRunner`（`ReportMode.onDevice`）レポート生成、`HistoryScreen` 一覧から詳細再表示までの統合テストを追加。
-- 自動検証・実機導入結果：
-  - `dart format --output=none --set-exit-if-changed lib test`：73ファイル変更なし。
-  - `flutter analyze --no-pub`：指摘なし（0 issues）。
-  - `flutter test --no-pub`：全274件成功。
-  - 実機ビルド・導入：physical iPhone 17（`00008150-000268A03EC2401C`、iOS 27.0.1）へ統合版 iOS Release ビルド（61.0MB）をインストール・起動成功。
-- 実機手動確認結果（physical iPhone 17 / iOS 27.0.1 + Apple Watch 同時比較）：
-  1. **30fps分離RGBサンプリング＋間引き顔検出によるrPPG同時比較**：従来の同期 `FaceDetectorMode.accurate`（約6fps・約90サンプル）では `minRppgSamples: 120` により `null` フォールバックしていた問題が解消され、実機15秒計測で `minRppgSamples: 120` およびスペクトルSNR閾値をクリアして試験的心拍数推定値が表示されること、同時に計測した Apple Watch の基準値と近接した値（差6bpm程度）となることを確認（`AGENTS.md` のプライバシー規定に従い、個人の測定実数値はログ・Gitに含めない）。
-  2. **B担当DB保存・履歴画面およびP1レポート作成・保存の統合確認**：実機上で15秒計測後のDB保存、結果画面での表示、レポート作成と保存が正常に完了することを確認。
+- 追加依頼「PR出してください」に対応し、実装コミット `7ec8c82` をorigin/rppg_accuracy_validation_integrationへ通常push。main向けドラフトPR #12を作成： https://github.com/jphacks/os_2604/pull/12 。マージは未実施。
+- 最新取得main `444390f` と `.codex/STATE.md`、onboarding_screen.dart、result_screen.dart、scan_screen.dartで競合。GitHubもCONFLICTINGを確認。作業ファイルのマージは行っていない。
+- UI should 2件と競合をPR本文に明記。次はmainのUIを保持してモード切替を統合し、UI指摘を修正後に再検証する。今回は既存変更をレビュー可能なPRとして提出する範囲で完了。
+- 検証は実装コミットでの整形・解析・全279テスト成功。今回のPR提出では製品コードを変更していない。
 
-## 2026-10-17 B/C 最終統合（Foundation Models ブリッジ・過去比較・schema v4 実機移行確認・カメラタブUI）
+## 2026-10-18 心拍推定ブランチの未コミット分をコミット
 
-- 作業ブランチ：`manual_ui_testing_migration`（`origin/main` `6a70610` と `origin/codex/b-camera-tab-ui` `1be6191` を統合）。
-- 実装・統合内容：
-  1. **過去比較のレポート本文接続**：`ResultScreen._generateReport` で記録日基準の直近7暦日（当日を除く）の有効記録から `calculateHistoryBaseline` を算出し、`OnDeviceAiRunner.generateReflection(scan, baseline: baseline)` と `TemplateRecordSummary` へ接続。履歴不足時は「過去比較：基準値蓄積中（有効記録 X/3件 または 体調の記録 X/3件）」、有効記録3件以上かつ体調入力3件以上では「過去比較：直近7日間（今日を除く）の体調の中央値 ...」をレポート本文（端末内AI・定型文とも）に表示。基準値成立時はAI短文選択キー `reviewHistoryComparison` も許可。
-  2. **Swift 側の Foundation Models ブリッジ実装**：`ios/Runner/AppDelegate.swift` に `jp.jphacks.os_2604/on_device_ai` チャネルと `OnDeviceAiBridge` を実装。`SystemLanguageModel.default.availability`・日本語ロケール対応確認、`LanguageModelSession` による短文キー生成、requestId 単位の `Task` 管理・キャンセル・単発完了保証（`PendingGeneration`）、iOS 26 `GenerationError` / iOS 27 `LanguageModelError`・`SystemLanguageModel.Error` のエラーコード変換を接続。
-  3. **B側 カメラ起点タブUI（`origin/codex/b-camera-tab-ui` `1be6191`）の統合**：`AppDelegate.swift` に `CameraTabBar`、`CameraPermissionBridge`、`OnDeviceAiBridge` の3つすべてを登録。
-- 統合後の自動検証・実機導入：`dart format --output=none --set-exit-if-changed lib test` は71ファイル変更なし、`flutter analyze --no-pub` 指摘なし、`flutter test --no-pub --reporter expanded` 全257件成功。署名付き iOS Release ビルド（`build/ios/iphoneos/Runner.app` 61.0MB）成功、physical iPhone 17（`00008150-000268A03EC2401C`）に `com.example.os2604` を上書き導入・起動成功。
-- DB移行（schema v4）の実機検証（physical iPhone 17 / iOS 27.0.1、`00008150-000268A03EC2401C`）：
-  - 本体アプリ（`com.example.os2604`）の実測履歴を汚染しないよう、分離バンドル `com.example.os2604.permissioncheck` のコンテナに `PRAGMA user_version = 3`・2026年Unix秒値（`measured_at = 1792219200`）・`reminder_preferences`（`7:30` ON）・`onboarding_completions` を持つ SQLite ファイルを配置して実機起動。
-  - 実機上の `AppDatabase.onUpgrade(3 -> 4)` により、`user_version = 4`、`measured_at = 1792219200000000`（マイクロ秒）、`elapsed_micros = 15000000`、`quality = 'good'`、`reminder_preferences` がすべて保持・変換されることを実機で確認。確認後、`com.example.os2604.permissioncheck` は実機からアンインストールし、端末上にテスト用データが残らない状態に清掃済み。
-- 実機手動UI確認（physical iPhone 17 / iOS 27.0.1）：ユーザーから「1. 実機での手動UI確認が完了しました」と報告を受領（① 初回カメラ許可ダイアログ確認、② オンデバイスAI／定型文フォールバック・過去比較レポート表示、③ 撮影中断・体調/体温入力解除と保存・履歴・削除・通知設定、④ オフラインデモ確認）。翌日の通知繰り返しは当日外のため未確認として区別。
+- ユーザー依頼：心拍推定ブランチの未コミット分をコミットする。対象は `rppg_accuracy_validation_integration`、基点 `315cf61`。通常／研究モード切替、schema v5移行、テスト、接続・検証・Aレビュー文書を1コミットにまとめる。push・PR・main統合は今回の依頼外。
+- コミット前の再検証：整形75ファイル差分なし、flutter analyze --no-pub指摘なし、flutter test --no-pub全279件成功、git diff --check成功。ログ `/private/tmp/rppg-precommit-{format,analyze,tests}.log`。製品コード・テストは既存の未コミット内容から変更していない。
+- Aレビューのshould 2（開始ボタンの見切れ、状態案内）は未修正。今回は既存変更のコミット依頼のため修正を追加せず、次のUI修正へ引き継ぐ。最終UI承認は保留。詳細は `docs/a-ui-review.md`。
+- 別依頼でmain `444390f` をiPhone 17へ署名付きReleaseで上書きインストール・起動済み。本コミット対象の切替・v5版を今回再インストールしていない。下記の実機結果は過去の切替版検証として扱う。
+- 元チェックアウトのLED実装の未コミット変更は保持し、本コミットには含めない。mainの後続変更は未取り込み。
 
-## 2026-10-17 カメラタブUIとSwiftUI Liquid Glass（origin/codex/b-camera-tab-ui 1be6191）
+## 以下はコミット前の実装・レビュー記録
 
-- ブランチ：`codex/b-camera-tab-ui`、main `cc33313` から作成。サブエージェント不使用。
-- AのFigJamをChromeで確認。白背景・オレンジ・下部の履歴／カメラ／設定を参考に、HomeScreenをカメラタブの入口として変更。本文はデザイン未確定のため既存の開始・保存済み状態・説明導線を維持。
-- iOSの下部メニューはFlutter UiKitView + UIHostingControllerでSwiftUIを埋め込む。iOS 26以降は純正glassEffect、旧iOSはultraThinMaterial。iOS以外はFlutter部品。履歴・設定は既存の画面遷移を使用し、この段階では各遷移先への共通タブ化はしない。
-- 変更：lib/screens/home_screen.dart、lib/widgets/camera_tab_bar.dart、ios/Runner/CameraTabBar.swift、AppDelegate.swift、Runner.xcodeproj。Cの計測・AI内部、DB、通知のロジックは変更なし。
-- 確認：整形65ファイル変更なし、flutter analyze指摘なし、全237テスト成功（画面遷移・小画面／文字拡大含む）、署名付きiOS Releaseビルド成功60.5MB。
-- iPhone 15 / iOS 26.6.2へインストール・起動成功。ネイティブメニューの見た目・タップのユーザー確認は未実施。iPhone17も未確認。
-- 追加変更：ユーザー要望によりMainTabsScreen + IndexedStackへ変更。履歴／カメラ／設定を経路pushせず即座に切り替え、下部メニューを常時表示。履歴・設定のタブ内では戻る矢印を非表示。既存の単独ルートは互換性のため維持。
-- SwiftUI側はObservableObjectに選択タブを保持し、MethodChannelでFlutterの選択状態と同期。Flutter代替メニューも3タブすべて選択可能。
-- タブ切替・選択表示・戻る矢印なしを既存の画面遷移テストで確認。追加変更後も全237テスト成功、静的解析指摘なし。
-- タブ切替版もiOS Releaseビルド成功（60.5MB）、iPhone 15へインストール成功。実機のタブ操作はユーザー確認待ち。mainへは未マージ。
-- 追加の見た目調整：ユーザーの参考画像に合わせ、全幅に近い暗い半透明カプセル、中央の白丸カメラ、左右の白いアイコン／文字へ変更。3タブの機能は維持。
-- 選択インジケーターはiOS26以降のGlassEffectContainer + glassEffectを使用した単一カプセルを横移動し、springでアニメーション。アクセシビリティの視差効果を減らす設定では移動アニメーションを無効化。旧iOSは半透明カプセルへフォールバック。
-- アニメーション調整後の確認：iOS Releaseビルド成功60.6MB、iPhone15にインストール・起動成功。SwiftUIのみの描画変更のため全Flutterテストは再実行せず、直前の237件成功を保持。実機での見た目・動きはユーザー確認待ち。
-- デザイン訂正：参考画像は中央のカメラボタンだけに適用するとのユーザー指示。暗い全幅バーを撤回し、明るいコンパクトなバーと茶色の選択色へ戻す。中央の白丸カメラ、タブ切替、ガラスのスライドアニメーションは維持。訂正版もiOS Releaseビルド成功（60.6MB）、iPhone15へインストール・起動成功。
-- フッター背景の修正：外側Scaffoldの背景色を選択タブに合わせる。カメラは既存の白、履歴・設定はテーマのscaffoldBackgroundColor。タブ内画面との色の境目を解消。画面遷移・ホームの7テスト成功、静的解析指摘なし、整形チェック成功。iOS Releaseビルド成功60.6MB、iPhone15へインストール成功。
+## 2026-10-18 A視点の最終UIレビュー
 
-## 2026-10-17 B 受け入れ確認（origin/main cc33313）
+- ユーザー依頼：Aの最終UIレビュー。対象は引き続き心拍推定ブランチ315cf61＋前工程の未コミット差分。製品UI・実機・健康記録は変更せず、コードと架空データの描画でレビュー。
+- レビュー票：docs/a-ui-review.md。blocker 0、should 2（開始ボタンの初期表示見切れ、未開始／保存失敗時の状態案内の不整合）、nice 1（拡大時の結果ラベル配置）。レビュー実施済み、should未修正のため最終UI承認は保留。
+- 描画検証：393×852/100%と320×568/200%、初回説明・ホーム・撮影・通常/研究結果・履歴・設定・権限拒否・中断・保存失敗の20条件＋iPhone17相当402×874（上62/下34）の撮影1条件成功。開始文字y836〜856に対しSafeArea上端840で見切れを再現。表示中のタップ領域・ラベルに指摘なし、結果入力操作もスクロール後に確認。コントラストのピクセル警告は解決済み色の比率で誤検出を切り分けた。
+- ログ/private/tmp/a-ui-review-complete.log、ハーネス/private/tmp/a_ui_review_test.dart。証跡は/Users/shindenfuta/.codex/visualizations/2026/10/17/01a14b3e-6941-70e0-9aa1-09f1f9bd6cf4/a-ui-review。全て架空データ。実機の顔・健康値は取得していない。前工程の279テストは再実行せず、今回の21条件と区別する。
+- Device Interactionスキルのサブエージェント指示に従い、ネイティブ下部バーを独立確認。SwiftUI専用iPhone17/iOS27 Simulatorホストで通常/最大文字の見切れなし。UIテスト1件成功：3ラベル・タップ切替・選択trait・各93.33×76ptを確認。ホスト停止、MCP設定復帰済み。Reduce Motionは静的確認のみ。実アプリの実機VoiceOver合格ではない。
+- 今回追加はレビュー票とSTATE等の状況文書のみ。製品lib/test、iPhone上の通常版、DBは変更していない。commit/push/PRなし。
+- 次：A01/A02修正→撮影画面再検証→iPhone17で最終確認。A03は任意。通常版は前工程の復帰済み状態を維持。
 
-- ブランチ：`codex/b-acceptance-checks`。基点 main `5d591c5`（PR #6 最終統合済み）。iPhoneに導入した統合版とのコード差分なし。
-- 自動確認：統合版の全237テスト成功、整形64ファイル変更なし、静的解析指摘なし。iOS Releaseビルド成功（60.4MB）。main統合後のコード変更がないため同じ確認は再実行していない。
-- 実機：iPhone 15 / iOS 26.6.2 にインストール・起動成功。ユーザーが通知を確認できたと報告し、通常動作も良好と報告。
-- 実機合格（ユーザー「未測定や。全部合格」）：体調・体温を解除して保存し再起動後も未入力／未測定、通知タップ起動、通知時刻変更後の配信、オフによる取消。翌日の繰り返しは未確認。
-- 実機合格（ユーザー「全部できた」）：計測中の顔外れ→失敗・再試行・履歴に増えない、アプリ離脱→中断・再試行、機内モードかつWi-Fiオフで計測・保存・レポートを2回。
-- カメラ権限拒否・暗所・個別／全件削除：ユーザー「全部いけてる思うよ」と報告。ユーザー確認で問題なし（画面・ログの独立確認は未実施）。
-- 残り：翌日の通知繰り返し、本番対象iPhone 17での最終確認。
-- ユーザーから結果を受け取った項目だけ確定し、未回答項目は未確認のまま残す。
+## 以下は前工程の実装・実機確認
 
-## 以下は過去の引き継ぎ記録（現状は上記を優先）
+## 2026-10-18 C担当・通常／研究モード切替
 
-## 2026-10-17 c：B/C統合と実機導入（手動確認待ち）
+- ユーザー決定：通常／研究の切替を設ける。対象は心拍推定ブランチ。開発フェーズはDay 1とDay 2の間。
+- 作業場所：/Users/shindenfuta/.gemini/antigravity/worktrees/os_2604/rppg_accuracy_validation_integration。ブランチ同名、HEAD 315cf61。git ls-remoteでリモート心拍ブランチも315cf61と照合。remote mainは444390fで未取り込み。新UIは今回のA観点レビュー実施済みだが、should 2のため最終承認は保留。
+- 作業開始時はこのworktreeはclean。今回の変更は未コミット。commit・push・PR・mergeは未依頼のため未実施。
+- 元の /Users/shindenfuta/os_2604 は codex/e84-led-notification。LEDの既存未コミット変更を保持。資料の作業案を一時作成したが、今回の対象へ移し、元側は今回の資料差分だけ元に戻した。LED版を心拍版へ統合していない。
 
-## 2026-10-17 c：高優先の互換性・権限修正
+## 実装
 
-- ユーザー依頼：残課題の高優先から進め、cへ切替。現在のフェーズはユーザー回答でDay 1。
-- 現在地：/Users/shindenfuta/JPHACKS、ブランチc。origin/c 47578c3から作成後、origin/main 0e4b1ffへfast-forward。main・リモートへのpush/マージなし。ユーザーから今回の修正を一旦コミットする依頼を受領。本STATEを含む修正を1コミットにまとめる。pushは依頼されていない。
-- 保護：元のcodex/bc-device-checkの未コミットSTATEはstash「preserve bc device verification state before switching to c」に保存して保持。未追跡Word/PDF4文書、Git除外の個人署名設定、別worktreeの未コミットSTATEは変更していない。
-- 前回の実機試験の正本：/Users/shindenfuta/.codex/worktrees/latest-main-device-check/JPHACKS/.codex/STATE.md（955f1bb）。通常計測/即保存/任意入力/定型文/履歴/個別全件削除/再起動保持/顔外れ/離脱/権限OFF/暗所/オフラインはユーザー手動確認済み。今回の変更後や通知追加版の実機合格へ読み替えない。
-
-## 今回の変更・合意
-
-- DB：schema v4。ユーザーは「2026年の秒値だけ変換する」と承認。UTC 2026-01-01以上・2027-01-01未満に相当するUnix秒値だけを100万倍し、その他の値は保持。v2/v3の秒・マイクロ秒混在、二重変換を防ぐ。
-- 移行はテーブル追加・日時変換を同一トランザクションで実行。失敗は伝播し、DB削除/再作成なし。ID・NULL・実経過・出典・入力・レポート・説明確認・既存通知設定を保護する。単位情報がなく、対象外期間の旧秒値や同じ整数になる1970年付近のマイクロ秒値は完全判別できない。対象範囲の追加は別途判断。
-- カメラ：iOS権限確認を初期化より前に分離。AppDelegateに独自camera_permissionチャネルを登録。ScanPhase.requestingPermissionと撮影画面の確認中表示を追加。
-- 許可ダイアログ中のinactiveは待機。許可とresumedの両方を確認してからカメラ初期化。OS回答待ちは初期化の10秒制限・計測の15秒に含めない。背景化/画面離脱/計測中のinactiveは中断。拒否はpermissionDenied、チャネル失敗はcameraUnavailable。キャンセル後の遅い応答は破棄する。
-- iOS AppDelegate変更の対象・理由・影響をユーザーへ提示済み。依存・権限用途文・音声権限・main.dartは変更なし。
-- 重複回避：origin/codex/b-result-inputs 4bbc022とorigin/codex/b-scan-navigation e6a0a53にB側の修正がある。結果入力と撮影ナビゲーション競合は重複実装せず、今回のscan_screen変更は進捗表示1行だけ。
-- 通知：PR #5がmain 0e4b1ffへ統合済みでcにも含む。前の「通知未実装」という一覧は古い。今回pod installと通知依存を含むiOSビルドが成功。配信の実機試験は未実施。
+- ScanScreenに研究スイッチ。画面を開くたび通常（オフ）。開始前のみ選択し、開始後・失敗再試行中・保存中は変更不可。設定自体は永続化しない。
+- main.dartは通常用day1Trialと研究用day1Experimentalを分け、app.dart経由で注入。切替時は旧サービスを取消・解放して新規生成。切替中の開始を禁止し、離脱後に新セッションを作らない。
+- 共通ScanModeはstandard/research/legacyUnknown。Cが成功結果にモードを付け、Bが即保存・追記・レポート・履歴詳細で維持。通常は実験処理を停止し心拍・顔色null、研究は推定不能でも研究モードを保持。
+- DB schema v5：scan_mode列追加、既存はlegacyUnknown。既存の日時・推定値・出典・NULL・入力・本文・生成モード・説明確認・通知設定を保持。旧v2/v3の合意済み日時変換も維持。from<2では新テーブル生成に列を含むため重複追加しない。移行は既存transaction内。
+- v5移行後は旧LED版(v4)への単純差戻し不可。戻す場合はLED側にもv5対応が必要。DB削除やアプリのアンインストールで回避しない。
+- 初回説明・撮影前・結果・新生成レポートにモード／研究制約。rPPG出典と外部由来を区別。心拍の品質不足非表示を維持。
+- 15秒時計・撮影品質閾値・P2推定アルゴリズム・AIチャネル・AI10秒期限・比較条件・権限・依存は変更なし。ネイティブ設定の変更なし。
 
 ## 変更ファイル
 
-- lib/services/db/app_database.dart（schema v4・限定日時移行）
-- lib/features/scan/camera_scan_service.dart、health_scan_controller.dart、scan_widget.dart、新規scan_permission_gate.dart・ios_camera_permission_gate.dart
-- lib/models/scan_contract.dart、lib/screens/scan_screen.dart、ios/Runner/AppDelegate.swift
-- 新規test/services/db/legacy_timestamp_migration_test.dart、health_record_store_test.dart（v1 fixtureを本来の単一テーブルへ修正）
-- test/features/scan/health_scan_controller_test.dart、scan_widget_test.dart、新規ios_camera_permission_gate_test.dart
-- README.md、docs/implementation-decisions.md、docs/c-integration.md、このSTATE
+- lib/app.dart、main.dart、models/health_check_result.dart、features/scan/health_scan_controller.dart。
+- lib/screens/{scan,result,onboarding}_screen.dart、services/ai/template_record_summary.dart。foundation_models_client.dartは古い「Swift未接続」コメントだけ訂正。
+- lib/services/db/{app_database.dart,app_database.g.dart,health_record_repository.dart}。Drift生成は既存build_runnerで実施。
+- test/screens/research_mode_test.dart、test/services/db/scan_mode_migration_test.dartを追加。既存health_scan_controller_testとlegacy_timestamp_migration_testを更新。
+- README、docs/{implementation-decisions,c-integration,c-integration-status,c-ai-integration,demo-guide}.md更新、docs/c-validation.md追加。このSTATEを更新。
 
 ## 検証
 
-- Flutter 3.47.7 / Dart 3.13.5。最新mainの通知依存が一時キャッシュに不足したためpub getで解決。pubspec/lockfile差分なし。
-- dart format --output=none --set-exit-if-changed lib test：67ファイル、変更なし。git diff --check成功。
-- flutter analyze --no-pub：指摘なし。
-- flutter test --no-pub --reporter expanded：全230件成功。ログ /private/tmp/os2604-c-priority-all-tests.log。
-- 追加試験：v2/v3混在DB移行、年境界/対象外保持、全フィールド/設定保持、再open/順序/期間検索/中央値、失敗のロールバックと再試行。権限待ち30秒→許可→準備後の15秒、拒否/技術エラー、中断/再試行、前面復帰待ち、キャンセル後の遅い応答、計測中の離脱を合成入力/偽ネイティブ応答で検証。
-- 初回テストはsandboxのlocalhostソケット制限で起動不可。昇格再実行で解決。権限チャネル試験のWidget仮想時刻との待ち合わせ失敗/停止は実イベントループの単体テストに直して解消。既存assertionの削除/skip/ダミー成功への変更なし。
-- iOS Release（署名なし）：tool/flutter_with_xcode.sh build ios --release --no-codesign --no-pub 成功。Runner.app 60.2MB、Xcode build 27.0秒。pod install成功、Podfile.lock差分なし。ログ /private/tmp/os2604-c-priority-ios-build.log。実機へのインストールや端末DB変更は行っていない。
-- ML KitのSPM非対応とApple Silicon Simulator向けarm64非対応の警告あり。実機向けビルドは成功。シミュレータでカメラ/AIの実機試験を代替しない。
-- 差分と利用側を自己レビュー。以前のSTATEにある「os_2604でフェーズごとのCodexレビューはしない」というユーザー指示を引き継ぎ。
+- 整形確認：75ファイル変更なし。flutter analyze --no-pub：指摘なし。
+- flutter test --no-pub：全279件成功。ログ /private/tmp/c-research-tests-final.log。切替・処理中の変更禁止・切替中の離脱・既定通常への復帰・研究nullの保存・追記／定型文での保持、v4→v5→再openで全項目保持と旧日時移行を確認。
+- 元のLEDチェックアウトも調査開始時に整形78ファイル・解析・全287テストが成功したが、今回の心拍版の結果と混同しない。
+- sandbox内のFlutter testはlocalhostソケット拒否で失敗し、実行環境を変更して同じ試験を実行し成功。devicectlもsandboxではCoreDevice初期化timeout、読取を再実行してphysical iPhone 17 / iOS 27.0.1の有線接続を確認。
+- iOS Releaseビルド成功（60.5MB）。最初はCocoaPodsのbinがPATHになく失敗し、導入済みbinを追加して成功。ログ /private/tmp/c-research-release-build-retry.log。既存署名・登録済みiPhoneを使った署名付きXcodeビルドも成功。ログ /private/tmp/c-research-signed-build.log。新しい証明書／端末登録やtracked Team固定なし。
+- codesign --verify --deep --strict成功。sandbox内ではCSSMERR_TP_NOT_TRUSTEDとなり、同じ成果物を通常の信頼サービスを使う環境で再検証して成功。
+- physical iPhone 17 / iOS 27.0.1の既存com.example.os2604へ更新インストール・起動成功。アンインストール／健康記録削除なし。ログ /private/tmp/c-research-{install,launch}.json。署名付き成果物 /private/tmp/c-research-derived-data/Build/Products/Release-iphoneos/Runner.app。
+- 2026-10-18、ユーザーが確認依頼全体に「なっている」と回答。通常で15秒計測後、心拍・顔色が未測定／通常モード、研究で計測後、研究モードと注意文、研究記録のレポートが端末内AIで作成、更新前履歴の保持と旧記録のモード未記録表示を確認。顔画像・測定値は取得していない。続いてユーザーが再起動後も「記録は残っています」と回答。記録保持は確認済み。レポート本文の保持・本文詳細は個別には未明示で、Aの最終レビューも未確認。
 
-## 残課題・次の手順
+## 過去の実機根拠と残り
 
-1. 今回の版で初回カメラ許可/拒否/復帰と、旧秒形式記録を保持したアップデートを実機確認。アプリ/DB削除を自動実行しない。
-2. B側の結果入力・撮影ナビゲーション修正の統合確認。古い入力を含む既存レポートの扱いも残る。
-3. 過去比較のレポート接続と、十分な履歴を使う実機試験。
-4. Swift Foundation Modelsブリッジと実機AI生成。現状AIは定型文切替のみ。通知配信/変更/拒否/タップ起動も実機未確認。
-5. 最終版でオフラインデモ2回。rPPG/顔色特徴量/Android計測経路は後続。公開対応は別タスク。
+- HEAD 315cf61の旧STATEに、2026-10-17のiPhone 17 / iOS 27.0.1で15秒計測・即保存・レポートとApple Watch同時比較1回の記録あり。個人の測定実数値を転記しない。1回を精度保証にしない。
+- 同日のAI／利用不可時定型文・オフライン等の確認記録があるが、今回の切替・v5版の合格へ読み替えない。
+- 現在：通常／研究計測・通常AI・旧履歴・再起動後の記録保持はユーザー確認済み。AI利用不可応答の注入版で定型文と理由、新規記録と定型レポート本文の再起動後保持も「確認できました」と回答。C04は注入試験の合格として記録。OSでの実際のAI利用不可・生成例外／timeoutとは区別する。
+- 2026-10-18、通常版の署名を再検証し、同bundleへ更新復帰・起動成功。現在iPhoneは通常版。ログ/private/tmp/c-normal-restored-{install,launch}.json。通常版は注入前に通常AIを確認した同じ署名済み成果物で、復帰後の追加AI再生成は行っていない。記録削除・アンインストール・OS設定変更なし。
+- ホストのFLUTTER_TARGETもlib/main.dartに復帰し通常Release再ビルド成功（60.5MB、/private/tmp/c-normal-restore-build.log）。検証用entrypointは製品mainへ入れていない。
+- 残り：A観点レビューのshould 2修正と最終承認、確定画面からの発表素材。C05顔外れ／離脱・C06研究信号不足・C07オフライン2回は今回版の手動再試験未実施（既存の自動確認／過去版の実機結果と区別）。AIレポート本文の再起動後保持・本文詳細も個別には未明示。Cの制約説明・接続資料は更新済み。追加精度検証を必須作業へ繰り上げない。
+- Android/Gemini Nano完成、追加精度検証、HealthKit/Health Connect、クラウド同期、失敗保存画面、ストア公開準備は今回の必須外。
 
-## 環境
+## コマンド環境
 
-- SDK /private/tmp/os2604-c-flutter、PUB_CACHE=/private/tmp/os2604-c-dart/pub-cache、XDG_CONFIG_HOME=/private/tmp/os2604-c-config。
-- CocoaPods /private/tmp/os2604-c-gems。GEM_HOME/GEM_PATH同ディレクトリ、RUBYOPT=-rlogger、binをPATHへ追加。tool/flutter_with_xcode.shでコマンド限定Xcode選択。システム設定は変更しない。
+Flutter /private/tmp/os2604-c-flutter (3.47.7 / Dart 3.13.5)、PUB_CACHE=/private/tmp/os2604-c-dart/pub-cache、XDG_CONFIG_HOME=/private/tmp/os2604-c-config。CocoaPodsは/private/tmp/os2604-c-gems/binをPATHへ追加しGEM_HOME/GEM_PATH同prefix、RUBYOPT=-rlogger。tool/flutter_with_xcode.shでXcodeをコマンド単位で指定。システムxcode-selectは変更していない。
+
+## AI利用不可の注入試験（完了・通常版へ復帰済み）
+
+- 生成スクリプト/private/tmp/prepare-c-ai-unavailable.py、entrypoint/private/tmp/c-ai-unavailable-entry.dart。現在のmain.dartを基に相対importをpackage importへ直し、AIクライアントだけunavailable応答へ差し替え、上部に検証専用を常時表示。計測・DB・レポートUIは通常実装を使用し、測定のモックは使わない。生成APIへは進めない。
+- 検証専用のRelease・署名付きビルド・署名検証・同bundle更新導入・起動成功。成果物/private/tmp/c-ai-unavailable-derived-data/Build/Products/Release-iphoneos/Runner.app。ログ/private/tmp/c-ai-unavailable-{build,signed-build}.log、{install,launch}.json。
+- ユーザーが新しい通常モード記録の計測→定型文と理由→再起動後の記録・本文保持を2点とも確認。過去AI本文を上書きする手順は案内していない。
+- 通常版の復帰用成果物/private/tmp/c-research-derived-data/Build/Products/Release-iphoneos/Runner.appの署名再検証、同bundle更新導入、起動成功。現在iPhoneは通常版。検証専用版を残した状態ではない。
+- OSの実際のAI利用不可・MethodChannel失敗・生成例外／timeoutの実機再現ではない。これらの分岐は既存の自動試験で確認済み。

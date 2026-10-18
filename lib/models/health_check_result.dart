@@ -1,3 +1,15 @@
+enum ScanMode {
+  standard,
+  research,
+  legacyUnknown;
+
+  String get label => switch (this) {
+    standard => '通常モード',
+    research => '研究モード',
+    legacyUnknown => 'モード未記録（過去の記録）',
+  };
+}
+
 enum MeasurementQuality { good, poor, interrupted }
 
 enum HeartRateSource { none, rppgExperimental, external }
@@ -14,6 +26,7 @@ class HealthCheckResult {
     required this.elapsed,
     required this.faceDetected,
     required this.quality,
+    this.scanMode = ScanMode.legacyUnknown,
     this.estimatedHeartRateBpm,
     this.heartRateSource = HeartRateSource.none,
     this.faceColorFeature,
@@ -31,6 +44,13 @@ class HealthCheckResult {
     if (quality == MeasurementQuality.good &&
         (!faceDetected || elapsed < const Duration(seconds: 15))) {
       throw ArgumentError('A valid scan needs a face and at least 15 seconds.');
+    }
+    if (scanMode == ScanMode.standard &&
+        (heartRateSource == HeartRateSource.rppgExperimental ||
+            faceColorFeature != null)) {
+      throw ArgumentError(
+        'Standard scans cannot contain experimental signals.',
+      );
     }
     final condition = selfCondition;
     if (condition != null && (condition < 1 || condition > 5)) {
@@ -68,6 +88,7 @@ class HealthCheckResult {
   int get durationSec => targetDuration.inSeconds;
   final bool faceDetected;
   final MeasurementQuality quality;
+  final ScanMode scanMode;
   final double? estimatedHeartRateBpm;
   final HeartRateSource heartRateSource;
   final double? faceColorFeature;

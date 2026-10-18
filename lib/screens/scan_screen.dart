@@ -28,10 +28,12 @@ class ScanScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.createSession,
+    this.researchMode = false,
   });
 
   final HealthRecordRepository repository;
   final ScanSession Function() createSession;
+  final bool researchMode;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -270,6 +272,14 @@ class _ScanScreenState extends State<ScanScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _header(measuring),
+                      Text(
+                        widget.researchMode ? '研究モード（試験機能）' : '通常モード',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AsakaoStyle.scanMuted,
+                          fontSize: 12,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       _heading(measuring),
                       const SizedBox(height: 16),

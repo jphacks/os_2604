@@ -4,6 +4,7 @@ import '../navigation/app_transitions.dart';
 import '../services/db/health_record_repository.dart';
 import '../services/notifications/daily_reminder_service.dart';
 import '../services/settings/reminder_settings_store.dart';
+import '../services/settings/scan_mode_store.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
 import 'about_screen.dart';
@@ -18,12 +19,14 @@ class SettingsScreen extends StatefulWidget {
     this.embedded = false,
     required this.reminderService,
     required this.reminderStore,
+    this.scanModeStore,
   });
 
   final bool embedded;
   final HealthRecordRepository repository;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
+  final ScanModeStore? scanModeStore;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -35,12 +38,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _section = EdgeInsets.fromLTRB(20, 28, 20, 8);
 
   bool _running = false;
+  bool? _research;
+  bool _savingMode = false;
+  bool _modeLoadFailed = false;
   ReminderSettings _reminder = const ReminderSettings();
 
   @override
   void initState() {
     super.initState();
     _loadReminder();
+    _loadMode();
+  }
+
+  Future<void> _loadMode() async {
+    final store = widget.scanModeStore;
+    if (store == null) return;
+    try {
+      final research = await store.loadResearchMode();
+      if (mounted) {
+        setState(() {
+          _research = research;
+          _modeLoadFailed = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _modeLoadFailed = true);
+    }
+  }
+
+  Future<void> _saveMode(bool research) async {
+    if (_savingMode) return;
+    setState(() => _savingMode = true);
+    try {
+      await widget.scanModeStore!.saveResearchMode(research);
+      if (mounted) {
+        setState(() {
+          _research = research;
+          _modeLoadFailed = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) _snack('計測モードを保存できませんでした（設定は変更されていません）');
+    } finally {
+      if (mounted) setState(() => _savingMode = false);
+    }
   }
 
   Future<void> _loadReminder() async {
@@ -149,6 +190,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+          if (widget.scanModeStore != null) ...[
+            const AsakaoSectionLabel('計測', padding: _section),
+            SwitchListTile(
+              title: const Text('研究モード'),
+              subtitle: const Text(
+                'オフ：通常の記録。オン：心拍推定・顔色特徴量を試験的に取得します。診断には使用できません。次回の撮影から適用されます。',
+              ),
+              value: _research ?? false,
+              onChanged: _research == null || _savingMode ? null : _saveMode,
+            ),
+            if (_modeLoadFailed) ...[
+              const Text('計測モードを読み込めませんでした'),
+              TextButton(
+                onPressed: _loadMode,
+                child: const Text('計測モードを再読み込み'),
+              ),
+            ],
+          ],
           const AsakaoSectionLabel('情報', padding: _section),
           AsakaoListGroup(
             fullBleed: true,

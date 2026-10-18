@@ -502,6 +502,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Divider(),
       ),
       _point('診断には使えません', 'セルフチェックの記録用です。体調が気になるときは医療機関に相談してください。'),
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Divider(),
+      ),
+      _point(
+        '研究モードは試験機能です',
+        '通常モードでは心拍・顔色の実験処理は行いません。設定で研究モードをオンにすると試験的に推定します。',
+      ),
     ],
     actions: [
       AsakaoPrimaryButton(
