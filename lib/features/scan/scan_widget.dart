@@ -87,6 +87,7 @@ class _ScanWidgetState extends State<ScanWidget> with WidgetsBindingObserver {
                       orientation == DeviceOrientation.landscapeLeft ||
                       orientation == DeviceOrientation.landscapeRight;
                   return CameraPreviewViewport(
+                    zoom: 1.12,
                     aspectRatio: landscape
                         ? value.aspectRatio
                         : 1 / value.aspectRatio,
@@ -102,15 +103,22 @@ class CameraPreviewViewport extends StatelessWidget {
   const CameraPreviewViewport({
     super.key,
     required this.aspectRatio,
+    this.zoom = 1,
     required this.child,
   });
   final double aspectRatio;
+
+  /// Display-only crop; detection and signal extraction use the original frame.
+  final double zoom;
   final Widget child;
   @override
   Widget build(BuildContext context) => ClipRect(
-    child: FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(width: aspectRatio * 1000, height: 1000, child: child),
+    child: Transform.scale(
+      scale: zoom,
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(width: aspectRatio * 1000, height: 1000, child: child),
+      ),
     ),
   );
 }
