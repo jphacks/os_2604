@@ -557,6 +557,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           color: AsakaoStyle.muted,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(formatClock(at), style: AsakaoStyle.caption),
                     ],
                   ),
                 ),
@@ -570,13 +572,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         AsakaoQualityChip(record.quality),
-                        Text(
-                          formatClock(at),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AsakaoStyle.muted,
-                          ),
-                        ),
+                        if (compact)
+                          Text(formatClock(at), style: AsakaoStyle.caption),
                       ],
                     ),
                     const SizedBox(height: 6),

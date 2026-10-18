@@ -27,7 +27,9 @@ void main() {
         ),
       );
       await DriftScanModeStore(db).saveResearchMode(true);
+      // v6 には環境の表も音の表もない。
       await db.customStatement('DROP TABLE feedback_preferences');
+      await db.customStatement('DROP TABLE health_record_environment');
       await db.customStatement('PRAGMA user_version = 6');
       await db.close();
 
@@ -91,4 +93,44 @@ void main() {
     );
     await db.close();
   });
+
+  test(
+    'main v7 (environment table, no sound table) gains default sound settings',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('feedback-main-v7-');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/app.sqlite');
+      var db = AppDatabase(NativeDatabase(file));
+      await HealthRecordRepository(db).insert(
+        HealthCheckResult(
+          id: 'synthetic',
+          measuredAt: DateTime(2026, 10, 18),
+          elapsed: const Duration(seconds: 15),
+          faceDetected: true,
+          quality: MeasurementQuality.good,
+        ),
+      );
+      await db.customStatement('DROP TABLE feedback_preferences');
+      await db.customStatement('PRAGMA user_version = 7');
+      await db.close();
+
+      db = AppDatabase(NativeDatabase(file));
+      final loaded = await DriftFeedbackSettingsStore(db).load();
+      expect(
+        (loaded.sound, loaded.haptics, loaded.instrument),
+        (true, true, MeasureInstrument.marimba),
+      );
+      expect(await HealthRecordRepository(db).findById('synthetic'), isNotNull);
+      expect(
+        (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+          'user_version',
+        ),
+        9,
+      );
+      await DriftFeedbackSettingsStore(db)
+          .save(const FeedbackSettings(sound: false));
+      expect((await DriftFeedbackSettingsStore(db).load()).sound, isFalse);
+      await db.close();
+    },
+  );
 }

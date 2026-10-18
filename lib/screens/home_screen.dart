@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
+import '../services/device/led_notification_service.dart';
+import '../widgets/environment_view.dart';
 import '../ui/asakao_widgets.dart';
 import '../widgets/camera_tab_bar.dart';
 import '../services/db/health_record_repository.dart';
@@ -16,10 +18,12 @@ class HomeScreen extends StatelessWidget {
     required this.onOpenHistory,
     required this.onOpenSettings,
     this.onShowExplanation,
+    this.ledService,
   });
 
   final bool showTabBar;
   final HealthRecordRepository repository;
+  final LedNotificationService? ledService;
   final DateTime Function() now;
   final VoidCallback onStartCheck;
   final VoidCallback onOpenHistory;
@@ -50,6 +54,8 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (ledService case final service?)
+                    LiveEnvironmentView(service: service),
                   Center(
                     child: Container(
                       width: 104,

@@ -9,10 +9,15 @@ import 'package:flutter/services.dart';
 
 import '../features/scan/scan_widget.dart';
 import '../models/health_check_result.dart';
+import '../models/environment_snapshot.dart';
+import '../services/device/environment_save_service.dart';
+import '../widgets/environment_view.dart';
 import '../models/scan_contract.dart';
 import '../navigation/app_routes.dart';
 import '../navigation/app_transitions.dart';
 import '../services/db/health_record_repository.dart';
+import '../services/device/led_notification_service.dart';
+import '../widgets/led_kit_controls.dart';
 import '../services/sound/sound_effects.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
@@ -30,11 +35,15 @@ class ScanScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.createSession,
+    this.ledService,
+    this.environmentSaves,
     this.researchMode = false,
   });
 
   final HealthRecordRepository repository;
   final ScanSession Function() createSession;
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? environmentSaves;
   final bool researchMode;
 
   @override
@@ -44,7 +53,24 @@ class ScanScreen extends StatefulWidget {
 /// [failed] は中断画面（3-3）、[interrupted] はカメラの画面のままダイアログで知らせる中断。
 enum _Stage { idle, running, saving, saveFailed, failed, interrupted }
 
-class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
+class _ScanScreenState extends State<ScanScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  LedAttempt? _ledAttempt;
+  bool _completedNavigation = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive &&
+        _session.service.currentProgress.phase ==
+            ScanPhase.requestingPermission) {
+      return; // 許可ダイアログは計測開始前。復帰後の試行を保持する。
+    }
+    if (state != AppLifecycleState.resumed) {
+      widget.ledService?.cancelAttempt(_ledAttempt);
+      _ledAttempt = null;
+    }
+  }
+
   // 計測の進み（円と残り秒数）は、届いた経過時間のあいだを毎フレーム補って滑らかに動かす。
   // 次の通知が来ないとき（条件が崩れて止まったとき）は先へ進みすぎないよう上限を設ける。
   static const _maxLead = Duration(milliseconds: 400);
@@ -113,6 +139,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
   ScanFailureReason? _failure;
   bool _failureShown = false; // 3-3 の fade が終わったら計測画面を隠す
   HealthCheckResult? _unsaved;
+  EnvironmentSnapshot? _frozenEnvironment;
   bool _leaving = false;
   bool _canPop = false;
   Future<void>? _releasing;
@@ -130,6 +157,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 3-1'。画面を開いたらすぐにカメラを起動し、条件がそろえば自動で計測を始める。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_start());
@@ -155,6 +183,8 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (!_completedNavigation) widget.ledService?.cancelAttempt(_ledAttempt);
     _ticker.dispose();
     _blackoutAnimation.dispose();
     _smoothElapsed.dispose();
@@ -197,12 +227,14 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
     }
     final retry = _stage == _Stage.failed || _stage == _Stage.interrupted;
     final attempt = ++_attempt;
+    _ledAttempt = widget.ledService?.beginAttempt();
     setState(() {
       _stage = _Stage.running;
       _readySounded = false;
       _failureShown = false;
       _failure = null;
       _unsaved = null;
+      _frozenEnvironment = null;
     });
     final ScanOutcome outcome;
     try {
@@ -211,12 +243,16 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
       outcome = await _session.service.startHealthScan();
     } catch (_) {
       if (!_isCurrent(attempt)) return;
+      widget.ledService?.cancelAttempt(_ledAttempt);
       _fail(ScanFailureReason.processingFailed);
       return;
     }
     if (!_isCurrent(attempt)) return;
     switch (outcome) {
       case ScanSuccess(:final result):
+        _frozenEnvironment =
+            widget.ledService?.snapshotEnvironment() ??
+            EnvironmentSnapshot(state: EnvironmentState.disabled);
         if (SoundEffects.pachinkoFinish) {
           // パチンコ風：保存と並行して画面を暗転させ、暗転の音が終わるまで待ってから進む。
           setState(() => _blackout = true);
@@ -230,6 +266,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
         }
         await _save(result, attempt);
       case ScanFailure(:final reason):
+        widget.ledService?.cancelAttempt(_ledAttempt);
         _fail(reason);
     }
   }
@@ -296,7 +333,21 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
       });
       return;
     }
+    // App-owned association survives normal result navigation and screen cleanup.
+    // This only follows a successful parent insert; it never inserts health twice.
+    if (result.quality == MeasurementQuality.good &&
+        _frozenEnvironment != null) {
+      widget.environmentSaves?.savedHealthRecord(
+        result.id,
+        _frozenEnvironment!,
+      );
+    }
     if (!_isCurrent(attempt)) return;
+    // insert成功だけを起点にする。BLEの完了・AI生成は待たない。
+    final ledAttempt = _ledAttempt;
+    if (result.quality == MeasurementQuality.good && ledAttempt != null) {
+      widget.ledService?.saved(ledAttempt);
+    }
     try {
       await _release();
     } catch (_) {
@@ -310,6 +361,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
     }
     if (!mounted || !_isCurrent(attempt)) return;
     _leaving = true;
+    _completedNavigation = true;
     _attempt++;
     unawaited(
       Navigator.of(context)
@@ -319,6 +371,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
 
   Future<void> _leave() async {
     if (_leaving) return;
+    widget.ledService?.cancelAttempt(_ledAttempt);
     _leaving = true;
     _attempt++;
     setState(() {});
@@ -420,6 +473,18 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      if (widget.ledService case final service?) ...[
+                        AsakaoCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              LedKitStatus(service: service),
+                              LiveEnvironmentView(service: service),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       _heading(measuring),
                       const SizedBox(height: 16),
                       _guideOval(p, conditions, measuring),
@@ -571,27 +636,24 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
               Padding(
                 padding: const EdgeInsets.all(10),
                 child: ClipOval(
-                  // カメラ本来の縦横比のまま、楕円いっぱいに切り抜いて映す（引き伸ばさない）。
-                  child: _CameraCover(
+                  // 縦横比を保った切り抜きは ScanWidget（CameraPreviewViewport）が行う。
+                  child: ScanWidget(
+                    service: _session.service,
                     preview: _session.preview,
-                    child: ScanWidget(
-                      service: _session.service,
-                      preview: _session.preview,
-                      placeholder: ColoredBox(
-                        color: AsakaoStyle.scanEllipse,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              p.phase == ScanPhase.idle
-                                  ? 'カメラを起動しています'
-                                  : 'カメラを準備しています',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AsakaoStyle.scanMuted,
-                              ),
-                              textAlign: TextAlign.center,
+                    placeholder: ColoredBox(
+                      color: AsakaoStyle.scanEllipse,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            p.phase == ScanPhase.idle
+                                ? 'カメラを起動しています'
+                                : 'カメラを準備しています',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AsakaoStyle.scanMuted,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
@@ -1183,44 +1245,6 @@ class _GuidePainter extends CustomPainter {
   @override
   bool shouldRepaint(_GuidePainter old) =>
       old.mode != mode || old.progress != progress;
-}
-
-/// カメラの映像を本来の縦横比のまま、枠いっぱいに覆うように置く（はみ出しは親で切る）。
-/// 子（ScanWidget）の位置は常に同じにして、映像の準備前後で作り直さない。
-class _CameraCover extends StatelessWidget {
-  const _CameraCover({required this.preview, required this.child});
-
-  final ValueListenable<CameraController?> preview;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (_, box) => ValueListenableBuilder<CameraController?>(
-      valueListenable: preview,
-      builder: (_, camera, child) {
-        var width = box.maxWidth;
-        var height = box.maxHeight;
-        final value = camera?.value;
-        if (value != null && value.isInitialized && value.aspectRatio > 0) {
-          // 縦持ちでは映像の縦横比は 1 / aspectRatio（幅 / 高さ）。
-          final ratio = 1 / value.aspectRatio;
-          if (width / height > ratio) {
-            height = width / ratio;
-          } else {
-            width = height * ratio;
-          }
-        }
-        return OverflowBox(
-          minWidth: width,
-          maxWidth: width,
-          minHeight: height,
-          maxHeight: height,
-          child: child,
-        );
-      },
-      child: child,
-    ),
-  );
 }
 
 /// 計測が無効になったときのダイアログ。こまった顔と理由、もう一度／やめる。

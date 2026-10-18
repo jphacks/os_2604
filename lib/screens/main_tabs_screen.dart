@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../services/device/led_notification_service.dart';
+
 import 'package:flutter/material.dart';
 
 import '../services/db/health_record_repository.dart';
@@ -17,6 +19,7 @@ import 'settings_screen.dart';
 class MainTabsScreen extends StatefulWidget {
   const MainTabsScreen({
     super.key,
+    this.ledService,
     required this.repository,
     required this.reminderService,
     required this.reminderStore,
@@ -26,6 +29,7 @@ class MainTabsScreen extends StatefulWidget {
     this.now = DateTime.now,
   });
 
+  final LedNotificationService? ledService;
   final HealthRecordRepository repository;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
@@ -133,6 +137,7 @@ class _MainTabsScreenState extends State<MainTabsScreen>
           _tab(
             settings: true,
             child: SettingsScreen(
+              ledService: widget.ledService,
               scanModeStore: widget.scanModeStore,
               feedbackStore: widget.feedbackStore,
               repository: widget.repository,

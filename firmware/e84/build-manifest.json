@@ -1,0 +1,99 @@
+{
+  "sourceCommit": "ea2a19fa2b1321525f3ae0645ae2fba4f5d64340",
+  "board": "KIT_PSE84_AI",
+  "generatedTarget": "APP_KIT_PSE84_AI",
+  "bspVersion": "release-v1.4.0",
+  "bspCommit": "4894dd6",
+  "toolsVersion": "3.8.0.18384",
+  "programmingToolsVersion": "1.9.0.2261",
+  "gccPackageVersion": "14.2.1.331",
+  "edgeProtectVersion": "2.3.0.958",
+  "configuration": "Debug",
+  "artifactSha256": "ffda35877d29bdc17d75ca6be4842b78b13b3ee14af3a793b688154a3770c84e",
+  "buildPassed": true,
+  "flashVerified": true,
+  "ledVisuallyVerified": true,
+  "dependencies": [
+    {
+      "name": "abstraction-rtos",
+      "version": "release-v1.13.0",
+      "commit": "de63f516d822cde10ccc0ab408ffafe7a13db8f7"
+    },
+    {
+      "name": "async-transfer",
+      "version": "release-v1.1.1",
+      "commit": "17b6f638ab91c523e6cedfbb23ecbacbcd1c6066"
+    },
+    {
+      "name": "bt-fw-mur-cyw55513",
+      "version": "release-v1.0.0",
+      "commit": "88233235711fb4a8f81c78b85222cc6f14711c11"
+    },
+    {
+      "name": "btstack",
+      "version": "release-v5.0.6",
+      "commit": "fc85417edf9dc36f3fc6d2c4acf7a68833f1c2bb"
+    },
+    {
+      "name": "btstack-integration",
+      "version": "release-v7.0.2",
+      "commit": "a9a0e7f9dd356c3bcd832e2626f9a53525fb87ec"
+    },
+    {
+      "name": "clib-support",
+      "version": "release-v1.9.0",
+      "commit": "2a14bd0a1470d580a2c98f140551ea8cdc7f8f59"
+    },
+    {
+      "name": "cmsis",
+      "version": "release-v6.1.0",
+      "commit": "d00730dae4a7d7639376682f7f1e6ff357011dc6"
+    },
+    {
+      "name": "core-lib",
+      "version": "release-v1.8.0",
+      "commit": "ca57d1e519e08badec6891d1776c7b4f05e09561"
+    },
+    {
+      "name": "core-make",
+      "version": "release-v3.10.0",
+      "commit": "aefe7ff6ff59de2cb357362638231f701f7a220c"
+    },
+    {
+      "name": "freertos",
+      "version": "release-v10.6.202",
+      "commit": "8a19c8db81becf1e981a5f94630952160fddf8c5"
+    },
+    {
+      "name": "freertos",
+      "version": "release-v10.6.203",
+      "commit": "ecf1e4eaca1e3ab3a642fbac05d37e375a5672ab"
+    },
+    {
+      "name": "mtb-dsl-pse8xxgp",
+      "version": "release-v1.7.0",
+      "commit": "5813532f621267ba954d922964a97ce7a0bba5ad"
+    },
+    {
+      "name": "mtb-ipc",
+      "version": "release-v1.2.0",
+      "commit": "760f4772bd4b37abe08062d7229de91e9a23a54f"
+    },
+    {
+      "name": "mtb-srf",
+      "version": "release-v1.2.1",
+      "commit": "7998f67519696ebfe9de7fad5494e6e6604333e7"
+    },
+    {
+      "name": "retarget-io",
+      "version": "release-v1.10.0",
+      "commit": "83bbf77931f809c243be20d58939c52c674674f7"
+    },
+    {
+      "name": "se-rt-services-utils",
+      "version": "release-v1.4.0",
+      "commit": "b9cb6c8a88e5f1a7c3ea4684cea2268475da9cb5"
+    }
+  ],
+  "verificationScope": "User visually confirmed on 2026-10-18: AIROC on/off, app manual 3-second pulse, saved 15-second scan pulse, no pulse on cancelled/invalid scans or result/input updates, power-cycle reconnect, and two offline runs. Forced storage/BLE/AI failures not reproduced on device."
+}

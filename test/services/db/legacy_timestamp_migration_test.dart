@@ -56,6 +56,8 @@ void main() {
         'UPDATE health_records SET measured_at = ? WHERE id = ?',
         [at.millisecondsSinceEpoch ~/ 1000, 'legacy'],
       );
+      await db.customStatement('DROP TABLE health_record_environment');
+      await db.customStatement('DROP TABLE scan_preferences');
       if (version == 2) {
         await db.customStatement('DROP TABLE reminder_preferences');
       }
@@ -137,7 +139,7 @@ void main() {
             expect(
               (await db.customSelect('PRAGMA user_version').getSingle())
                   .read<int>('user_version'),
-              8,
+              9,
             );
           } finally {
             await db.close();
@@ -175,9 +177,8 @@ void main() {
           [rawValues[i], 'boundary-$i'],
         );
       }
-      await db.customStatement(
-        'ALTER TABLE health_records DROP COLUMN scan_mode',
-      );
+      await db.customStatement('DROP TABLE health_record_environment');
+      await db.customStatement('DROP TABLE scan_preferences');
       await db.customStatement('PRAGMA user_version = 3');
     } finally {
       await db.close();

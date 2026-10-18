@@ -1,3 +1,8 @@
+import '../services/device/led_notification_service.dart';
+import '../widgets/led_kit_controls.dart';
+import '../services/device/environment_save_service.dart';
+import '../widgets/environment_view.dart';
+
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
@@ -13,10 +18,14 @@ import 'history_screen.dart' show confirmRecordDeletion;
 class HistoryDetailScreen extends StatefulWidget {
   const HistoryDetailScreen({
     super.key,
+    this.environmentSaves,
+    this.ledService,
     required this.store,
     required this.recordId,
   });
 
+  final EnvironmentSaveService? environmentSaves;
+  final LedNotificationService? ledService;
   final HealthRecordStore store;
   final String? recordId;
 
@@ -101,22 +110,6 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               label: const Text('履歴'),
             ),
           ),
-          actions: [
-            IconButton(
-              tooltip: '古い記録',
-              onPressed: older == null
-                  ? null
-                  : () => setState(() => _id = older.id),
-              icon: const Icon(Icons.chevron_left),
-            ),
-            IconButton(
-              tooltip: '新しい記録',
-              onPressed: newer == null
-                  ? null
-                  : () => setState(() => _id = newer.id),
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
         ),
         body: SafeArea(
           child: snapshot.hasError
@@ -133,17 +126,34 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               ? const Center(
                   child: Text('該当する記録が見つかりません。', style: AsakaoStyle.body),
                 )
-              : _content(record, sorted),
+              : _content(record, sorted, older: older, newer: newer),
         ),
       );
     },
   );
 
   // 「この日の記録」より下のカードは画面の左右いっぱいに広げ、角丸にしない。
+  static final _dayButtonStyle = TextButton.styleFrom(
+    backgroundColor: AsakaoStyle.coralPale,
+    foregroundColor: AsakaoStyle.coralInk,
+    disabledBackgroundColor: AsakaoStyle.neutralBackground,
+    disabledForegroundColor: AsakaoStyle.muted,
+    side: BorderSide.none,
+    shape: const StadiumBorder(),
+    padding: EdgeInsets.zero,
+    fixedSize: const Size(80, 48),
+    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+  );
+
   static const _side = EdgeInsets.symmetric(horizontal: 24);
   static const _label = EdgeInsets.fromLTRB(28, 16, 28, 8);
 
-  Widget _content(HealthCheckResult r, List<HealthCheckResult> all) => ListView(
+  Widget _content(
+    HealthCheckResult r,
+    List<HealthCheckResult> all, {
+    HealthCheckResult? older,
+    HealthCheckResult? newer,
+  }) => ListView(
     padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
     children: [
       Padding(
@@ -151,14 +161,45 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${formatClock(r.measuredAt)} に記録',
-              style: AsakaoStyle.caption,
+            Row(
+              children: [
+                Tooltip(
+                  message: '古い記録',
+                  child: TextButton(
+                    onPressed: older == null
+                        ? null
+                        : () => setState(() => _id = older.id),
+                    style: _dayButtonStyle,
+                    child: const Text('前の日'),
+                  ),
+                ),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      formatJaDate(r.measuredAt),
+                      textAlign: TextAlign.center,
+                      style: AsakaoStyle.title,
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: '新しい記録',
+                  child: TextButton(
+                    onPressed: newer == null
+                        ? null
+                        : () => setState(() => _id = newer.id),
+                    style: _dayButtonStyle,
+                    child: const Text('次の日'),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Semantics(
-              header: true,
-              child: Text(formatJaDate(r.measuredAt), style: AsakaoStyle.title),
+            Center(
+              child: Text(
+                '${formatClock(r.measuredAt)} に記録',
+                style: AsakaoStyle.caption,
+              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -171,6 +212,28 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
         conditionDiff: _conditionDiff(r, all),
         fullBleed: true,
       ),
+      if (widget.ledService case final service?)
+        Padding(
+          padding: _side,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('現在のキット接続・LED状態'),
+              LedKitStatus(service: service),
+              const Text('下の環境情報は、計測終了時に保存した記録です。'),
+            ],
+          ),
+        ),
+      if (widget.environmentSaves != null)
+        Padding(
+          padding: _side,
+          child: SavedEnvironmentView(
+            key: ValueKey(r.id),
+            recordId: r.id,
+            saves: widget.environmentSaves!,
+            store: widget.environmentSaves!.store,
+          ),
+        ),
       const AsakaoSectionLabel('この日のレポート', padding: _label),
       RecordReportCard(r, missingText: 'レポートは未作成です', fullBleed: true),
       const Padding(

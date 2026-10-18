@@ -33,11 +33,8 @@ void main() {
 
   bool enabled(WidgetTester tester, String tooltip) =>
       tester
-          .widget<IconButton>(
-            find.widgetWithIcon(
-              IconButton,
-              tooltip == '古い記録' ? Icons.chevron_left : Icons.chevron_right,
-            ),
+          .widget<TextButton>(
+            find.widgetWithText(TextButton, tooltip == '古い記録' ? '前の日' : '次の日'),
           )
           .onPressed !=
       null;
