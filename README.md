@@ -1,6 +1,6 @@
 # あさかお (Asakao) — 15秒健康チェック (os_2604)
 
-[![あさかお デモ動画](https://jphacks.com/wp-content/uploads/2026/07/IMG_5316.png)](https://drive.google.com/drive/folders/1dGu_qFE6HU37hnV4fsVWEFgX1lQwXjEH?usp=sharing)
+[![あさかお デモ動画](https://img.youtube.com/vi/XgNAn_zmHVs/hqdefault.jpg)](https://youtu.be/XgNAn_zmHVs)
 
 > **毎朝15秒、顔をカメラで撮影して記録を残し、過去の自分との差をオフラインAIが説明する健康セルフチェックアプリ。**  
 > ※ 本アプリは日常のセルフチェックと変化の振り返りを目的とした検証用MVPであり、**病気の診断・治療判断を目的とする医療機器ではありません**。
