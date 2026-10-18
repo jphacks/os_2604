@@ -133,4 +133,26 @@ void main() {
       await db.close();
     },
   );
+
+  test(
+    'a removed instrument saved earlier (kalimba) falls back to marimba',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.customStatement(
+        "INSERT INTO feedback_preferences (id, sound, haptics, instrument) "
+        "VALUES (1, 1, 0, 'kalimba')",
+      );
+      final loaded = await DriftFeedbackSettingsStore(db).load();
+      expect(
+        (loaded.sound, loaded.haptics, loaded.instrument),
+        (true, false, MeasureInstrument.marimba),
+      );
+      expect(
+        MeasureInstrument.fromStored('glockenspiel'),
+        MeasureInstrument.marimba,
+      );
+      expect(MeasureInstrument.fromStored('koto'), MeasureInstrument.koto);
+    },
+  );
 }

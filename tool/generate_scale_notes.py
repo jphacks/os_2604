@@ -12,6 +12,8 @@ import sys
 import wave
 
 SR = 44100
+# 折り返し雑音を避けるため、これより高い倍音は作らない。
+NYQUIST_SAFE = 18000
 OUT = sys.argv[1]
 
 # C major, two octaves: C D E F G A B C D E F G A B C (semitones from C)
@@ -68,6 +70,65 @@ def karplus(f, dur, damping=0.996, bright=0.5, bend=0.0):
     return [s * min(1.0, i / (SR * 0.002)) for i, s in enumerate(out)]
 
 
+def music_box(f, dur):
+    """Metal comb tine: high, bright, two slightly detuned tines (shimmer), click."""
+    n = int(SR * dur)
+    rnd = random.Random(int(f))
+    out = []
+    for i in range(n):
+        t = i / SR
+        detune = 2 ** (4 / 1200)  # +4 cents: slow beating like a real comb
+        s = (
+            math.sin(2 * math.pi * f * t) * env(t, 0.0008, 0.9)
+            + 0.8 * math.sin(2 * math.pi * f * detune * t) * env(t, 0.0008, 0.9)
+            + (0.35 * math.sin(2 * math.pi * f * 4.2 * t) * env(t, 0.0005, 0.06)
+               if f * 4.2 < NYQUIST_SAFE else 0.0)
+            + (0.18 * math.sin(2 * math.pi * f * 9.8 * t) * env(t, 0.0005, 0.02)
+               if f * 9.8 < NYQUIST_SAFE else 0.0)
+        )
+        if t < 0.003:
+            s += 0.6 * (rnd.random() * 2 - 1) * (1 - t / 0.003)
+        out.append(s)
+    return out
+
+
+def koto(f, dur):
+    """Plucked silk string: many harmonics, pitch drops into place, slow 'yuri' vibrato."""
+    n = int(SR * dur)
+    rnd = random.Random(int(f) + 3)
+    out = []
+    phase = 0.0
+    for i in range(n):
+        t = i / SR
+        bend = 2 ** ((70 * math.exp(-t / 0.035)) / 1200)  # starts ~70 cents high
+        yuri = 1 + 0.006 * math.sin(2 * math.pi * 5.5 * t) * min(1.0, max(0.0, (t - 0.25) / 0.2))
+        phase += 2 * math.pi * f * bend * yuri / SR
+        s = 0.0
+        for k in range(1, 11):
+            if f * k >= NYQUIST_SAFE:
+                break
+            # odd/even mix with a nasal bump around the 3rd-5th harmonics
+            amp = (1 / k ** 0.75) * (1.6 if k in (3, 4, 5) else 1.0)
+            s += amp * math.sin(phase * k) * math.exp(-t * (1.6 + 0.9 * k))
+        if t < 0.006:
+            s += 0.5 * (rnd.random() * 2 - 1) * (1 - t / 0.006)
+        out.append(s)
+    return out
+
+
+def soft_tone(f, dur):
+    """Gentle electronic swell: near-pure sine that rises softly and fades slowly."""
+    n = int(SR * dur)
+    out = []
+    for i in range(n):
+        t = i / SR
+        a = 0.5 - 0.5 * math.cos(math.pi * min(1.0, t / 0.12))  # 120 ms swell
+        r = math.exp(-max(0.0, t - 0.15) / 0.35)
+        s = math.sin(2 * math.pi * f * t) + 0.06 * math.sin(2 * math.pi * f * 2 * t)
+        out.append(s * a * r)
+    return out
+
+
 def finish(samples, dur, peak=0.45):
     n = int(SR * dur)
     samples = samples[:n]
@@ -82,16 +143,10 @@ INSTRUMENTS = {
     # name: (base midi of the lowest C, duration, builder)
     'marimba': (72, 0.9, lambda f: additive(
         f, 0.9, [(1, 1.0, 0.35), (3.93, 0.35, 0.08), (9.2, 0.08, 0.03)], 0.002)),
-    'glockenspiel': (72, 1.2, lambda f: additive(
-        f, 1.2, [(1, 1.0, 0.8), (2.76, 0.45, 0.25), (5.40, 0.25, 0.12), (8.93, 0.1, 0.06)], 0.001)),
-    'musicbox': (72, 1.0, lambda f: additive(
-        f, 1.0, [(1, 1.0, 0.55), (2, 0.25, 0.3), (3, 0.12, 0.2), (4.1, 0.06, 0.1)], 0.001, click=0.15)),
-    'kalimba': (72, 0.9, lambda f: additive(
-        f, 0.9, [(1, 1.0, 0.45), (2.0, 0.08, 0.2), (5.4, 0.18, 0.05)], 0.002, click=0.25)),
+    'musicbox': (84, 1.0, lambda f: music_box(f, 1.0)),
     'harp': (60, 1.2, lambda f: karplus(f, 1.2, damping=0.997, bright=0.4)),
-    'koto': (60, 1.1, lambda f: karplus(f, 1.1, damping=0.995, bright=0.8, bend=0.35)),
-    'soft': (72, 0.6, lambda f: additive(
-        f, 0.6, [(1, 1.0, 0.22), (2, 0.12, 0.12)], 0.012)),
+    'koto': (72, 1.1, lambda f: koto(f, 1.1)),
+    'soft': (72, 0.8, lambda f: soft_tone(f, 0.8)),
 }
 
 

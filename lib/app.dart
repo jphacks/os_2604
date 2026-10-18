@@ -125,7 +125,7 @@ class MorningCheckApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '15秒健康チェック',
+      title: 'あさかお',
       debugShowCheckedModeBanner: false,
       locale: const Locale('ja'),
       supportedLocales: const [Locale('ja')],
