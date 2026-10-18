@@ -161,18 +161,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                         ? null
                         : () => setState(() => _id = older.id),
                     style: _dayButtonStyle,
-                    child: SizedBox.expand(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          const Text('前の日'),
-                          const Positioned(
-                            left: 2,
-                            child: Icon(Icons.chevron_left, size: 18),
-                          ),
-                        ],
-                      ),
-                    ),
+                    child: const Text('前の日'),
                   ),
                 ),
                 Expanded(
@@ -192,18 +181,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                         ? null
                         : () => setState(() => _id = newer.id),
                     style: _dayButtonStyle,
-                    child: SizedBox.expand(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          const Text('次の日'),
-                          const Positioned(
-                            right: 2,
-                            child: Icon(Icons.chevron_right, size: 18),
-                          ),
-                        ],
-                      ),
-                    ),
+                    child: const Text('次の日'),
                   ),
                 ),
               ],
