@@ -10,6 +10,9 @@ class ReminderSettings {
   final int hour;
   final int minute;
 
+  /// 画面表示用の時刻（例: 7:00）。
+  String get timeLabel => '$hour:${minute.toString().padLeft(2, '0')}';
+
   ReminderSettings copyWith({bool? enabled, int? hour, int? minute}) =>
       ReminderSettings(
         enabled: enabled ?? this.enabled,

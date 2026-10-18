@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
+import '../ui/asakao_widgets.dart';
 import '../widgets/camera_tab_bar.dart';
 import '../services/db/health_record_repository.dart';
 
@@ -138,12 +139,7 @@ class HomeScreen extends StatelessWidget {
     );
     final latest = records.isEmpty ? null : records.first;
     String two(int v) => v.toString().padLeft(2, '0');
-    final quality = switch (latest?.quality) {
-      MeasurementQuality.good => '良好',
-      MeasurementQuality.poor => '不十分',
-      MeasurementQuality.interrupted => '中断',
-      null => '',
-    };
+    final quality = latest == null ? '' : asakaoQualityLabel(latest.quality);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

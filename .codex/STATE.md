@@ -1,6 +1,37 @@
+## 2026-10-18 計測開始時の誤中断修正
+- ブランチ: `codex/fix-scan-countdown-interruption`（全画面UI `82c2e7d` 起点）。
+- 準備→計測で兄弟Widgetの型が変わると、キーのないカメラ部分が破棄され、ScanWidgetのdeactivate/disposeがcancelScanを呼んでいた。回帰テストで中断呼び出し2回を再現。
+- カメラ部分のルートに固定キーを付与し同一状態を維持。Cの品質条件・15秒時計・背景中断仕様は変更なし。
+- 関連24テスト成功、静的解析問題なし、署名付きReleaseビルド成功。iPhone15へ上書きインストール・起動成功。ユーザーより15秒完走を確認済み。最新origin/mainとの競合なし（merge-tree検証）。ユーザー依頼で全画面UIと修正をmainへ統合する。
+
 # 現在の作業状態
 
 ## 2026-10-18 PR提出
+
+## 2026-10-18 アサカオデザインを全画面へ反映（Liquid Glassタブバー除く）
+
+- 実機導入追記：このブランチの `82c2e7d` をXcode26.4で署名付きReleaseビルド成功（61.2MB）。iPhone15 / iOS26.6.2へ上書きインストール・起動成功。既存のXcode互換性guardが有効で追加コード修正なし。Liquid Glassタブバー3ファイルの差分なし。各画面の見た目・操作の実機合格はユーザー確認待ち。下記の「実機未確認／既知ビルド問題」は実装時点の記録であり、この導入成功を優先する。
+
+- ブランチ `add/20261018-apply-asakao-design-to-all-screens`（`codex/ui-history` 0f650cb から作成）。PR取り込み先は `codex/ui`、マージは人間。
+- 対象：タブバー以外の残り全画面。`camera_tab_bar.dart`／`CameraTabBar.swift`／`main_tabs_screen.dart` は基点から差分なし。
+- コミット：d945328 共通UIキット（`lib/ui/asakao_style.dart`、`asakao_widgets.dart`、`asakaoTheme`）／80f80ba 初回設定1-1〜1-7・設定6-1/6-3/6-3'・このアプリについて6-4・通知設定サブページ／f191057＋0f5c962 計測3-1〜3-3・自己申告4-1/4-1'（体温34.0〜42.0℃）・レポート生成4-2/4-2'・結果4-3/4-5／0fedf13 履歴詳細5-2（新ルート `/history/detail`、個別削除は詳細画面へ移動）・推移グラフ5-4（リスト／グラフ切替。1週間＝今日まで7日、1か月＝今日まで30日。体調は棒グラフ、推定心拍は実データのみ折れ線。チャートパッケージ追加なし）。
+- ユーザー決定（2026-10-18）：計測開始はボタンのまま（見た目のみ合わせる）／比較条件は「今日を除く直近7日・有効3件以上」を維持（デザインの7日分表記は3日分／3件に書き換え）／追加画面は初回設定・体温範囲チェック・推移グラフ・このアプリについて／os_2604ではCodexレビュー不使用。
+- 見送り・相違（詳細は docs/ui/implementation-plan.md「現行仕様との相違点」）：1-8 TipKitは永続化せず初回完了直後のみ／研究・実験モード行6-5は設定が無く未実装／「設定アプリを開く」ボタンは依存追加なしで実装手段がなく手順表示のみ／プライバシーポリシー行は本文なしで省略（免責は「このアプリについて」内）／6-2・6-5'はスクリーンショット未取得／4-4品質不足の結果画面は現行フローで到達せず未実装／結果画面の表示後入力編集ボタンは廃止／品質ラベルpoorは「不足」に統一／クラウドを示唆する文言は不採用／キャラクター画像は仮アイコン（`AsakaoMascot`）、フォントはシステムフォント。
+- 検証：dart format OK、flutter analyze 指摘なし、flutter test 322件成功。未確認：実機・シミュレータでの見た目（Mac空き容量不足。Xcode26.4では既存のiOS27 API参照でビルド失敗する既知問題あり、下記参照）。DerivedDataを削除して約2GB確保。
+- 次：`codex/ui` へのPR、実機での見た目確認、キャラクター素材の差し替え、6-2／6-5' の確認。
+
+## 2026-10-18 共有デザインへのUI反映（履歴画面・先行ブランチ `codex/ui-history`）
+
+- UI統合用の親 `codex/ui` をmain `247f552`から作成。画面ブランチ `codex/ui-history` を親から作成。PR取り込み先は `codex/ui`、mainへのマージは人間が行う。
+- 参照：https://claude.ai/artifact/3whhpT5HvHAutGkch8W1zT#page-dcb81aee8d83 。対象：履歴の一覧／今日の記録／週間の花／記録なし。暖かい白 #FFF8F3、濃茶、コーラル。週間は日曜始まり、同日複数記録は1輪、未来日・品質不足は含めない。
+- 維持：削除確認・エラー再試行・記録ごとの結果遷移、計測／AI／DB／通知、Liquid Glassタブバー。比較は「今日を除く直近7日・有効3件以上」。
+- 検証：全276テスト成功、analyze指摘なし。390x844はテスト専用メモリDBで画像化し視覚確認。
+- iOSビルド：基点mainのAppDelegate.swiftがXcode26.4にないiOS27向けエラー型を参照して失敗。Swift6.4/Xcode27以降でのみ新型をコンパイルするguardを追加（Xcode26では既存GenerationError変換を維持）。Xcode26.4で署名付きReleaseビルド成功（60.7MB）、iPhone15 / iOS26.6.2へ導入・起動成功。Xcode27での再ビルドは未実施。
+- 親へ各PRを取り込んでから次の子ブランチを親から切る。
+
+## 以下は基点mainからの過去記録
+
+## 2026-10-17 P2（30fps分離RGBサンプリング・rPPG・顔色特徴量）および B担当DB/履歴・P1 Swift Foundation Models 統合検証
 
 - 追加依頼「PR出してください」に対応し、実装コミット `7ec8c82` をorigin/rppg_accuracy_validation_integrationへ通常push。main向けドラフトPR #12を作成： https://github.com/jphacks/os_2604/pull/12 。マージは未実施。
 - 最新取得main `444390f` と `.codex/STATE.md`、onboarding_screen.dart、result_screen.dart、scan_screen.dartで競合。GitHubもCONFLICTINGを確認。作業ファイルのマージは行っていない。

@@ -224,6 +224,9 @@ private final class OnDeviceAiBridge {
     if error is CancellationError {
       return "cancelled"
     }
+    // Xcode 27 ships Swift 6.4 and the new Foundation Models error types.
+    // Runtime availability alone cannot hide those types from the Xcode 26 SDK.
+    #if compiler(>=6.4)
     if #available(iOS 27.0, *) {
       if let modelError = error as? SystemLanguageModel.Error {
         switch modelError {
@@ -253,6 +256,7 @@ private final class OnDeviceAiBridge {
         }
       }
     }
+    #endif
     if let genError = error as? LanguageModelSession.GenerationError {
       switch genError {
       case .assetsUnavailable:

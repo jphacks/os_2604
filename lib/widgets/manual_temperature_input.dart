@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// 任意の外部体温。保存側は [onValidityChanged] がfalseの間は保存しないこと。
+import '../ui/asakao_style.dart';
+import '../ui/asakao_widgets.dart';
+
+/// 任意の外部体温（手入力）。34.0〜42.0 ℃、または空欄を有効とする。
+/// 保存側は [onValidityChanged] がfalseの間は保存しないこと。
 /// 不正入力では古い親値を残さないよう [onChanged] にnullも通知する。
 class ManualTemperatureInput extends StatefulWidget {
   const ManualTemperatureInput({
@@ -14,6 +18,11 @@ class ManualTemperatureInput extends StatefulWidget {
              (value > double.negativeInfinity && value < double.infinity),
        );
 
+  /// 入力できる体温の範囲（℃）。
+  static const minCelsius = 34.0;
+  static const maxCelsius = 42.0;
+  static const rangeMessage = '34.0〜42.0℃の範囲で入力してください。空欄のままでも進めます。';
+
   final bool enabled;
   final double? value;
   final ValueChanged<double?> onChanged;
@@ -25,15 +34,22 @@ class ManualTemperatureInput extends StatefulWidget {
 
 class _ManualTemperatureInputState extends State<ManualTemperatureInput> {
   late final TextEditingController _controller;
-  final _fieldKey = GlobalKey<FormFieldState<String>>();
   double? _lastReportedValue;
   int _revision = 0;
+  bool _invalid = false;
 
   @override
   void initState() {
     super.initState();
     _lastReportedValue = widget.value;
     _controller = TextEditingController(text: widget.value?.toString() ?? '');
+    _invalid = !_isValid(_controller.text);
+    if (_invalid) {
+      // 保存済みの範囲外の値を開いた場合、親へ保存不可を通知する。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _invalid) widget.onValidityChanged(false);
+      });
+    }
   }
 
   @override
@@ -53,8 +69,9 @@ class _ManualTemperatureInputState extends State<ManualTemperatureInput> {
             _controller.text != text) {
           return;
         }
-        _fieldKey.currentState?.validate();
-        widget.onValidityChanged(_isValid(text));
+        final valid = _isValid(text);
+        setState(() => _invalid = !valid);
+        widget.onValidityChanged(valid);
       });
     }
   }
@@ -67,64 +84,128 @@ class _ManualTemperatureInputState extends State<ManualTemperatureInput> {
 
   double? _parse(String text) => double.tryParse(text.trim());
 
-  bool _isValid(String text) =>
-      text.trim().isEmpty ||
-      ((_parse(text)?.isFinite ?? false) && _parse(text)! > 0);
+  bool _isValid(String text) {
+    if (text.trim().isEmpty) return true;
+    final v = _parse(text);
+    return v != null &&
+        v.isFinite &&
+        v >= ManualTemperatureInput.minCelsius &&
+        v <= ManualTemperatureInput.maxCelsius;
+  }
 
   void _report(String text) {
     _revision++;
     final valid = _isValid(text);
     final next = valid ? _parse(text) : null;
     _lastReportedValue = next;
+    setState(() => _invalid = !valid);
     widget.onValidityChanged(valid);
     widget.onChanged(next);
-    _fieldKey.currentState?.validate();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('体温（任意）', style: Theme.of(context).textTheme.titleMedium),
-        const Text('外部の体温計による手入力'),
-        const Text('カメラでは体温を測定しません'),
-        const SizedBox(height: 8),
-        TextFormField(
-          key: _fieldKey,
-          enabled: widget.enabled,
-          controller: _controller,
-          keyboardType: const TextInputType.numberWithOptions(
-            decimal: true,
-            signed: true,
+    final borderColor = _invalid ? AsakaoStyle.destructive : AsakaoStyle.border;
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: color, width: _invalid ? 2 : 1.5),
+    );
+    return AsakaoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '体温',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AsakaoStyle.ink,
+                  ),
+                ),
+              ),
+              const Text('任意', style: AsakaoStyle.caption),
+            ],
           ),
-          decoration: const InputDecoration(labelText: '体温', suffixText: '℃'),
-          validator: (text) =>
-              _isValid(text ?? '') ? null : '0より大きい有限の数値を入力してください',
-          onChanged: _report,
-          onFieldSubmitted: _report,
-        ),
-        Wrap(
-          spacing: 8,
-          children: [
-            TextButton(
-              onPressed: widget.enabled
-                  ? () => _report(_controller.text)
-                  : null,
-              child: const Text('入力を確認'),
-            ),
-            TextButton(
-              onPressed: !widget.enabled
-                  ? null
-                  : () {
-                      _controller.clear();
-                      _report('');
-                    },
-              child: const Text('入力を消す'),
-            ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: TextFormField(
+                  enabled: widget.enabled,
+                  controller: _controller,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AsakaoStyle.ink,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '36.4',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    enabledBorder: border(borderColor),
+                    focusedBorder: border(
+                      _invalid ? AsakaoStyle.destructive : AsakaoStyle.coral,
+                    ),
+                    disabledBorder: border(AsakaoStyle.border),
+                  ),
+                  onChanged: _report,
+                  onFieldSubmitted: _report,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                '℃',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AsakaoStyle.muted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_invalid)
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(
+                    Icons.error_outline,
+                    size: 16,
+                    color: AsakaoStyle.destructive,
+                  ),
+                ),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    ManualTemperatureInput.rangeMessage,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      fontWeight: FontWeight.w700,
+                      color: AsakaoStyle.destructive,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            const Text('手持ちの体温計で測った値を入力します。', style: AsakaoStyle.caption),
+            const Text('カメラでは体温を測定しません。', style: AsakaoStyle.caption),
           ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

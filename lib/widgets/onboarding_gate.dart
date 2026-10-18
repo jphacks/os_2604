@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../screens/onboarding_screen.dart';
+import '../services/notifications/daily_reminder_service.dart';
 import '../services/settings/onboarding_store.dart';
+import '../services/settings/reminder_settings_store.dart';
+import '../ui/asakao_style.dart';
+import '../ui/asakao_widgets.dart';
 
 /// Waits for durable acknowledgement before entering the home screen.
 class OnboardingGate extends StatefulWidget {
@@ -9,10 +13,16 @@ class OnboardingGate extends StatefulWidget {
     super.key,
     required this.store,
     required this.homeBuilder,
+    required this.reminderService,
+    required this.reminderStore,
+    this.requestCameraPermission = requestSystemCameraPermission,
   });
 
   final OnboardingStore store;
   final WidgetBuilder homeBuilder;
+  final DailyReminderService reminderService;
+  final ReminderSettingsStore reminderStore;
+  final Future<bool?> Function() requestCameraPermission;
 
   @override
   State<OnboardingGate> createState() => _OnboardingGateState();
@@ -22,6 +32,9 @@ class _OnboardingGateState extends State<OnboardingGate> {
   bool? _completed;
   bool _loading = false;
   bool _saving = false;
+
+  /// 初回設定をこの起動で終えた直後だけ、カメラボタンの案内を出す。
+  bool _showTip = false;
   String? _error;
   int _generation = 0;
 
@@ -79,6 +92,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
       setState(() {
         _saving = false;
         _completed = true;
+        _showTip = true;
       });
     } catch (_) {
       if (!mounted || generation != _generation) return;
@@ -116,11 +130,66 @@ class _OnboardingGateState extends State<OnboardingGate> {
         ),
       );
     }
-    if (_completed == true) return widget.homeBuilder(context);
+    if (_completed == true) {
+      final home = widget.homeBuilder(context);
+      if (!_showTip) return home;
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          home,
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.paddingOf(context).bottom + 100,
+            child: _FirstTip(onClose: () => setState(() => _showTip = false)),
+          ),
+        ],
+      );
+    }
     return OnboardingScreen(
-      onContinue: _complete,
+      onFinish: _complete,
+      reminderService: widget.reminderService,
+      reminderStore: widget.reminderStore,
+      requestCameraPermission: widget.requestCameraPermission,
       isSaving: _saving,
       saveError: _error,
     );
   }
+}
+
+/// 1-8。初回設定の直後に、カメラボタンの場所を一度だけ案内する。
+class _FirstTip extends StatelessWidget {
+  const _FirstTip({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) => AsakaoCard(
+    child: Row(
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '毎朝のチェックはここから',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AsakaoStyle.ink,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text('下のカメラボタンを押すと15秒の計測が始まります。', style: AsakaoStyle.caption),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: '閉じる',
+          onPressed: onClose,
+          icon: const Icon(Icons.close, color: AsakaoStyle.muted),
+        ),
+      ],
+    ),
+  );
 }
