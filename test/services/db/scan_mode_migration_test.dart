@@ -37,11 +37,8 @@ void main() {
     await old.customStatement(
       'ALTER TABLE health_records DROP COLUMN scan_mode',
     );
-<<<<<<< HEAD
     await old.customStatement('DROP TABLE health_record_environment');
     await old.customStatement('DROP TABLE scan_preferences');
-=======
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
     await old.customStatement('PRAGMA user_version = 4');
     await old.close();
     for (var opening = 0; opening < 2; opening++) {
@@ -72,11 +69,7 @@ void main() {
         expect(
           (await migrated.customSelect('PRAGMA user_version').getSingle())
               .read<int>('user_version'),
-<<<<<<< HEAD
           7,
-=======
-          6,
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
         );
         if (opening == 0) {
           await repo.insert(

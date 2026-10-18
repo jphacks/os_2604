@@ -6,19 +6,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:os_2604/models/environment_snapshot.dart';
 import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/models/scan_contract.dart';
-import 'package:os_2604/navigation/app_routes.dart';
-import 'package:os_2604/screens/scan_screen.dart';
+import 'package:os_2604/app.dart';
+import 'package:os_2604/services/settings/onboarding_store.dart';
 import 'package:os_2604/services/db/app_database.dart';
 import 'package:os_2604/services/db/health_record_repository.dart';
 import 'package:os_2604/services/db/environment_record_repository.dart';
 import 'package:os_2604/services/device/environment_save_service.dart';
 import 'package:os_2604/services/device/led_notification_service.dart';
 import 'package:os_2604/services/device/led_transport.dart';
-import 'package:os_2604/widgets/environment_view.dart';
 
 import '../support/fake_environment_transport.dart';
 import '../support/environment_packet.dart';
 import '../support/fake_scan.dart';
+import '../support/fake_reminder.dart';
+
+class _Done implements OnboardingStore {
+  @override
+  Future<bool> hasCompletedOnboarding() async => true;
+  @override
+  Future<void> completeOnboarding() async {}
+}
 
 class _Health extends HealthRecordRepository {
   _Health(super.database);
@@ -80,22 +87,15 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      MaterialApp(
-        home: ScanScreen(
-          repository: health,
-          createSession: () => sessionOf(scan),
-          ledService: led,
-          environmentSaves: saves,
-        ),
-        routes: {
-          AppRoutes.result: (_) => Scaffold(
-            body: SavedEnvironmentView(
-              recordId: 'rec-1',
-              store: environment,
-              saves: saves,
-            ),
-          ),
-        },
+      MorningCheckApp(
+        onboardingStore: _Done(),
+        repository: health,
+        aiRunner: runnerOf(FakeAiClient()),
+        reminderService: FakeReminderService(),
+        reminderStore: FakeReminderStore(),
+        createScanSession: () => sessionOf(scan),
+        ledService: led,
+        environmentSaves: saves,
       ),
     );
     led.initialize();
@@ -108,8 +108,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
     expect(led.snapshotEnvironment().state, EnvironmentState.available);
-    await tester.tap(find.text('開始'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('main-tab-1')));
+    await tester.pumpAndSettle();
+    expect(scan.starts, 1);
   }
 
   Future<void> close(WidgetTester tester) async {

@@ -352,89 +352,29 @@ class _ResultScreenState extends State<ResultScreen> {
     };
   }
 
+  List<Widget> _kitInformation() => [
+    if (widget.ledService case final service?) ...[
+      const SizedBox(height: 16),
+      const Text('現在のキット接続・LED状態'),
+      LedKitStatus(service: service),
+      const Text('下の環境情報は計測終了時に保存した記録です。現在の接続状態とは別に表示します。'),
+    ],
+    if (widget.environmentSaves case final saves?) ...[
+      const SizedBox(height: 16),
+      SavedEnvironmentView(
+        key: ValueKey(widget.recordId),
+        recordId: widget.recordId!,
+        store: saves.store,
+        saves: saves,
+      ),
+    ],
+  ];
+
   // ---- 4-1 自己申告 ----
 
   Widget _inputView() {
     return _page(
       children: [
-<<<<<<< HEAD
-        const Text('記録は保存されました。'),
-        if (widget.ledService case final service?) ...[
-          const SizedBox(height: 8),
-          Text(
-            '現在のキット接続・LED状態',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          LedKitStatus(service: service),
-          const Text('下の環境情報は、計測終了時に保存した記録です。'),
-        ],
-        const SizedBox(height: 16),
-        _row('計測日時', _fmt(r.measuredAt)),
-        _row(
-          '計測時間',
-          '${(r.elapsed.inMilliseconds / 1000).toStringAsFixed(1)} 秒',
-        ),
-        _row('品質', _quality(r.quality)),
-        _row('顔検出', r.faceDetected ? 'あり' : 'なし'),
-        _row('心拍数', showHr ? '${hr.round()} bpm' : '未測定'),
-        if (showHr) const Text('心拍数は試験的な推定値です'),
-        _row(
-          '顔色特徴量',
-          r.faceColorFeature == null ? '未測定' : '${r.faceColorFeature}',
-        ),
-        _row('体温', t == null ? '未測定' : '$t ℃（${_source(r.temperatureSource)}）'),
-        const Text('体温はカメラで測定していません'),
-        if (widget.environmentSaves case final saves?) ...[
-          const SizedBox(height: 16),
-          SavedEnvironmentView(
-            recordId: r.id,
-            store: saves.store,
-            saves: saves,
-          ),
-          const SizedBox(height: 16),
-        ],
-        _row('体調', r.selfCondition == null ? '未測定' : '${r.selfCondition} / 5'),
-        const SizedBox(height: 16),
-        Text('レポート', style: Theme.of(context).textTheme.titleMedium),
-        Text(r.reportText ?? 'レポートは未生成です。'),
-        if (r.reportText != null) ...[
-          Text(r.aiMode == ReportMode.onDevice ? '端末内AIで作成' : '定型文で作成'),
-          if (r.aiMode == ReportMode.template && _fallbackReason != null)
-            Text(_reasonText(_fallbackReason!)),
-        ],
-        const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: _generating || _saving || _writingReport
-              ? null
-              : _generateReport,
-          child: Text(
-            _generating
-                ? 'レポートを作成しています…'
-                : r.reportText == null
-                ? 'レポートを作成'
-                : 'レポートを作り直す',
-          ),
-        ),
-        if (_reportMsg != null) Text(_reportMsg!),
-        const Divider(height: 32),
-        AbsorbPointer(
-          absorbing: _writingReport,
-          child: SelfConditionInput(
-            value: _condition,
-            onChanged: (v) => setState(() {
-              if (_writingReport) return;
-              _inputChanged();
-              _condition = v;
-              _conditionMsg = null;
-            }),
-          ),
-        ),
-        OutlinedButton(
-          onPressed: _saving || _writingReport ? null : _saveCondition,
-          child: const Text('体調を保存'),
-        ),
-        if (_conditionMsg != null) Text(_conditionMsg!),
-=======
         Row(
           children: [
             Container(
@@ -452,7 +392,7 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
           ],
         ),
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
+        ..._kitInformation(),
         const SizedBox(height: 24),
         Semantics(
           header: true,
@@ -592,6 +532,7 @@ class _ResultScreenState extends State<ResultScreen> {
         RecordQualityCard(r),
         const AsakaoSectionLabel('今日の記録'),
         RecordValuesCard(r, conditionDiff: diff),
+        ..._kitInformation(),
         const AsakaoSectionLabel('今日のレポート'),
         RecordReportCard(
           r,
