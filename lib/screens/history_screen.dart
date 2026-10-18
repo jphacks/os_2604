@@ -10,6 +10,7 @@ import '../ui/asakao_record_widgets.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
 import '../widgets/history_trend_view.dart';
+import '../widgets/history_period_picker.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({
@@ -33,6 +34,55 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   late Stream<List<HealthCheckResult>> _records = widget.store.watchAll();
   bool _graph = false;
+  late int _year = widget.now().toLocal().year;
+  late int? _month = widget.now().toLocal().month;
+  bool _periodExpanded = false;
+
+  bool _inPeriod(HealthCheckResult r) {
+    final at = r.measuredAt.toLocal();
+    return at.year == _year && (_month == null || at.month == _month);
+  }
+
+  DateTimeRange get _period => DateTimeRange(
+    start: DateTime(_year, _month ?? 1),
+    end: DateTime(_year, _month == null ? 13 : _month! + 1, 0),
+  );
+
+  Widget _periodPicker(List<HealthCheckResult> records, int count) {
+    final years = {
+      widget.now().toLocal().year,
+      _year,
+      for (final r in records) r.measuredAt.toLocal().year,
+    }.toList()..sort((a, b) => b.compareTo(a));
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: HistoryPeriodPicker(
+        year: _year,
+        month: _month,
+        expanded: _periodExpanded,
+        years: years,
+        count: count,
+        availableMonths: {
+          for (final r in records)
+            if (r.measuredAt.toLocal().year == _year)
+              r.measuredAt.toLocal().month,
+        },
+        onToggle: () => setState(() => _periodExpanded = !_periodExpanded),
+        onYear: (year) => setState(() {
+          _year = year;
+          _month = null;
+        }),
+        onMonth: (month) => setState(() {
+          _month = month;
+          _periodExpanded = false;
+        }),
+        onWholeYear: () => setState(() {
+          _month = null;
+          _periodExpanded = false;
+        }),
+      ),
+    );
+  }
 
   Widget _baselineCard(List<HealthCheckResult> records) {
     final b = calculateHistoryBaseline([
@@ -84,26 +134,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (graph != _graph) setState(() => _graph = graph);
   }
 
-  Widget _list(List<HealthCheckResult> records) {
+  Widget _list(List<HealthCheckResult> records, {bool noRecords = false}) {
     if (records.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(24, 48, 24, 24),
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
         child: Column(
           children: [
             Text(
-              'まだ記録がありません',
-              style: TextStyle(
+              noRecords ? 'まだ記録がありません' : 'この期間の記録はありません',
+              style: const TextStyle(
                 fontFamily: AsakaoStyle.displayFont,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: AsakaoStyle.ink,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              '最初のチェックのあと、ここに毎朝の記録が並びます。',
+              '年月を変更するか、カメラから新しい記録をつけてください。',
               textAlign: TextAlign.center,
-              style: TextStyle(height: 1.6, color: AsakaoStyle.muted),
+              style: const TextStyle(height: 1.6, color: AsakaoStyle.muted),
             ),
           ],
         ),
@@ -113,11 +163,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var index = 0; index < records.length; index++) ...[
-          if (index == 0 ||
-              records[index - 1].measuredAt.toLocal().month !=
-                  records[index].measuredAt.toLocal().month ||
-              records[index - 1].measuredAt.toLocal().year !=
-                  records[index].measuredAt.toLocal().year)
+          if (_month == null &&
+              (index == 0 ||
+                  records[index - 1].measuredAt.toLocal().month !=
+                      records[index].measuredAt.toLocal().month ||
+                  records[index - 1].measuredAt.toLocal().year !=
+                      records[index].measuredAt.toLocal().year))
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
@@ -513,6 +564,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           }
           final records = [...data]
             ..sort((a, b) => b.measuredAt.compareTo(a.measuredAt));
+          final filtered = records.where(_inPeriod).toList();
           return CustomScrollView(
             slivers: [
               SliverPadding(
@@ -527,7 +579,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [_baselineCard(records), _viewToggle()],
+                          children: [
+                            _baselineCard(records),
+                            _viewToggle(),
+                            _periodPicker(records, filtered.length),
+                          ],
                         ),
                       ),
                     ],
@@ -568,13 +624,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             key: const ValueKey('history-graph'),
                             padding: const EdgeInsets.only(top: 12),
                             child: HistoryTrendView(
-                              records: records,
+                              records: filtered,
                               now: widget.now,
+                              period: _period,
                             ),
                           )
                         : KeyedSubtree(
                             key: const ValueKey('history-list'),
-                            child: _list(records),
+                            child: _list(filtered, noRecords: records.isEmpty),
                           ),
                   ),
                 ),

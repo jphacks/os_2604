@@ -21,19 +21,30 @@ void main() {
   });
   tearDown(() async => db.close());
 
-  Future<void> openGraph(WidgetTester tester) async {
+  Future<void> openGraph(WidgetTester tester, {bool screen = false}) async {
     tester.view.physicalSize = const Size(800, 3000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        home: HistoryScreen(store: repo, now: () => now),
+        home: screen
+            ? HistoryScreen(store: repo, now: () => now)
+            : Scaffold(
+                body: SingleChildScrollView(
+                  child: HistoryTrendView(
+                    records: await repo.loadAll(),
+                    now: () => now,
+                  ),
+                ),
+              ),
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('グラフ'));
-    await tester.pumpAndSettle();
+    if (screen) {
+      await tester.tap(find.text('グラフ'));
+      await tester.pumpAndSettle();
+    }
   }
 
   Finder keyed(String prefix) => find.byWidgetPredicate((w) {
@@ -56,10 +67,10 @@ void main() {
 
   historyTest('toggle switches between list and graph', (tester) async {
     await repo.insert(historyRec('a', DateTime(2026, 10, 16, 8), cond: 4));
-    await openGraph(tester);
+    await openGraph(tester, screen: true);
     expect(find.byKey(const ValueKey('history-row-a')), findsNothing);
-    expect(find.text('1週間'), findsOneWidget);
-    expect(find.text('1か月'), findsOneWidget);
+    expect(find.text('2026年10月'), findsOneWidget);
+    expect(find.text('1週間'), findsNothing);
     expect(find.text('破線は記録のない日'), findsOneWidget);
     await tester.tap(find.text('リスト'));
     await tester.pumpAndSettle();
