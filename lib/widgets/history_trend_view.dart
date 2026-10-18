@@ -46,16 +46,9 @@ enum _Range {
 class _HistoryTrendViewState extends State<HistoryTrendView> {
   _Range _range = _Range.week;
   bool _weekly = false;
-  int _weekOffset = 0;
 
   DateTime _sunday(DateTime date) =>
       DateTime(date.year, date.month, date.day - date.weekday % 7);
-
-  @override
-  void didUpdateWidget(HistoryTrendView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.period != widget.period) _weekOffset = 0;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,24 +64,7 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
           ? selected.start
           : anchor,
     );
-    final earliestWeek = _sunday(selected?.start ?? latestWeek);
-    final maxOffset =
-        DateTime.utc(latestWeek.year, latestWeek.month, latestWeek.day)
-            .difference(
-              DateTime.utc(
-                earliestWeek.year,
-                earliestWeek.month,
-                earliestWeek.day,
-              ),
-            )
-            .inDays ~/
-        7;
-    final offset = _weekOffset.clamp(0, maxOffset);
-    final weekStart = DateTime(
-      latestWeek.year,
-      latestWeek.month,
-      latestWeek.day - offset * 7,
-    );
+    final weekStart = latestWeek;
     final period = weekly
         ? DateTimeRange(
             start: weekStart,
@@ -135,25 +111,6 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
               key: const ValueKey('graph-week-period'),
               textAlign: TextAlign.center,
               style: AsakaoStyle.body,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  key: const ValueKey('graph-previous-week'),
-                  onPressed: offset < maxOffset
-                      ? () => setState(() => _weekOffset = offset + 1)
-                      : null,
-                  child: const Text('前の週'),
-                ),
-                TextButton(
-                  key: const ValueKey('graph-next-week'),
-                  onPressed: offset > 0
-                      ? () => setState(() => _weekOffset = offset - 1)
-                      : null,
-                  child: const Text('次の週'),
-                ),
-              ],
             ),
             const Text(
               '日曜〜土曜の7日間を表示します（月をまたぐ週も含みます）。',

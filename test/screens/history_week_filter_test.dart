@@ -54,8 +54,8 @@ void main() {
     expect(key('bar-2026-10-01'), findsOneWidget);
     expect(key('bar-2026-10-05'), findsNothing);
     expect(average(t), '3.0');
-    expect(t.widget<TextButton>(key('graph-previous-week')).onPressed, isNull);
-    expect(t.widget<TextButton>(key('graph-next-week')).onPressed, isNull);
+    expect(key('graph-previous-week'), findsNothing);
+    expect(key('graph-next-week'), findsNothing);
     await t.tap(find.text('選択期間'));
     await t.pumpAndSettle();
     expect(key('graph-week-period'), findsNothing);
@@ -63,31 +63,23 @@ void main() {
     expect(key('bar-2026-10-05'), findsOneWidget);
     expect(average(t), '4.0');
   });
-  testWidgets('previous and next move by one calendar week', (t) async {
+  testWidgets('current week has no previous or next navigation', (t) async {
     await open(t);
     expect(find.text('2026-10-18 〜 2026-10-24'), findsOneWidget);
     expect(average(t), '—');
-    expect(t.widget<TextButton>(key('graph-next-week')).onPressed, isNull);
-    await t.tap(key('graph-previous-week'));
-    await t.pumpAndSettle();
-    expect(find.text('2026-10-11 〜 2026-10-17'), findsOneWidget);
-    expect(average(t), '3.0');
-    await t.tap(key('graph-previous-week'));
-    await t.pumpAndSettle();
-    expect(find.text('2026-10-04 〜 2026-10-10'), findsOneWidget);
-    expect(average(t), '5.0');
-    await t.tap(key('graph-next-week'));
-    await t.pumpAndSettle();
-    expect(find.text('2026-10-11 〜 2026-10-17'), findsOneWidget);
+    expect(find.text('前の週'), findsNothing);
+    expect(find.text('次の週'), findsNothing);
+    expect(key('bar-2026-10-12'), findsNothing);
   });
-  testWidgets('small screen with large text can switch and move weeks', (
-    t,
-  ) async {
+  testWidgets('small screen with large text can switch the range', (t) async {
     await open(t, large: true);
-    await t.ensureVisible(key('graph-previous-week'));
-    await t.tap(key('graph-previous-week'));
+    await t.ensureVisible(find.text('選択期間'));
+    await t.tap(find.text('選択期間'));
     await t.pumpAndSettle();
-    expect(find.text('2026-10-11 〜 2026-10-17'), findsOneWidget);
+    expect(key('graph-week-period'), findsNothing);
+    await t.tap(find.text('1週間'));
+    await t.pumpAndSettle();
+    expect(find.text('2026-10-18 〜 2026-10-24'), findsOneWidget);
     expect(t.takeException(), isNull);
   });
 }
