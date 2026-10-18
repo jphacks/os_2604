@@ -35,6 +35,7 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   late Stream<List<HealthCheckResult>> _records = widget.store.watchAll();
   bool _graph = false;
+  bool _weeklyGraph = false;
   late int _year = widget.now().toLocal().year;
   late int? _month = widget.now().toLocal().month;
   bool _periodExpanded = false;
@@ -58,6 +59,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: HistoryPeriodPicker(
+        controls: _graph
+            ? HistoryGraphRangeSelector(
+                weekly: _weeklyGraph,
+                onChanged: (value) => setState(() => _weeklyGraph = value),
+              )
+            : null,
         year: _year,
         month: _month,
         expanded: _periodExpanded,
@@ -865,6 +872,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 now: widget.now,
                                 period: _period,
                                 weeklyRecords: records,
+                                weekly: _weeklyGraph,
+                                showRangeControls: false,
                               ),
                             )
                           : KeyedSubtree(

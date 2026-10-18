@@ -17,11 +17,15 @@ class HistoryTrendView extends StatefulWidget {
     required this.now,
     this.period,
     this.weeklyRecords,
+    this.weekly,
+    this.showRangeControls = true,
   });
 
   final List<HealthCheckResult> records;
   final DateTime Function() now;
   final DateTimeRange? period;
+  final bool? weekly;
+  final bool showRangeControls;
 
   /// Unfiltered records for calendar weeks crossing the selected month.
   final List<HealthCheckResult>? weeklyRecords;
@@ -56,7 +60,7 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
   @override
   Widget build(BuildContext context) {
     final selected = widget.period;
-    final weekly = selected != null && _weekly;
+    final weekly = selected != null && (widget.weekly ?? _weekly);
     final now = widget.now().toLocal();
     final today = DateTime(now.year, now.month, now.day);
     final anchor = selected == null || selected.end.isAfter(today)
@@ -119,22 +123,11 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (selected != null) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _RangeChip(
-                label: '1週間',
-                selected: _weekly,
-                onTap: () => setState(() => _weekly = true),
-              ),
-              _RangeChip(
-                label: '選択期間',
-                selected: !_weekly,
-                onTap: () => setState(() => _weekly = false),
-              ),
-            ],
-          ),
+          if (widget.showRangeControls)
+            HistoryGraphRangeSelector(
+              weekly: weekly,
+              onChanged: (value) => setState(() => _weekly = value),
+            ),
           if (weekly) ...[
             const SizedBox(height: 12),
             Text(
@@ -189,6 +182,29 @@ class _HistoryTrendViewState extends State<HistoryTrendView> {
       ],
     );
   }
+}
+
+class HistoryGraphRangeSelector extends StatelessWidget {
+  const HistoryGraphRangeSelector({
+    super.key,
+    required this.weekly,
+    required this.onChanged,
+  });
+  final bool weekly;
+  final ValueChanged<bool> onChanged;
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      _RangeChip(label: '1週間', selected: weekly, onTap: () => onChanged(true)),
+      _RangeChip(
+        label: '選択期間',
+        selected: !weekly,
+        onTap: () => onChanged(false),
+      ),
+    ],
+  );
 }
 
 class _RangeChip extends StatelessWidget {
