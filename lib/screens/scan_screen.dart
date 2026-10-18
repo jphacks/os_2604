@@ -15,14 +15,11 @@ import '../models/scan_contract.dart';
 import '../navigation/app_routes.dart';
 import '../navigation/app_transitions.dart';
 import '../services/db/health_record_repository.dart';
-<<<<<<< HEAD
 import '../services/device/led_notification_service.dart';
 import '../widgets/led_kit_controls.dart';
-=======
 import '../services/sound/sound_effects.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 
 /// 画面が1つ所有する計測サービスとそのプレビュー。
 typedef ScanSession = ({
@@ -36,22 +33,16 @@ class ScanScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.createSession,
-<<<<<<< HEAD
     this.ledService,
     this.environmentSaves,
-=======
     this.researchMode = false,
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
   });
 
   final HealthRecordRepository repository;
   final ScanSession Function() createSession;
-<<<<<<< HEAD
   final LedNotificationService? ledService;
   final EnvironmentSaveService? environmentSaves;
-=======
   final bool researchMode;
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -62,12 +53,6 @@ enum _Stage { idle, running, saving, saveFailed, failed }
 class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   LedAttempt? _ledAttempt;
   bool _completedNavigation = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -105,6 +90,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 3-1'。画面を開いたらすぐにカメラを起動し、条件がそろえば自動で計測を始める。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_start());
@@ -129,12 +115,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-<<<<<<< HEAD
     WidgetsBinding.instance.removeObserver(this);
     if (!_completedNavigation) widget.ledService?.cancelAttempt(_ledAttempt);
-=======
     unawaited(_progressSub?.cancel());
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
     _attempt++;
     unawaited(_release().catchError((Object _) {}));
     super.dispose();
@@ -195,13 +178,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     if (!_isCurrent(attempt)) return;
     switch (outcome) {
       case ScanSuccess(:final result):
-<<<<<<< HEAD
         _frozenEnvironment =
             widget.ledService?.snapshotEnvironment() ??
             EnvironmentSnapshot(state: EnvironmentState.disabled);
-=======
         SoundEffects.play(SoundEffect.measureDone);
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
         await _save(result, attempt);
       case ScanFailure(:final reason):
         widget.ledService?.cancelAttempt(_ledAttempt);
@@ -316,46 +296,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-<<<<<<< HEAD
-                const SizedBox(height: 16),
-                StreamBuilder<ScanProgress>(
-                  stream: _session.service.progress,
-                  initialData: _session.service.currentProgress,
-                  builder: (context, snap) => _progress(
-                    context,
-                    snap.data ?? _session.service.currentProgress,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ..._status(),
-                if (widget.ledService case final service?) ...[
-                  const SizedBox(height: 16),
-                  LedKitStatus(service: service),
-                  LiveEnvironmentView(service: service),
-                ],
-                const SizedBox(height: 16),
-                if (_stage == _Stage.saveFailed)
-                  FilledButton(
-                    onPressed: _leaving
-                        ? null
-                        : () => _save(_unsaved!, _attempt),
-                    child: const Text('保存を再試行'),
-                  )
-                else
-                  FilledButton(
-                    onPressed: busy ? null : _start,
-                    child: Text(_stage == _Stage.failed ? '再試行' : '開始'),
-                  ),
-                const SizedBox(height: 16),
-                const Text(
-                  'このアプリは診断目的ではありません。画像や動画は保存されません。',
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-=======
             ],
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
           ),
         ),
       ),
@@ -392,6 +333,18 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      if (widget.ledService case final service?) ...[
+                        AsakaoCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              LedKitStatus(service: service),
+                              LiveEnvironmentView(service: service),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       _heading(measuring),
                       const SizedBox(height: 16),
                       _guideOval(p, conditions, measuring),

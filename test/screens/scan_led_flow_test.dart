@@ -91,8 +91,7 @@ void main() {
     }
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('開始'));
-    await tester.pump();
+    expect(scan.starts, 1);
     transport.writes.clear();
   }
 
@@ -155,7 +154,7 @@ void main() {
     repository.gate = Completer<void>();
     scan.finish(successOutcome());
     await tester.pump();
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
     repository.gate!.complete();
     await tester.pumpAndSettle();

@@ -1,3 +1,22 @@
+# 現在の作業状態
+
+## 2026-10-18 最新mainのマージ修復・実機更新
+
+- 依頼：ユーザーがPR #16をmainへマージしたため、最新mainをUSB接続した実物のiPhoneへインストールする。再開依頼と、修復差分をコミットする依頼あり。push・PR作成・マージ・main直接pushは行わない。
+- 元チェックアウト：`/Users/shindenfuta/os_2604` は `codex/e84-environment-recording`／3551efcのまま保護。以前のmain-build worktreeの未コミットSTATEも保護。
+- 作業先：`/Users/shindenfuta/.codex/worktrees/merged-main-device-install/os_2604`、`codex/fix-main-environment-merge`。origin/mainの9e64bf12611fa419f7a043210012aed71df5d719を起点とする専用managed worktree。再fetchでもmainは同じ。今回の修復はユーザー依頼でこのブランチにコミットする。コミット識別子はGit履歴を参照。pushは未実施。
+- 発見：PR #16のマージコミットに競合マーカーが残り、そのままではコンパイル不能。ユーザーへ説明し、導入に必要な修復をこのブランチで実施。
+- 修復：DBと生成物・移行fixtureは環境対応v7を維持。最新mainのタブ／オンボーディング／研究モード／自動開始／撮影音と計測UIを保持し、設定・ScanModeGate・結果・新しい履歴詳細へLED／環境サービスを接続。計測終了時の環境固定、健康保存成功後の環境関連付け・LED通知、現在接続と過去の環境値の区別を維持。履歴の前後移動では記録IDのkeyで環境ストリームを切り替える。
+- 変更対象：lib/app.dart、screens/{home,main_tabs,settings,scan,result,history_detail}_screen.dart、widgets/scan_mode_gate.dart、DB／生成物、関連試験、README、STATE。カメラ・AI本体、依存lock、既存署名設定は今回の修復で変更していない。
+- 検証：flutter analyze --no-pub指摘なし。全406テスト成功。dart format --output=none --set-exit-if-changed lib test成功、git diff --check成功、競合マーカー残存なし。環境フロー試験は実際のMorningCheckApp→ScanModeGate→Result経路を使用。履歴の前後移動で別記録の環境値が混ざらないことも確認。
+- ビルド／導入：iOS Release（署名なし）・既存Apple Development署名付きRelease・codesign --verify --deep --strict成功。iPhone 17／iOS 27.0.1（UDID末尾EC2401C）のcom.example.os2604へ更新インストール・追加引数なしの起動に成功し、その後も対象プロセスが稼働していることを確認。E84ファームウェアは更新していない。成果物はbuild/ios/main-signed/Build/Products/Release-iphoneos/Runner.app、Runner SHA256は9cf40013d240cc78e0890d52745566c3d01c5abf50d3161544766b295eccac68。
+- データ保護：schema v7維持、アプリの削除・DB再作成・記録削除は行わない。更新前の健康記録DB全体をMacの一時領域へコピーする操作は、自動承認レビューが明示承認不足の機微データ移出として拒否し、未実行。迂回しない。DB全行の更新前後照合は未確認とし、同bundleでの更新と起動確認を進める。実データはログ・Gitへ含めない。
+- 実機UI：この修復版での15秒計測・履歴・LED／環境の再試験は未実施。旧環境対応版のユーザー確認と混同しない。
+- ログ：/private/tmp/merged-main-{pub,format,format-check,analyze,tests-final,ios-config,ios-build,signed-build,install,launch}.log。Flutter／Dart、PUB_CACHE等は以前の一時ランタイムを使用し、tool/flutter_with_xcode.shでコマンド限定のSDK選択。
+- 完了／次：依頼された実機インストールと起動確認は完了。ユーザーによる最新UIの既存履歴表示・15秒計測・キットの再確認は未実施。導入版はmain 9e64bf1にこの修復を加えた版であり、未修正mainそのものではない。修復はユーザー依頼でこのブランチにコミットする。push／PR作成／マージは未実施。mainへ反映する場合は別途依頼に応じて進める。
+
+## 以下は以前の作業記録（現在地は上記）
+
 # 2026-10-18 カメラ比率・カウントダウン逆戻り修正
 
 - 日付移動ボタンの見た目（最終訂正）：カプセル形を維持、黒枠を撤回。アプリ共通の淡いコーラル背景とコーラル文字へ統一し、無効時は中立色。
@@ -46,7 +65,6 @@
 
 # 現在の作業状態
 
-<<<<<<< HEAD
 ## 2026-10-18 室温・湿度：主要動線確認・表示修正済み
 
 - 依頼：計画に基づく実装とブランチ内検証の後、ユーザーが「実機確認しましょう」と依頼。今回は環境対応アプリ・ファームウェアの実機更新と動作確認へ進む。
@@ -96,7 +114,6 @@
 - フェーズ：前回のDay1申告以降、Day2経過時間・残り枠は未回答。日時から推測しない。新機能追加はせず、現在は実装済み機能の検証を行った。
 
 ## 実装と変更ファイル
-=======
 ## 2026-10-18 PR提出
 
 ## 2026-10-18 アサカオデザインを全画面へ反映（Liquid Glassタブバー除く）
@@ -167,7 +184,6 @@
 - v5移行後は旧LED版(v4)への単純差戻し不可。戻す場合はLED側にもv5対応が必要。DB削除やアプリのアンインストールで回避しない。
 - 初回説明・撮影前・結果・新生成レポートにモード／研究制約。rPPG出典と外部由来を区別。心拍の品質不足非表示を維持。
 - 15秒時計・撮影品質閾値・P2推定アルゴリズム・AIチャネル・AI10秒期限・比較条件・権限・依存は変更なし。ネイティブ設定の変更なし。
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 
 - 新規：lib/services/device/{led_transport,reactive_led_transport,led_notification_service}.dart、lib/widgets/led_kit_controls.dart。
 - 接続：lib/{main,app}.dart、lib/screens/{scan,result,settings}_screen.dart、pubspec.yaml／lockfile、ios/Runner/Info.plist。iOSのBluetooth説明を追加しflutter_reactive_ble 5.6.0を固定。Android権限・位置情報・背景モードは追加なし。
@@ -178,15 +194,12 @@
 - 有効結果のDB insert成功後だけ最大1回点灯。AI・BLE処理は結果表示を待たせない。書き込み上限2秒、成功後約3秒で消灯。試行・接続・操作世代と直列キューで古い命令を破棄。timeoutは切断し再送しない。取消・背景化時は無効化、通常結果遷移では消灯タイマー保持。初回カメラ権限のinactiveは既存契約に合わせ保持。
 - DB schema・健康結果型・15秒の時計・品質閾値は変更なし。アプリのアンインストール・健康記録削除はしていない。
 
-<<<<<<< HEAD
 ## 検証結果
-=======
 - lib/app.dart、main.dart、models/health_check_result.dart、features/scan/health_scan_controller.dart。
 - lib/screens/{scan,result,onboarding}_screen.dart、services/ai/template_record_summary.dart。foundation_models_client.dartは古い「Swift未接続」コメントだけ訂正。
 - lib/services/db/{app_database.dart,app_database.g.dart,health_record_repository.dart}。Drift生成は既存build_runnerで実施。
 - test/screens/research_mode_test.dart、test/services/db/scan_mode_migration_test.dartを追加。既存health_scan_controller_testとlegacy_timestamp_migration_testを更新。
 - README、docs/{implementation-decisions,c-integration,c-integration-status,c-ai-integration,demo-guide}.md更新、docs/c-validation.md追加。このSTATEを更新。
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 
 - 最新：dart format --output=none --set-exit-if-changed lib test は78ファイル差分なし。flutter analyze指摘なし。flutter test全287件成功。ログ /private/tmp/e84-scan-fix-{analyze,tests}.log。
 - 保存前送信禁止・保存失敗と再試行・取消／背景化とDB応答の競合・二重完了・初回権限・旧消灯／GATT探索・送信例外／timeout・遅い応答の次試行への混入・AI定型フォールバック／追記時の再送禁止を自動試験で確認。
@@ -194,7 +207,6 @@
 - iPhone 17／iOS 27.0.1に既存署名でReleaseビルド・codesign検証・同bundle（com.example.os2604）への更新インストール・起動成功。新規証明書／端末登録やtracked Team固定なし。最新ログ /private/tmp/e84-scan-fix-signed-build.log、e84-scan-fix-install.json、e84-scan-fix-launch.json。
 - 署名付き成果物：/Users/shindenfuta/Library/Developer/Xcode/DerivedData/Runner-demudxxazdznckdbzylnmlqugfsj/Build/Products/Release-iphoneos/Runner.app。ML KitのSPM非対応警告は既存のCocoaPodsフォールバックでビルド。
 
-<<<<<<< HEAD
 ## 実機結果（ユーザーの操作・目視回答）
 
 - AIROC High Alert／No Alertによる単体点灯・消灯、アプリの検索・明示的接続、手動LEDテストの約3秒後消灯を確認。
@@ -230,7 +242,6 @@
 
 - Flutter /private/tmp/os2604-c-flutter（3.47.7／Dart 3.13.5）、PUB_CACHE=/private/tmp/os2604-c-dart/pub-cache、XDG_CONFIG_HOME=/private/tmp/os2604-c-config。
 - CocoaPods /private/tmp/os2604-c-gems。GEM_HOME／GEM_PATH同、RUBYOPT=-rlogger。tool/flutter_with_xcode.shでコマンド限定Xcode選択。システムxcode-select変更なし。
-=======
 - 整形確認：75ファイル変更なし。flutter analyze --no-pub：指摘なし。
 - flutter test --no-pub：全279件成功。ログ /private/tmp/c-research-tests-final.log。切替・処理中の変更禁止・切替中の離脱・既定通常への復帰・研究nullの保存・追記／定型文での保持、v4→v5→再openで全項目保持と旧日時移行を確認。
 - 元のLEDチェックアウトも調査開始時に整形78ファイル・解析・全287テストが成功したが、今回の心拍版の結果と混同しない。
@@ -261,4 +272,3 @@ Flutter /private/tmp/os2604-c-flutter (3.47.7 / Dart 3.13.5)、PUB_CACHE=/privat
 - ユーザーが新しい通常モード記録の計測→定型文と理由→再起動後の記録・本文保持を2点とも確認。過去AI本文を上書きする手順は案内していない。
 - 通常版の復帰用成果物/private/tmp/c-research-derived-data/Build/Products/Release-iphoneos/Runner.appの署名再検証、同bundle更新導入、起動成功。現在iPhoneは通常版。検証専用版を残した状態ではない。
 - OSの実際のAI利用不可・MethodChannel失敗・生成例外／timeoutの実機再現ではない。これらの分岐は既存の自動試験で確認済み。
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834

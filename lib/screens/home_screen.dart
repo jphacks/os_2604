@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
-<<<<<<< HEAD
 import '../services/device/led_notification_service.dart';
 import '../widgets/environment_view.dart';
-=======
 import '../ui/asakao_widgets.dart';
 import '../widgets/camera_tab_bar.dart';
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
 import '../services/db/health_record_repository.dart';
 
 /// ホーム。本日の実施状態と前回結果は保存済みの記録から表示する。
@@ -57,6 +54,8 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (ledService case final service?)
+                    LiveEnvironmentView(service: service),
                   Center(
                     child: Container(
                       width: 104,
@@ -125,39 +124,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ],
               ),
-<<<<<<< HEAD
-              const SizedBox(height: 16),
-              StreamBuilder<List<HealthCheckResult>>(
-                stream: repository.watchAll(),
-                builder: (context, snapshot) => _status(snapshot),
-              ),
-              const SizedBox(height: 16),
-              if (ledService case final service?) ...[
-                LiveEnvironmentView(service: service),
-                const SizedBox(height: 16),
-              ],
-              FilledButton(
-                onPressed: onStartCheck,
-                child: const Text('チェック開始'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(onPressed: onOpenHistory, child: const Text('履歴')),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: onOpenSettings,
-                child: const Text('設定'),
-              ),
-              if (onShowExplanation != null) ...[
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: onShowExplanation,
-                  child: const Text('アプリの説明'),
-                ),
-              ],
-            ],
-=======
             ),
->>>>>>> ab3f11fbc9e26a8d46ab1af5eb2cb331f76cd834
           ),
         ),
       ),

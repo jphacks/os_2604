@@ -10,7 +10,6 @@ import 'package:os_2604/services/db/environment_record_repository.dart';
 import 'package:os_2604/services/device/environment_save_service.dart';
 import 'package:os_2604/services/device/led_notification_service.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
-import 'package:os_2604/screens/result_screen.dart';
 
 import '../support/fake_scan.dart';
 import '../support/fake_reminder.dart';
@@ -71,6 +70,19 @@ void main() {
             ),
           );
         }
+        await repository.insert(
+          HealthCheckResult(
+            id: 'synthetic-older',
+            measuredAt: DateTime.utc(2026, 10, 16),
+            elapsed: const Duration(seconds: 15),
+            faceDetected: true,
+            quality: MeasurementQuality.good,
+          ),
+        );
+        await environment.attach(
+          'synthetic-older',
+          EnvironmentSnapshot(state: EnvironmentState.disabled),
+        );
         await tester.pumpWidget(
           MorningCheckApp(
             onboardingStore: _Done(),
@@ -84,13 +96,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('履歴'));
-        await tester.pumpAndSettle();
         await tester.tap(
-          find.text(formatRecordDate(DateTime.utc(2026, 10, 17))),
+          find.byKey(const ValueKey('history-row-synthetic-history')),
         );
         await tester.pumpAndSettle();
-        expect(find.text('36.5 ℃（手入力）'), findsOneWidget);
+        expect(find.text('36.5℃'), findsOneWidget);
+        expect(find.text('体温計（手入力）'), findsOneWidget);
         if (hasEnvironment) {
           expect(find.text('現在のキット接続・LED状態'), findsOneWidget);
           expect(find.text('キット未接続'), findsOneWidget);
@@ -103,6 +114,19 @@ void main() {
           expect(find.text('環境情報の保存なし'), findsOneWidget);
           expect(find.textContaining('キット未接続'), findsNothing);
         }
+        // 前後の記録へ移っても、最初の環境ストリームを表示し続けない。
+        await tester.tap(find.byTooltip('古い記録'));
+        await tester.pumpAndSettle();
+        expect(find.text('環境情報の取得はオフです'), findsOneWidget);
+        expect(find.text('キット付近の室温：未測定'), findsOneWidget);
+        expect(find.text('キット付近の室温：-1.2 ℃'), findsNothing);
+        await tester.tap(find.byTooltip('新しい記録'));
+        await tester.pumpAndSettle();
+        expect(find.text('環境情報の取得はオフです'), findsNothing);
+        expect(
+          find.text(hasEnvironment ? 'キット付近の室温：-1.2 ℃' : '環境情報の保存なし'),
+          findsOneWidget,
+        );
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(milliseconds: 1));
       },

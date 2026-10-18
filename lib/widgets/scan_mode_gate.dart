@@ -1,3 +1,6 @@
+import '../services/device/environment_save_service.dart';
+import '../services/device/led_notification_service.dart';
+
 import 'package:flutter/material.dart';
 
 import '../screens/scan_screen.dart';
@@ -8,11 +11,15 @@ import '../services/settings/scan_mode_store.dart';
 class ScanModeGate extends StatefulWidget {
   const ScanModeGate({
     super.key,
+    this.ledService,
+    this.environmentSaves,
     required this.repository,
     required this.standard,
     this.research,
     this.store,
   });
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? environmentSaves;
   final HealthRecordRepository repository;
   final ScanSession Function() standard;
   final ScanSession Function()? research;
@@ -53,6 +60,8 @@ class _ScanModeGateState extends State<ScanModeGate> {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
       return ScanScreen(
+        ledService: widget.ledService,
+        environmentSaves: widget.environmentSaves,
         repository: widget.repository,
         researchMode: snapshot.data == true,
         createSession: snapshot.data == true
