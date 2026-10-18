@@ -1,3 +1,8 @@
+import '../services/device/led_notification_service.dart';
+import '../widgets/led_kit_controls.dart';
+import '../services/device/environment_save_service.dart';
+import '../widgets/environment_view.dart';
+
 import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
@@ -13,10 +18,14 @@ import 'history_screen.dart' show confirmRecordDeletion;
 class HistoryDetailScreen extends StatefulWidget {
   const HistoryDetailScreen({
     super.key,
+    this.environmentSaves,
+    this.ledService,
     required this.store,
     required this.recordId,
   });
 
+  final EnvironmentSaveService? environmentSaves;
+  final LedNotificationService? ledService;
   final HealthRecordStore store;
   final String? recordId;
 
@@ -203,6 +212,28 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
         conditionDiff: _conditionDiff(r, all),
         fullBleed: true,
       ),
+      if (widget.ledService case final service?)
+        Padding(
+          padding: _side,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('現在のキット接続・LED状態'),
+              LedKitStatus(service: service),
+              const Text('下の環境情報は、計測終了時に保存した記録です。'),
+            ],
+          ),
+        ),
+      if (widget.environmentSaves != null)
+        Padding(
+          padding: _side,
+          child: SavedEnvironmentView(
+            key: ValueKey(r.id),
+            recordId: r.id,
+            saves: widget.environmentSaves!,
+            store: widget.environmentSaves!.store,
+          ),
+        ),
       const AsakaoSectionLabel('この日のレポート', padding: _label),
       RecordReportCard(r, missingText: 'レポートは未作成です', fullBleed: true),
       const Padding(

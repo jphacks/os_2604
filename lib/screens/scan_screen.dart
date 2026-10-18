@@ -8,10 +8,15 @@ import 'package:flutter/services.dart';
 
 import '../features/scan/scan_widget.dart';
 import '../models/health_check_result.dart';
+import '../models/environment_snapshot.dart';
+import '../services/device/environment_save_service.dart';
+import '../widgets/environment_view.dart';
 import '../models/scan_contract.dart';
 import '../navigation/app_routes.dart';
 import '../navigation/app_transitions.dart';
 import '../services/db/health_record_repository.dart';
+import '../services/device/led_notification_service.dart';
+import '../widgets/led_kit_controls.dart';
 import '../services/sound/sound_effects.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
@@ -28,11 +33,15 @@ class ScanScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.createSession,
+    this.ledService,
+    this.environmentSaves,
     this.researchMode = false,
   });
 
   final HealthRecordRepository repository;
   final ScanSession Function() createSession;
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? environmentSaves;
   final bool researchMode;
 
   @override
@@ -41,12 +50,29 @@ class ScanScreen extends StatefulWidget {
 
 enum _Stage { idle, running, saving, saveFailed, failed }
 
-class _ScanScreenState extends State<ScanScreen> {
+class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
+  LedAttempt? _ledAttempt;
+  bool _completedNavigation = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive &&
+        _session.service.currentProgress.phase ==
+            ScanPhase.requestingPermission) {
+      return; // 許可ダイアログは計測開始前。復帰後の試行を保持する。
+    }
+    if (state != AppLifecycleState.resumed) {
+      widget.ledService?.cancelAttempt(_ledAttempt);
+      _ledAttempt = null;
+    }
+  }
+
   late final ScanSession _session = widget.createSession();
   _Stage _stage = _Stage.idle;
   ScanFailureReason? _failure;
   bool _failureShown = false; // 3-3 の fade が終わったら計測画面を隠す
   HealthCheckResult? _unsaved;
+  EnvironmentSnapshot? _frozenEnvironment;
   bool _leaving = false;
   bool _canPop = false;
   Future<void>? _releasing;
@@ -64,6 +90,7 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 3-1'。画面を開いたらすぐにカメラを起動し、条件がそろえば自動で計測を始める。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_start());
@@ -88,6 +115,8 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (!_completedNavigation) widget.ledService?.cancelAttempt(_ledAttempt);
     unawaited(_progressSub?.cancel());
     _attempt++;
     unawaited(_release().catchError((Object _) {}));
@@ -122,12 +151,14 @@ class _ScanScreenState extends State<ScanScreen> {
     if (_leaving || (_stage != _Stage.idle && _stage != _Stage.failed)) return;
     final retry = _stage == _Stage.failed;
     final attempt = ++_attempt;
+    _ledAttempt = widget.ledService?.beginAttempt();
     setState(() {
       _stage = _Stage.running;
       _readySounded = false;
       _failureShown = false;
       _failure = null;
       _unsaved = null;
+      _frozenEnvironment = null;
     });
     final ScanOutcome outcome;
     try {
@@ -136,6 +167,7 @@ class _ScanScreenState extends State<ScanScreen> {
       outcome = await _session.service.startHealthScan();
     } catch (_) {
       if (!_isCurrent(attempt)) return;
+      widget.ledService?.cancelAttempt(_ledAttempt);
       setState(() {
         _stage = _Stage.failed;
         _failure = ScanFailureReason.processingFailed;
@@ -146,9 +178,13 @@ class _ScanScreenState extends State<ScanScreen> {
     if (!_isCurrent(attempt)) return;
     switch (outcome) {
       case ScanSuccess(:final result):
+        _frozenEnvironment =
+            widget.ledService?.snapshotEnvironment() ??
+            EnvironmentSnapshot(state: EnvironmentState.disabled);
         SoundEffects.play(SoundEffect.measureDone);
         await _save(result, attempt);
       case ScanFailure(:final reason):
+        widget.ledService?.cancelAttempt(_ledAttempt);
         setState(() {
           _stage = _Stage.failed;
           _failure = reason;
@@ -170,7 +206,21 @@ class _ScanScreenState extends State<ScanScreen> {
       setState(() => _stage = _Stage.saveFailed);
       return;
     }
+    // App-owned association survives normal result navigation and screen cleanup.
+    // This only follows a successful parent insert; it never inserts health twice.
+    if (result.quality == MeasurementQuality.good &&
+        _frozenEnvironment != null) {
+      widget.environmentSaves?.savedHealthRecord(
+        result.id,
+        _frozenEnvironment!,
+      );
+    }
     if (!_isCurrent(attempt)) return;
+    // insert成功だけを起点にする。BLEの完了・AI生成は待たない。
+    final ledAttempt = _ledAttempt;
+    if (result.quality == MeasurementQuality.good && ledAttempt != null) {
+      widget.ledService?.saved(ledAttempt);
+    }
     try {
       await _release();
     } catch (_) {
@@ -178,6 +228,7 @@ class _ScanScreenState extends State<ScanScreen> {
     }
     if (!mounted || !_isCurrent(attempt)) return;
     _leaving = true;
+    _completedNavigation = true;
     _attempt++;
     unawaited(
       Navigator.of(context)
@@ -187,6 +238,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
   Future<void> _leave() async {
     if (_leaving) return;
+    widget.ledService?.cancelAttempt(_ledAttempt);
     _leaving = true;
     _attempt++;
     setState(() {});
@@ -281,6 +333,18 @@ class _ScanScreenState extends State<ScanScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      if (widget.ledService case final service?) ...[
+                        AsakaoCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              LedKitStatus(service: service),
+                              LiveEnvironmentView(service: service),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       _heading(measuring),
                       const SizedBox(height: 16),
                       _guideOval(p, conditions, measuring),

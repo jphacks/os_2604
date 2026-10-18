@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,9 +8,12 @@ import 'package:os_2604/models/health_check_result.dart';
 import 'package:os_2604/models/scan_contract.dart';
 import 'package:os_2604/services/db/app_database.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
+import 'package:os_2604/services/device/led_notification_service.dart';
+import 'package:os_2604/services/device/led_transport.dart';
 
 import '../support/fake_scan.dart';
 import '../support/fake_reminder.dart';
+import '../support/fake_led_transport.dart';
 
 class _Done implements OnboardingStore {
   @override
@@ -37,7 +42,10 @@ void main() {
   });
   tearDown(() async => db.close());
 
-  Future<void> openScan(WidgetTester tester) async {
+  Future<void> openScan(
+    WidgetTester tester, {
+    LedNotificationService? led,
+  }) async {
     tester.view.physicalSize = const Size(800, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -50,6 +58,7 @@ void main() {
         reminderService: FakeReminderService(),
         reminderStore: FakeReminderStore(),
         createScanSession: () => sessionOf(scan),
+        ledService: led,
       ),
     );
     await tester.pumpAndSettle();
@@ -100,6 +109,45 @@ void main() {
     await tester.tap(find.text('履歴に戻る'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
+  });
+
+  tw('AI fallback and result input updates do not resend completion LED', (
+    tester,
+  ) async {
+    final transport = FakeLedTransport();
+    final led = LedNotificationService(transport);
+    led.initialize();
+    transport.status.add(BluetoothAvailability.ready);
+    unawaited(led.connect(const LedKit('kit', 'Find Me Target')));
+    await tester.pump();
+    transport.links.last.add(KitLink.connected);
+    await tester.pump();
+    unawaited(led.testLed());
+    await tester.pump();
+    led.enableAutomatic(true);
+    expect(led.automatic, isTrue);
+    await openScan(tester, led: led);
+    expect(scan.starts, 1);
+    transport.writes.clear();
+    scan.finish(successOutcome());
+    await tester.pumpAndSettle();
+    expect(transport.writes.where((w) => w.$2 == 2), hasLength(1));
+    await tester.ensureVisible(find.text('4'));
+    await tester.tap(find.text('4'));
+    await tester.pump();
+    await tester.tap(find.text('結果を見る'));
+    await tester.pumpAndSettle();
+    expect(find.text('定型文'), findsOneWidget);
+    expect((await repo.findById('rec-1'))!.selfCondition, 4);
+    expect(transport.writes.where((w) => w.$2 == 2), hasLength(1));
+    await tester.tap(find.text('履歴に戻る'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('history-row-rec-1')));
+    await tester.pumpAndSettle();
+    expect(transport.writes.where((w) => w.$2 == 2), hasLength(1));
+    await tester.pumpWidget(const SizedBox());
+    led.dispose();
+    await tester.pump();
   });
 
   tw('insert failure: no navigation, honest message, retry saves', (

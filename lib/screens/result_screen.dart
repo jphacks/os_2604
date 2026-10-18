@@ -12,6 +12,10 @@ import '../ui/asakao_record_widgets.dart';
 import '../ui/asakao_widgets.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
+import '../services/device/environment_save_service.dart';
+import '../widgets/environment_view.dart';
+import '../services/device/led_notification_service.dart';
+import '../widgets/led_kit_controls.dart';
 
 /// 計測直後の自己申告（4-1）→ レポート生成（4-2）→ 結果（4-3）。
 /// 記録は計測直後に保存済みで、ここでは同一IDへ体調・体温・レポートを追記する。
@@ -23,6 +27,8 @@ class ResultScreen extends StatefulWidget {
     required this.aiRunner,
     required this.recordId,
     required this.onBackToHome,
+    this.ledService,
+    this.environmentSaves,
   });
 
   final HealthRecordRepository repository;
@@ -31,6 +37,8 @@ class ResultScreen extends StatefulWidget {
   final OnDeviceAiRunner aiRunner;
   final String? recordId;
   final VoidCallback onBackToHome;
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? environmentSaves;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -344,6 +352,24 @@ class _ResultScreenState extends State<ResultScreen> {
     };
   }
 
+  List<Widget> _kitInformation() => [
+    if (widget.ledService case final service?) ...[
+      const SizedBox(height: 16),
+      const Text('現在のキット接続・LED状態'),
+      LedKitStatus(service: service),
+      const Text('下の環境情報は計測終了時に保存した記録です。現在の接続状態とは別に表示します。'),
+    ],
+    if (widget.environmentSaves case final saves?) ...[
+      const SizedBox(height: 16),
+      SavedEnvironmentView(
+        key: ValueKey(widget.recordId),
+        recordId: widget.recordId!,
+        store: saves.store,
+        saves: saves,
+      ),
+    ],
+  ];
+
   // ---- 4-1 自己申告 ----
 
   Widget _inputView() {
@@ -366,6 +392,7 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
           ],
         ),
+        ..._kitInformation(),
         const SizedBox(height: 24),
         Semantics(
           header: true,
@@ -505,6 +532,7 @@ class _ResultScreenState extends State<ResultScreen> {
         RecordQualityCard(r),
         const AsakaoSectionLabel('今日の記録'),
         RecordValuesCard(r, conditionDiff: diff),
+        ..._kitInformation(),
         const AsakaoSectionLabel('今日のレポート'),
         RecordReportCard(
           r,

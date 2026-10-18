@@ -1536,6 +1536,648 @@ class ScanPreferencesCompanion extends UpdateCompanion<ScanPreference> {
   }
 }
 
+class $HealthRecordEnvironmentsTable extends HealthRecordEnvironments
+    with TableInfo<$HealthRecordEnvironmentsTable, HealthRecordEnvironment> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HealthRecordEnvironmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _recordIdMeta = const VerificationMeta(
+    'recordId',
+  );
+  @override
+  late final GeneratedColumn<String> recordId = GeneratedColumn<String>(
+    'record_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES health_records (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ambientTemperatureCMeta =
+      const VerificationMeta('ambientTemperatureC');
+  @override
+  late final GeneratedColumn<double> ambientTemperatureC =
+      GeneratedColumn<double>(
+        'ambient_temperature_c',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _relativeHumidityPctMeta =
+      const VerificationMeta('relativeHumidityPct');
+  @override
+  late final GeneratedColumn<double> relativeHumidityPct =
+      GeneratedColumn<double>(
+        'relative_humidity_pct',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtUtcMicrosMeta =
+      const VerificationMeta('receivedAtUtcMicros');
+  @override
+  late final GeneratedColumn<int> receivedAtUtcMicros = GeneratedColumn<int>(
+    'received_at_utc_micros',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sampleAgeAtSnapshotMicrosMeta =
+      const VerificationMeta('sampleAgeAtSnapshotMicros');
+  @override
+  late final GeneratedColumn<int> sampleAgeAtSnapshotMicros =
+      GeneratedColumn<int>(
+        'sample_age_at_snapshot_micros',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _sampleSequenceMeta = const VerificationMeta(
+    'sampleSequence',
+  );
+  @override
+  late final GeneratedColumn<int> sampleSequence = GeneratedColumn<int>(
+    'sample_sequence',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _protocolVersionMeta = const VerificationMeta(
+    'protocolVersion',
+  );
+  @override
+  late final GeneratedColumn<int> protocolVersion = GeneratedColumn<int>(
+    'protocol_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    recordId,
+    state,
+    ambientTemperatureC,
+    relativeHumidityPct,
+    source,
+    receivedAtUtcMicros,
+    sampleAgeAtSnapshotMicros,
+    sampleSequence,
+    protocolVersion,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'health_record_environment';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HealthRecordEnvironment> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('record_id')) {
+      context.handle(
+        _recordIdMeta,
+        recordId.isAcceptableOrUnknown(data['record_id']!, _recordIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordIdMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('ambient_temperature_c')) {
+      context.handle(
+        _ambientTemperatureCMeta,
+        ambientTemperatureC.isAcceptableOrUnknown(
+          data['ambient_temperature_c']!,
+          _ambientTemperatureCMeta,
+        ),
+      );
+    }
+    if (data.containsKey('relative_humidity_pct')) {
+      context.handle(
+        _relativeHumidityPctMeta,
+        relativeHumidityPct.isAcceptableOrUnknown(
+          data['relative_humidity_pct']!,
+          _relativeHumidityPctMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceMeta);
+    }
+    if (data.containsKey('received_at_utc_micros')) {
+      context.handle(
+        _receivedAtUtcMicrosMeta,
+        receivedAtUtcMicros.isAcceptableOrUnknown(
+          data['received_at_utc_micros']!,
+          _receivedAtUtcMicrosMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sample_age_at_snapshot_micros')) {
+      context.handle(
+        _sampleAgeAtSnapshotMicrosMeta,
+        sampleAgeAtSnapshotMicros.isAcceptableOrUnknown(
+          data['sample_age_at_snapshot_micros']!,
+          _sampleAgeAtSnapshotMicrosMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sample_sequence')) {
+      context.handle(
+        _sampleSequenceMeta,
+        sampleSequence.isAcceptableOrUnknown(
+          data['sample_sequence']!,
+          _sampleSequenceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('protocol_version')) {
+      context.handle(
+        _protocolVersionMeta,
+        protocolVersion.isAcceptableOrUnknown(
+          data['protocol_version']!,
+          _protocolVersionMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {recordId};
+  @override
+  HealthRecordEnvironment map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HealthRecordEnvironment(
+      recordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}record_id'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      ambientTemperatureC: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ambient_temperature_c'],
+      ),
+      relativeHumidityPct: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}relative_humidity_pct'],
+      ),
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
+      receivedAtUtcMicros: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}received_at_utc_micros'],
+      ),
+      sampleAgeAtSnapshotMicros: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sample_age_at_snapshot_micros'],
+      ),
+      sampleSequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sample_sequence'],
+      ),
+      protocolVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}protocol_version'],
+      ),
+    );
+  }
+
+  @override
+  $HealthRecordEnvironmentsTable createAlias(String alias) {
+    return $HealthRecordEnvironmentsTable(attachedDatabase, alias);
+  }
+}
+
+class HealthRecordEnvironment extends DataClass
+    implements Insertable<HealthRecordEnvironment> {
+  final String recordId;
+  final String state;
+  final double? ambientTemperatureC;
+  final double? relativeHumidityPct;
+  final String source;
+  final int? receivedAtUtcMicros;
+  final int? sampleAgeAtSnapshotMicros;
+  final int? sampleSequence;
+  final int? protocolVersion;
+  const HealthRecordEnvironment({
+    required this.recordId,
+    required this.state,
+    this.ambientTemperatureC,
+    this.relativeHumidityPct,
+    required this.source,
+    this.receivedAtUtcMicros,
+    this.sampleAgeAtSnapshotMicros,
+    this.sampleSequence,
+    this.protocolVersion,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['record_id'] = Variable<String>(recordId);
+    map['state'] = Variable<String>(state);
+    if (!nullToAbsent || ambientTemperatureC != null) {
+      map['ambient_temperature_c'] = Variable<double>(ambientTemperatureC);
+    }
+    if (!nullToAbsent || relativeHumidityPct != null) {
+      map['relative_humidity_pct'] = Variable<double>(relativeHumidityPct);
+    }
+    map['source'] = Variable<String>(source);
+    if (!nullToAbsent || receivedAtUtcMicros != null) {
+      map['received_at_utc_micros'] = Variable<int>(receivedAtUtcMicros);
+    }
+    if (!nullToAbsent || sampleAgeAtSnapshotMicros != null) {
+      map['sample_age_at_snapshot_micros'] = Variable<int>(
+        sampleAgeAtSnapshotMicros,
+      );
+    }
+    if (!nullToAbsent || sampleSequence != null) {
+      map['sample_sequence'] = Variable<int>(sampleSequence);
+    }
+    if (!nullToAbsent || protocolVersion != null) {
+      map['protocol_version'] = Variable<int>(protocolVersion);
+    }
+    return map;
+  }
+
+  HealthRecordEnvironmentsCompanion toCompanion(bool nullToAbsent) {
+    return HealthRecordEnvironmentsCompanion(
+      recordId: Value(recordId),
+      state: Value(state),
+      ambientTemperatureC: ambientTemperatureC == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ambientTemperatureC),
+      relativeHumidityPct: relativeHumidityPct == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relativeHumidityPct),
+      source: Value(source),
+      receivedAtUtcMicros: receivedAtUtcMicros == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivedAtUtcMicros),
+      sampleAgeAtSnapshotMicros:
+          sampleAgeAtSnapshotMicros == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sampleAgeAtSnapshotMicros),
+      sampleSequence: sampleSequence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sampleSequence),
+      protocolVersion: protocolVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(protocolVersion),
+    );
+  }
+
+  factory HealthRecordEnvironment.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HealthRecordEnvironment(
+      recordId: serializer.fromJson<String>(json['recordId']),
+      state: serializer.fromJson<String>(json['state']),
+      ambientTemperatureC: serializer.fromJson<double?>(
+        json['ambientTemperatureC'],
+      ),
+      relativeHumidityPct: serializer.fromJson<double?>(
+        json['relativeHumidityPct'],
+      ),
+      source: serializer.fromJson<String>(json['source']),
+      receivedAtUtcMicros: serializer.fromJson<int?>(
+        json['receivedAtUtcMicros'],
+      ),
+      sampleAgeAtSnapshotMicros: serializer.fromJson<int?>(
+        json['sampleAgeAtSnapshotMicros'],
+      ),
+      sampleSequence: serializer.fromJson<int?>(json['sampleSequence']),
+      protocolVersion: serializer.fromJson<int?>(json['protocolVersion']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'recordId': serializer.toJson<String>(recordId),
+      'state': serializer.toJson<String>(state),
+      'ambientTemperatureC': serializer.toJson<double?>(ambientTemperatureC),
+      'relativeHumidityPct': serializer.toJson<double?>(relativeHumidityPct),
+      'source': serializer.toJson<String>(source),
+      'receivedAtUtcMicros': serializer.toJson<int?>(receivedAtUtcMicros),
+      'sampleAgeAtSnapshotMicros': serializer.toJson<int?>(
+        sampleAgeAtSnapshotMicros,
+      ),
+      'sampleSequence': serializer.toJson<int?>(sampleSequence),
+      'protocolVersion': serializer.toJson<int?>(protocolVersion),
+    };
+  }
+
+  HealthRecordEnvironment copyWith({
+    String? recordId,
+    String? state,
+    Value<double?> ambientTemperatureC = const Value.absent(),
+    Value<double?> relativeHumidityPct = const Value.absent(),
+    String? source,
+    Value<int?> receivedAtUtcMicros = const Value.absent(),
+    Value<int?> sampleAgeAtSnapshotMicros = const Value.absent(),
+    Value<int?> sampleSequence = const Value.absent(),
+    Value<int?> protocolVersion = const Value.absent(),
+  }) => HealthRecordEnvironment(
+    recordId: recordId ?? this.recordId,
+    state: state ?? this.state,
+    ambientTemperatureC: ambientTemperatureC.present
+        ? ambientTemperatureC.value
+        : this.ambientTemperatureC,
+    relativeHumidityPct: relativeHumidityPct.present
+        ? relativeHumidityPct.value
+        : this.relativeHumidityPct,
+    source: source ?? this.source,
+    receivedAtUtcMicros: receivedAtUtcMicros.present
+        ? receivedAtUtcMicros.value
+        : this.receivedAtUtcMicros,
+    sampleAgeAtSnapshotMicros: sampleAgeAtSnapshotMicros.present
+        ? sampleAgeAtSnapshotMicros.value
+        : this.sampleAgeAtSnapshotMicros,
+    sampleSequence: sampleSequence.present
+        ? sampleSequence.value
+        : this.sampleSequence,
+    protocolVersion: protocolVersion.present
+        ? protocolVersion.value
+        : this.protocolVersion,
+  );
+  HealthRecordEnvironment copyWithCompanion(
+    HealthRecordEnvironmentsCompanion data,
+  ) {
+    return HealthRecordEnvironment(
+      recordId: data.recordId.present ? data.recordId.value : this.recordId,
+      state: data.state.present ? data.state.value : this.state,
+      ambientTemperatureC: data.ambientTemperatureC.present
+          ? data.ambientTemperatureC.value
+          : this.ambientTemperatureC,
+      relativeHumidityPct: data.relativeHumidityPct.present
+          ? data.relativeHumidityPct.value
+          : this.relativeHumidityPct,
+      source: data.source.present ? data.source.value : this.source,
+      receivedAtUtcMicros: data.receivedAtUtcMicros.present
+          ? data.receivedAtUtcMicros.value
+          : this.receivedAtUtcMicros,
+      sampleAgeAtSnapshotMicros: data.sampleAgeAtSnapshotMicros.present
+          ? data.sampleAgeAtSnapshotMicros.value
+          : this.sampleAgeAtSnapshotMicros,
+      sampleSequence: data.sampleSequence.present
+          ? data.sampleSequence.value
+          : this.sampleSequence,
+      protocolVersion: data.protocolVersion.present
+          ? data.protocolVersion.value
+          : this.protocolVersion,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HealthRecordEnvironment(')
+          ..write('recordId: $recordId, ')
+          ..write('state: $state, ')
+          ..write('ambientTemperatureC: $ambientTemperatureC, ')
+          ..write('relativeHumidityPct: $relativeHumidityPct, ')
+          ..write('source: $source, ')
+          ..write('receivedAtUtcMicros: $receivedAtUtcMicros, ')
+          ..write('sampleAgeAtSnapshotMicros: $sampleAgeAtSnapshotMicros, ')
+          ..write('sampleSequence: $sampleSequence, ')
+          ..write('protocolVersion: $protocolVersion')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    recordId,
+    state,
+    ambientTemperatureC,
+    relativeHumidityPct,
+    source,
+    receivedAtUtcMicros,
+    sampleAgeAtSnapshotMicros,
+    sampleSequence,
+    protocolVersion,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HealthRecordEnvironment &&
+          other.recordId == this.recordId &&
+          other.state == this.state &&
+          other.ambientTemperatureC == this.ambientTemperatureC &&
+          other.relativeHumidityPct == this.relativeHumidityPct &&
+          other.source == this.source &&
+          other.receivedAtUtcMicros == this.receivedAtUtcMicros &&
+          other.sampleAgeAtSnapshotMicros == this.sampleAgeAtSnapshotMicros &&
+          other.sampleSequence == this.sampleSequence &&
+          other.protocolVersion == this.protocolVersion);
+}
+
+class HealthRecordEnvironmentsCompanion
+    extends UpdateCompanion<HealthRecordEnvironment> {
+  final Value<String> recordId;
+  final Value<String> state;
+  final Value<double?> ambientTemperatureC;
+  final Value<double?> relativeHumidityPct;
+  final Value<String> source;
+  final Value<int?> receivedAtUtcMicros;
+  final Value<int?> sampleAgeAtSnapshotMicros;
+  final Value<int?> sampleSequence;
+  final Value<int?> protocolVersion;
+  final Value<int> rowid;
+  const HealthRecordEnvironmentsCompanion({
+    this.recordId = const Value.absent(),
+    this.state = const Value.absent(),
+    this.ambientTemperatureC = const Value.absent(),
+    this.relativeHumidityPct = const Value.absent(),
+    this.source = const Value.absent(),
+    this.receivedAtUtcMicros = const Value.absent(),
+    this.sampleAgeAtSnapshotMicros = const Value.absent(),
+    this.sampleSequence = const Value.absent(),
+    this.protocolVersion = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HealthRecordEnvironmentsCompanion.insert({
+    required String recordId,
+    required String state,
+    this.ambientTemperatureC = const Value.absent(),
+    this.relativeHumidityPct = const Value.absent(),
+    required String source,
+    this.receivedAtUtcMicros = const Value.absent(),
+    this.sampleAgeAtSnapshotMicros = const Value.absent(),
+    this.sampleSequence = const Value.absent(),
+    this.protocolVersion = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : recordId = Value(recordId),
+       state = Value(state),
+       source = Value(source);
+  static Insertable<HealthRecordEnvironment> custom({
+    Expression<String>? recordId,
+    Expression<String>? state,
+    Expression<double>? ambientTemperatureC,
+    Expression<double>? relativeHumidityPct,
+    Expression<String>? source,
+    Expression<int>? receivedAtUtcMicros,
+    Expression<int>? sampleAgeAtSnapshotMicros,
+    Expression<int>? sampleSequence,
+    Expression<int>? protocolVersion,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (recordId != null) 'record_id': recordId,
+      if (state != null) 'state': state,
+      if (ambientTemperatureC != null)
+        'ambient_temperature_c': ambientTemperatureC,
+      if (relativeHumidityPct != null)
+        'relative_humidity_pct': relativeHumidityPct,
+      if (source != null) 'source': source,
+      if (receivedAtUtcMicros != null)
+        'received_at_utc_micros': receivedAtUtcMicros,
+      if (sampleAgeAtSnapshotMicros != null)
+        'sample_age_at_snapshot_micros': sampleAgeAtSnapshotMicros,
+      if (sampleSequence != null) 'sample_sequence': sampleSequence,
+      if (protocolVersion != null) 'protocol_version': protocolVersion,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HealthRecordEnvironmentsCompanion copyWith({
+    Value<String>? recordId,
+    Value<String>? state,
+    Value<double?>? ambientTemperatureC,
+    Value<double?>? relativeHumidityPct,
+    Value<String>? source,
+    Value<int?>? receivedAtUtcMicros,
+    Value<int?>? sampleAgeAtSnapshotMicros,
+    Value<int?>? sampleSequence,
+    Value<int?>? protocolVersion,
+    Value<int>? rowid,
+  }) {
+    return HealthRecordEnvironmentsCompanion(
+      recordId: recordId ?? this.recordId,
+      state: state ?? this.state,
+      ambientTemperatureC: ambientTemperatureC ?? this.ambientTemperatureC,
+      relativeHumidityPct: relativeHumidityPct ?? this.relativeHumidityPct,
+      source: source ?? this.source,
+      receivedAtUtcMicros: receivedAtUtcMicros ?? this.receivedAtUtcMicros,
+      sampleAgeAtSnapshotMicros:
+          sampleAgeAtSnapshotMicros ?? this.sampleAgeAtSnapshotMicros,
+      sampleSequence: sampleSequence ?? this.sampleSequence,
+      protocolVersion: protocolVersion ?? this.protocolVersion,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (recordId.present) {
+      map['record_id'] = Variable<String>(recordId.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (ambientTemperatureC.present) {
+      map['ambient_temperature_c'] = Variable<double>(
+        ambientTemperatureC.value,
+      );
+    }
+    if (relativeHumidityPct.present) {
+      map['relative_humidity_pct'] = Variable<double>(
+        relativeHumidityPct.value,
+      );
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (receivedAtUtcMicros.present) {
+      map['received_at_utc_micros'] = Variable<int>(receivedAtUtcMicros.value);
+    }
+    if (sampleAgeAtSnapshotMicros.present) {
+      map['sample_age_at_snapshot_micros'] = Variable<int>(
+        sampleAgeAtSnapshotMicros.value,
+      );
+    }
+    if (sampleSequence.present) {
+      map['sample_sequence'] = Variable<int>(sampleSequence.value);
+    }
+    if (protocolVersion.present) {
+      map['protocol_version'] = Variable<int>(protocolVersion.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HealthRecordEnvironmentsCompanion(')
+          ..write('recordId: $recordId, ')
+          ..write('state: $state, ')
+          ..write('ambientTemperatureC: $ambientTemperatureC, ')
+          ..write('relativeHumidityPct: $relativeHumidityPct, ')
+          ..write('source: $source, ')
+          ..write('receivedAtUtcMicros: $receivedAtUtcMicros, ')
+          ..write('sampleAgeAtSnapshotMicros: $sampleAgeAtSnapshotMicros, ')
+          ..write('sampleSequence: $sampleSequence, ')
+          ..write('protocolVersion: $protocolVersion, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1547,6 +2189,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ScanPreferencesTable scanPreferences = $ScanPreferencesTable(
     this,
   );
+  late final $HealthRecordEnvironmentsTable healthRecordEnvironments =
+      $HealthRecordEnvironmentsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1556,7 +2200,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     healthRecords,
     reminderPreferences,
     scanPreferences,
+    healthRecordEnvironments,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'health_records',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [
+        TableUpdate('health_record_environment', kind: UpdateKind.delete),
+      ],
+    ),
+  ]);
 }
 
 typedef $$OnboardingCompletionsTableCreateCompanionBuilder =
@@ -1733,6 +2390,40 @@ typedef $$HealthRecordsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$HealthRecordsTableReferences
+    extends BaseReferences<_$AppDatabase, $HealthRecordsTable, HealthRecord> {
+  $$HealthRecordsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<
+    $HealthRecordEnvironmentsTable,
+    List<HealthRecordEnvironment>
+  >
+  _healthRecordEnvironmentsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.healthRecordEnvironments,
+        aliasName: 'health_records__id__health_record_environment__record_id',
+      );
+
+  $$HealthRecordEnvironmentsTableProcessedTableManager
+  get healthRecordEnvironmentsRefs {
+    final manager = $$HealthRecordEnvironmentsTableTableManager(
+      $_db,
+      $_db.healthRecordEnvironments,
+    ).filter((f) => f.recordId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _healthRecordEnvironmentsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
 class $$HealthRecordsTableFilterComposer
     extends Composer<_$AppDatabase, $HealthRecordsTable> {
   $$HealthRecordsTableFilterComposer({
@@ -1817,6 +2508,33 @@ class $$HealthRecordsTableFilterComposer
         column: $table.aiMode,
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
+
+  Expression<bool> healthRecordEnvironmentsRefs(
+    Expression<bool> Function($$HealthRecordEnvironmentsTableFilterComposer f)
+    f,
+  ) {
+    final $$HealthRecordEnvironmentsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.healthRecordEnvironments,
+          getReferencedColumn: (t) => t.recordId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$HealthRecordEnvironmentsTableFilterComposer(
+                $db: $db,
+                $table: $db.healthRecordEnvironments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$HealthRecordsTableOrderingComposer
@@ -1972,6 +2690,33 @@ class $$HealthRecordsTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<ReportMode?, String> get aiMode =>
       $composableBuilder(column: $table.aiMode, builder: (column) => column);
+
+  Expression<T> healthRecordEnvironmentsRefs<T extends Object>(
+    Expression<T> Function($$HealthRecordEnvironmentsTableAnnotationComposer a)
+    f,
+  ) {
+    final $$HealthRecordEnvironmentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.healthRecordEnvironments,
+          getReferencedColumn: (t) => t.recordId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$HealthRecordEnvironmentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.healthRecordEnvironments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$HealthRecordsTableTableManager
@@ -1985,12 +2730,9 @@ class $$HealthRecordsTableTableManager
           $$HealthRecordsTableAnnotationComposer,
           $$HealthRecordsTableCreateCompanionBuilder,
           $$HealthRecordsTableUpdateCompanionBuilder,
-          (
-            HealthRecord,
-            BaseReferences<_$AppDatabase, $HealthRecordsTable, HealthRecord>,
-          ),
+          (HealthRecord, $$HealthRecordsTableReferences),
           HealthRecord,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool healthRecordEnvironmentsRefs})
         > {
   $$HealthRecordsTableTableManager(_$AppDatabase db, $HealthRecordsTable table)
     : super(
@@ -2076,15 +2818,42 @@ class $$HealthRecordsTableTableManager
               .map(
                 (e) => (
                   e.readTable<$HealthRecordsTable, HealthRecord>(table),
-                  BaseReferences<
-                    _$AppDatabase,
-                    $HealthRecordsTable,
-                    HealthRecord
-                  >(db, table, e),
+                  $$HealthRecordsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({healthRecordEnvironmentsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (healthRecordEnvironmentsRefs) db.healthRecordEnvironments,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (healthRecordEnvironmentsRefs)
+                    await $_getPrefetchedData<
+                      HealthRecord,
+                      $HealthRecordsTable,
+                      HealthRecordEnvironment
+                    >(
+                      currentTable: table,
+                      referencedTable: $$HealthRecordsTableReferences
+                          ._healthRecordEnvironmentsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$HealthRecordsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).healthRecordEnvironmentsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.recordId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -2099,12 +2868,9 @@ typedef $$HealthRecordsTableProcessedTableManager =
       $$HealthRecordsTableAnnotationComposer,
       $$HealthRecordsTableCreateCompanionBuilder,
       $$HealthRecordsTableUpdateCompanionBuilder,
-      (
-        HealthRecord,
-        BaseReferences<_$AppDatabase, $HealthRecordsTable, HealthRecord>,
-      ),
+      (HealthRecord, $$HealthRecordsTableReferences),
       HealthRecord,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool healthRecordEnvironmentsRefs})
     >;
 typedef $$ReminderPreferencesTableCreateCompanionBuilder =
     ReminderPreferencesCompanion Function({
@@ -2446,6 +3212,435 @@ typedef $$ScanPreferencesTableProcessedTableManager =
       ScanPreference,
       PrefetchHooks Function()
     >;
+typedef $$HealthRecordEnvironmentsTableCreateCompanionBuilder =
+    HealthRecordEnvironmentsCompanion Function({
+      required String recordId,
+      required String state,
+      Value<double?> ambientTemperatureC,
+      Value<double?> relativeHumidityPct,
+      required String source,
+      Value<int?> receivedAtUtcMicros,
+      Value<int?> sampleAgeAtSnapshotMicros,
+      Value<int?> sampleSequence,
+      Value<int?> protocolVersion,
+      Value<int> rowid,
+    });
+typedef $$HealthRecordEnvironmentsTableUpdateCompanionBuilder =
+    HealthRecordEnvironmentsCompanion Function({
+      Value<String> recordId,
+      Value<String> state,
+      Value<double?> ambientTemperatureC,
+      Value<double?> relativeHumidityPct,
+      Value<String> source,
+      Value<int?> receivedAtUtcMicros,
+      Value<int?> sampleAgeAtSnapshotMicros,
+      Value<int?> sampleSequence,
+      Value<int?> protocolVersion,
+      Value<int> rowid,
+    });
+
+final class $$HealthRecordEnvironmentsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $HealthRecordEnvironmentsTable,
+          HealthRecordEnvironment
+        > {
+  $$HealthRecordEnvironmentsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $HealthRecordsTable _recordIdTable(_$AppDatabase db) => db
+      .healthRecords
+      .createAlias('health_record_environment__record_id__health_records__id');
+
+  $$HealthRecordsTableProcessedTableManager get recordId {
+    final $_column = $_itemColumn<String>('record_id')!;
+
+    final manager = $$HealthRecordsTableTableManager(
+      $_db,
+      $_db.healthRecords,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_recordIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$HealthRecordEnvironmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $HealthRecordEnvironmentsTable> {
+  $$HealthRecordEnvironmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get ambientTemperatureC => $composableBuilder(
+    column: $table.ambientTemperatureC,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get relativeHumidityPct => $composableBuilder(
+    column: $table.relativeHumidityPct,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get receivedAtUtcMicros => $composableBuilder(
+    column: $table.receivedAtUtcMicros,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sampleAgeAtSnapshotMicros => $composableBuilder(
+    column: $table.sampleAgeAtSnapshotMicros,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sampleSequence => $composableBuilder(
+    column: $table.sampleSequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get protocolVersion => $composableBuilder(
+    column: $table.protocolVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$HealthRecordsTableFilterComposer get recordId {
+    final $$HealthRecordsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recordId,
+      referencedTable: $db.healthRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$HealthRecordsTableFilterComposer(
+            $db: $db,
+            $table: $db.healthRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HealthRecordEnvironmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $HealthRecordEnvironmentsTable> {
+  $$HealthRecordEnvironmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get ambientTemperatureC => $composableBuilder(
+    column: $table.ambientTemperatureC,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get relativeHumidityPct => $composableBuilder(
+    column: $table.relativeHumidityPct,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get receivedAtUtcMicros => $composableBuilder(
+    column: $table.receivedAtUtcMicros,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sampleAgeAtSnapshotMicros => $composableBuilder(
+    column: $table.sampleAgeAtSnapshotMicros,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sampleSequence => $composableBuilder(
+    column: $table.sampleSequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get protocolVersion => $composableBuilder(
+    column: $table.protocolVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$HealthRecordsTableOrderingComposer get recordId {
+    final $$HealthRecordsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recordId,
+      referencedTable: $db.healthRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$HealthRecordsTableOrderingComposer(
+            $db: $db,
+            $table: $db.healthRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HealthRecordEnvironmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HealthRecordEnvironmentsTable> {
+  $$HealthRecordEnvironmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<double> get ambientTemperatureC => $composableBuilder(
+    column: $table.ambientTemperatureC,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get relativeHumidityPct => $composableBuilder(
+    column: $table.relativeHumidityPct,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<int> get receivedAtUtcMicros => $composableBuilder(
+    column: $table.receivedAtUtcMicros,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sampleAgeAtSnapshotMicros => $composableBuilder(
+    column: $table.sampleAgeAtSnapshotMicros,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sampleSequence => $composableBuilder(
+    column: $table.sampleSequence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get protocolVersion => $composableBuilder(
+    column: $table.protocolVersion,
+    builder: (column) => column,
+  );
+
+  $$HealthRecordsTableAnnotationComposer get recordId {
+    final $$HealthRecordsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recordId,
+      referencedTable: $db.healthRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$HealthRecordsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.healthRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HealthRecordEnvironmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HealthRecordEnvironmentsTable,
+          HealthRecordEnvironment,
+          $$HealthRecordEnvironmentsTableFilterComposer,
+          $$HealthRecordEnvironmentsTableOrderingComposer,
+          $$HealthRecordEnvironmentsTableAnnotationComposer,
+          $$HealthRecordEnvironmentsTableCreateCompanionBuilder,
+          $$HealthRecordEnvironmentsTableUpdateCompanionBuilder,
+          (HealthRecordEnvironment, $$HealthRecordEnvironmentsTableReferences),
+          HealthRecordEnvironment,
+          PrefetchHooks Function({bool recordId})
+        > {
+  $$HealthRecordEnvironmentsTableTableManager(
+    _$AppDatabase db,
+    $HealthRecordEnvironmentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HealthRecordEnvironmentsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$HealthRecordEnvironmentsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$HealthRecordEnvironmentsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> recordId = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<double?> ambientTemperatureC = const Value.absent(),
+                Value<double?> relativeHumidityPct = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<int?> receivedAtUtcMicros = const Value.absent(),
+                Value<int?> sampleAgeAtSnapshotMicros = const Value.absent(),
+                Value<int?> sampleSequence = const Value.absent(),
+                Value<int?> protocolVersion = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HealthRecordEnvironmentsCompanion(
+                recordId: recordId,
+                state: state,
+                ambientTemperatureC: ambientTemperatureC,
+                relativeHumidityPct: relativeHumidityPct,
+                source: source,
+                receivedAtUtcMicros: receivedAtUtcMicros,
+                sampleAgeAtSnapshotMicros: sampleAgeAtSnapshotMicros,
+                sampleSequence: sampleSequence,
+                protocolVersion: protocolVersion,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String recordId,
+                required String state,
+                Value<double?> ambientTemperatureC = const Value.absent(),
+                Value<double?> relativeHumidityPct = const Value.absent(),
+                required String source,
+                Value<int?> receivedAtUtcMicros = const Value.absent(),
+                Value<int?> sampleAgeAtSnapshotMicros = const Value.absent(),
+                Value<int?> sampleSequence = const Value.absent(),
+                Value<int?> protocolVersion = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HealthRecordEnvironmentsCompanion.insert(
+                recordId: recordId,
+                state: state,
+                ambientTemperatureC: ambientTemperatureC,
+                relativeHumidityPct: relativeHumidityPct,
+                source: source,
+                receivedAtUtcMicros: receivedAtUtcMicros,
+                sampleAgeAtSnapshotMicros: sampleAgeAtSnapshotMicros,
+                sampleSequence: sampleSequence,
+                protocolVersion: protocolVersion,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $HealthRecordEnvironmentsTable,
+                    HealthRecordEnvironment
+                  >(table),
+                  $$HealthRecordEnvironmentsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({recordId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (recordId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.recordId,
+                        referencedTable:
+                            $$HealthRecordEnvironmentsTableReferences
+                                ._recordIdTable(db),
+                        referencedColumn:
+                            $$HealthRecordEnvironmentsTableReferences
+                                ._recordIdTable(db)
+                                .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$HealthRecordEnvironmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HealthRecordEnvironmentsTable,
+      HealthRecordEnvironment,
+      $$HealthRecordEnvironmentsTableFilterComposer,
+      $$HealthRecordEnvironmentsTableOrderingComposer,
+      $$HealthRecordEnvironmentsTableAnnotationComposer,
+      $$HealthRecordEnvironmentsTableCreateCompanionBuilder,
+      $$HealthRecordEnvironmentsTableUpdateCompanionBuilder,
+      (HealthRecordEnvironment, $$HealthRecordEnvironmentsTableReferences),
+      HealthRecordEnvironment,
+      PrefetchHooks Function({bool recordId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2458,4 +3653,9 @@ class $AppDatabaseManager {
       $$ReminderPreferencesTableTableManager(_db, _db.reminderPreferences);
   $$ScanPreferencesTableTableManager get scanPreferences =>
       $$ScanPreferencesTableTableManager(_db, _db.scanPreferences);
+  $$HealthRecordEnvironmentsTableTableManager get healthRecordEnvironments =>
+      $$HealthRecordEnvironmentsTableTableManager(
+        _db,
+        _db.healthRecordEnvironments,
+      );
 }

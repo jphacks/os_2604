@@ -1,0 +1,21 @@
+--- a/proj_cm33_ns/source/main.c
++++ b/proj_cm33_ns/source/main.c
+@@ -52,0 +53 @@
++#include "environment_sensor.h"
+@@ -456,0 +458 @@
++    environment_prepare_read();
+@@ -606,0 +609 @@
++    environment_prepare_read();
+@@ -1187,0 +1191,2 @@
++    environment_start();
++
+--- a/proj_cm33_ns/GeneratedSource/cycfg_gatt_db.c
++++ b/proj_cm33_ns/GeneratedSource/cycfg_gatt_db.c
+@@ -27,0 +28 @@
++#include "environment_sensor.h"
+@@ -83,0 +85,3 @@
++    PRIMARY_SERVICE_UUID128(HDLS_ENVIRONMENT, ENV_SERVICE_UUID),
++    CHARACTERISTIC_UUID128(HDLC_ENVIRONMENT, HDLC_ENVIRONMENT_VALUE,
++        ENV_VALUE_UUID, GATTDB_CHAR_PROP_READ, GATTDB_PERM_READABLE),
+@@ -105,0 +110 @@
++    { HDLC_ENVIRONMENT_VALUE, 20, 20, app_environment_value },

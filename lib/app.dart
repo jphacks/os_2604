@@ -17,6 +17,8 @@ import 'services/settings/onboarding_store.dart';
 import 'services/settings/reminder_settings_store.dart';
 import 'ui/asakao_style.dart';
 import 'widgets/onboarding_gate.dart';
+import 'services/device/led_notification_service.dart';
+import 'services/device/environment_save_service.dart';
 import 'widgets/scan_mode_gate.dart';
 import 'services/settings/scan_mode_store.dart';
 
@@ -33,6 +35,8 @@ class MorningCheckApp extends StatelessWidget {
     required this.reminderStore,
     this.requestCameraPermission = requestSystemCameraPermission,
     this.now = DateTime.now,
+    this.ledService,
+    this.environmentSaves,
   });
 
   final OnboardingStore onboardingStore;
@@ -40,6 +44,8 @@ class MorningCheckApp extends StatelessWidget {
   final OnDeviceAiRunner aiRunner;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
+  final LedNotificationService? ledService;
+  final EnvironmentSaveService? environmentSaves;
 
   /// 初回設定でカメラ許可を求める。テストでは偽物に差し替える。
   final Future<bool?> Function() requestCameraPermission;
@@ -54,6 +60,7 @@ class MorningCheckApp extends StatelessWidget {
 
   Widget _home(BuildContext context) => MainTabsScreen(
     repository: repository,
+    ledService: ledService,
     now: now,
     reminderService: reminderService,
     reminderStore: reminderStore,
@@ -69,6 +76,8 @@ class MorningCheckApp extends StatelessWidget {
           (_) => ScanModeGate(
             repository: repository,
             standard: createScanSession,
+            ledService: ledService,
+            environmentSaves: environmentSaves,
             research: createResearchScanSession,
             store: scanModeStore,
           ),
@@ -80,6 +89,8 @@ class MorningCheckApp extends StatelessWidget {
             return ResultScreen(
               repository: repository,
               aiRunner: aiRunner,
+              ledService: ledService,
+              environmentSaves: environmentSaves,
               recordId: id is String ? id : null,
               onBackToHome: () =>
                   Navigator.of(context)
@@ -92,6 +103,8 @@ class MorningCheckApp extends StatelessWidget {
         AppRoutes.historyDetail => AppTransitions.push(
           (_) => HistoryDetailScreen(
             store: repository,
+            environmentSaves: environmentSaves,
+            ledService: ledService,
             recordId: switch (settings.arguments) {
               final String id => id,
               _ => null,
@@ -130,6 +143,7 @@ class MorningCheckApp extends StatelessWidget {
           repository: repository,
           reminderService: reminderService,
           reminderStore: reminderStore,
+          ledService: ledService,
         ),
       },
       onGenerateRoute: _generateRoute,

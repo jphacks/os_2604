@@ -4,6 +4,8 @@ import '../navigation/app_transitions.dart';
 import '../services/db/health_record_repository.dart';
 import '../services/notifications/daily_reminder_service.dart';
 import '../services/settings/reminder_settings_store.dart';
+import '../services/device/led_notification_service.dart';
+import '../widgets/led_kit_controls.dart';
 import '../services/settings/scan_mode_store.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
@@ -19,6 +21,7 @@ class SettingsScreen extends StatefulWidget {
     this.embedded = false,
     required this.reminderService,
     required this.reminderStore,
+    this.ledService,
     this.scanModeStore,
   });
 
@@ -26,6 +29,7 @@ class SettingsScreen extends StatefulWidget {
   final HealthRecordRepository repository;
   final DailyReminderService reminderService;
   final ReminderSettingsStore reminderStore;
+  final LedNotificationService? ledService;
   final ScanModeStore? scanModeStore;
 
   @override
@@ -178,6 +182,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
+          if (widget.ledService case final service?)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: LedKitControls(service: service),
+            ),
           const AsakaoSectionLabel('通知', padding: _firstSection),
           // カードは画面の左右いっぱいに広げ、角丸にしない。
           AsakaoListGroup(

@@ -1,0 +1,140 @@
+{
+  "sourceCommit": "ea2a19fa2b1321525f3ae0645ae2fba4f5d64340",
+  "board": "KIT_PSE84_AI",
+  "generatedTarget": "APP_KIT_PSE84_AI",
+  "bspVersion": "release-v1.4.0",
+  "bspCommit": "4894dd6",
+  "toolsVersion": "3.8.0.18384",
+  "programmingToolsVersion": "1.9.0.2261",
+  "gccPackageVersion": "14.2.1.331",
+  "edgeProtectVersion": "2.3.0.958",
+  "configuration": "Debug",
+  "buildPassed": true,
+  "dependencies": [
+    {
+      "name": "abstraction-rtos",
+      "version": "release-v1.13.0",
+      "commit": "de63f516d822cde10ccc0ab408ffafe7a13db8f7"
+    },
+    {
+      "name": "async-transfer",
+      "version": "release-v1.1.1",
+      "commit": "17b6f638ab91c523e6cedfbb23ecbacbcd1c6066"
+    },
+    {
+      "name": "bt-fw-mur-cyw55513",
+      "version": "release-v1.0.0",
+      "commit": "88233235711fb4a8f81c78b85222cc6f14711c11"
+    },
+    {
+      "name": "btstack",
+      "version": "release-v5.0.6",
+      "commit": "fc85417edf9dc36f3fc6d2c4acf7a68833f1c2bb"
+    },
+    {
+      "name": "btstack-integration",
+      "version": "release-v7.0.2",
+      "commit": "a9a0e7f9dd356c3bcd832e2626f9a53525fb87ec"
+    },
+    {
+      "name": "clib-support",
+      "version": "release-v1.9.0",
+      "commit": "2a14bd0a1470d580a2c98f140551ea8cdc7f8f59"
+    },
+    {
+      "name": "cmsis",
+      "version": "release-v6.1.0",
+      "commit": "d00730dae4a7d7639376682f7f1e6ff357011dc6"
+    },
+    {
+      "name": "core-lib",
+      "version": "release-v1.8.0",
+      "commit": "ca57d1e519e08badec6891d1776c7b4f05e09561"
+    },
+    {
+      "name": "core-make",
+      "version": "release-v3.10.0",
+      "commit": "aefe7ff6ff59de2cb357362638231f701f7a220c"
+    },
+    {
+      "name": "freertos",
+      "version": "release-v10.6.202",
+      "commit": "8a19c8db81becf1e981a5f94630952160fddf8c5"
+    },
+    {
+      "name": "freertos",
+      "version": "release-v10.6.203",
+      "commit": "ecf1e4eaca1e3ab3a642fbac05d37e375a5672ab"
+    },
+    {
+      "name": "mtb-dsl-pse8xxgp",
+      "version": "release-v1.7.0",
+      "commit": "5813532f621267ba954d922964a97ce7a0bba5ad"
+    },
+    {
+      "name": "mtb-ipc",
+      "version": "release-v1.2.0",
+      "commit": "760f4772bd4b37abe08062d7229de91e9a23a54f"
+    },
+    {
+      "name": "mtb-srf",
+      "version": "release-v1.2.1",
+      "commit": "7998f67519696ebfe9de7fad5494e6e6604333e7"
+    },
+    {
+      "name": "retarget-io",
+      "version": "release-v1.10.0",
+      "commit": "83bbf77931f809c243be20d58939c52c674674f7"
+    },
+    {
+      "name": "se-rt-services-utils",
+      "version": "release-v1.4.0",
+      "commit": "b9cb6c8a88e5f1a7c3ea4684cea2268475da9cb5"
+    }
+  ],
+  "verificationScope": "Flash verification and CYBOOT_SUCCESS. User confirmed live SHT40 display, valid scan save/history, manual/completion LED, two offline runs, cancellation and single test-record deletion. DB integrity and no orphan rows confirmed. Screenshot shows current disconnected link alongside a past available snapshot, consistent with DB; UI labels clarified. Acquisition-enabled/disconnected snapshot persistence is not independently verified on device. UART/reference-meter accuracy and forced failures untested.",
+  "artifact": "build/e84/environment/app_combined.hex",
+  "artifactSha256": "f49bf7da479309c1295d3a72c70da2897c5cfb745a88d41a2248c74c025000b7",
+  "customFirmwareChanges": true,
+  "flashVerified": true,
+  "hardwareVerified": true,
+  "hostDriverTestsPassed": true,
+  "environmentProtocol": "environment-protocol.json",
+  "sourceSha256": {
+    "environment/apply.py": "09a7bc0f6e17ef194a9f60b590d5faa1cf97189640e32b4d93b4483187b4b9a8",
+    "environment/base-hashes.json": "38269a2c9dd1dfb30443811646a2a825425b1e0ec163c34497ecf25fd9df530b",
+    "environment/environment_sensor.c": "1fdf3c80b8f69e4b002f70b6008587850469096ae15d959f4bc0e5d9ef1d53c8",
+    "environment/environment_sensor.h": "7e1d29d89c16d7c65fe1187c598787f5a5aadd2c74bfd17a24600559a69a4c80",
+    "environment/findme-environment.patch": "17a6ecd538bb941ef0b62e2a756314b9cf0818ec3891fa6a6910741508394a1f",
+    "environment/tests/driver_test.c": "5dd164cfe8d0974b471e3293cdfc8c350258bd82fde31bb2d993447ba42fa210",
+    "environment/tests/hal_test.c": "df536978944878d0a9641f2fc31705c69aee430b1dcc7f033673a3239d93c5ca",
+    "environment/tests/stubs/cybsp.h": "f58c0a7aa4822d62d0b0816d9114b88ecc0cb2fadf00e2fd55ecb29c5e34b3e2",
+    "environment/tests/stubs/mtb_hal.h": "1eb9f3e75bf990de86fd4ff4ead9df63ed5227b41600417b15fc9ea758f8040e",
+    "environment/third_party/infineon/mtb_sht4x.c": "19e97ae03c5887cbf53149dfd824edd4f1d1d0d61f77788fbaac306e4eb4340e",
+    "environment/third_party/infineon/mtb_sht4x.h": "b255ec11db213c435ad781b7f39098a1df421f6fa93fbe28c8cea1b9c0ad501c",
+    "environment/third_party/infineon/sensirion_i2c_hal.c": "fa896ec2accc1aa86e587e2772d7c9f8d7d5872988ef54b9364453b615d7f9e2",
+    "environment/third_party/sensirion/sensirion_common.c": "a73ce005b82b47142b50e2076376c1c6dd57315c1d518aafb5c1322f7f02ad78",
+    "environment/third_party/sensirion/sensirion_common.h": "1eacae5f8381881562d30fd3ef11edd4d5a666b93baf6b3f07f5b6025a0946f2",
+    "environment/third_party/sensirion/sensirion_config.h": "76a6211089ac94f9b5f54f401f8e329fae2a25c5d8e5eb079c4abad75cfc4dbd",
+    "environment/third_party/sensirion/sensirion_i2c.c": "e1edf28ca40f542106b4c1fcc96bf29cdd17e134945650225e57ab4423a748cb",
+    "environment/third_party/sensirion/sensirion_i2c.h": "75eb5af1bea249d238df54e630a09d5694829f793915189f1daf06bc4035056f",
+    "environment/third_party/sensirion/sensirion_i2c_hal.h": "a086c8c9d6e59baf2584d827476084fa8048d79efd997807b2471aa95f0df65d",
+    "environment/third_party/sensirion/sht4x_i2c.c": "f06b750aff5013b81cf0ec8c8dbc4b7a48fcbfb89bf0e570ea34c94c78259522",
+    "environment/third_party/sensirion/sht4x_i2c.h": "ba79f7e6420b3a8b79844edd1c20e943bb8732dfe257bb745f4cab8c257ff1f8"
+  },
+  "sensorDependencies": {
+    "infineon": {
+      "repository": "https://github.com/Infineon/sensor-humidity-sht4x.git",
+      "commit": "6a5b9edc72615746852fe3fcb1ecff97c36a3e94"
+    },
+    "sensirion": {
+      "repository": "https://github.com/Sensirion/embedded-i2c-sht4x.git",
+      "commit": "1b6d7148a704618ff5fdedf3b13247f5cdc3f5e5"
+    }
+  },
+  "flashVerificationBytes": 271664,
+  "liveSensorDisplayVerified": true,
+  "savedScanHistoryUserVerified": true,
+  "ledCoexistenceUserVerified": true,
+  "offlineTwoRunsUserVerified": true
+}

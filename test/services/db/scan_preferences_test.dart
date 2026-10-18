@@ -22,6 +22,7 @@ void main() {
     );
     await HealthRecordRepository(db).insert(record);
     await db.customStatement('DROP TABLE scan_preferences');
+    await db.customStatement('DROP TABLE health_record_environment');
     await db.customStatement('PRAGMA user_version = 5');
     await db.close();
     db = AppDatabase(NativeDatabase(file));
