@@ -123,4 +123,23 @@ void main() {
     expect(t.widget<Text>(key('history-period-count')).data, '1件');
     expect(t.takeException(), isNull);
   });
+  historyTest(
+    'opening menu overlays rows without moving them; outside tap and back dismiss',
+    (t) async {
+      await open(t);
+      final before = t.getTopLeft(key('history-row-oct-a'));
+      await expand(t);
+      expect(t.getTopLeft(key('history-row-oct-a')), before);
+      expect(key('history-period-overlay'), findsOneWidget);
+      await t.tapAt(const Offset(5, 5));
+      await t.pumpAndSettle();
+      expect(key('history-period-overlay'), findsNothing);
+      expect(t.getTopLeft(key('history-row-oct-a')), before);
+      await expand(t);
+      await t.binding.handlePopRoute();
+      await t.pumpAndSettle();
+      expect(key('history-period-overlay'), findsNothing);
+      expect(key('history-row-oct-a'), findsOneWidget);
+    },
+  );
 }
