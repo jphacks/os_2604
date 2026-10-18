@@ -131,8 +131,8 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
     disabledForegroundColor: AsakaoStyle.muted,
     side: BorderSide.none,
     shape: const StadiumBorder(),
-    padding: const EdgeInsets.symmetric(horizontal: 8),
-    minimumSize: const Size(80, 48),
+    padding: EdgeInsets.zero,
+    fixedSize: const Size(80, 48),
     textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
   );
 
@@ -156,14 +156,23 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               children: [
                 Tooltip(
                   message: '古い記録',
-                  child: TextButton.icon(
+                  child: TextButton(
                     onPressed: older == null
                         ? null
                         : () => setState(() => _id = older.id),
                     style: _dayButtonStyle,
-                    iconAlignment: IconAlignment.start,
-                    icon: const Icon(Icons.chevron_left, size: 18),
-                    label: const Text('前の日'),
+                    child: SizedBox.expand(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Text('前の日'),
+                          const Positioned(
+                            left: 2,
+                            child: Icon(Icons.chevron_left, size: 18),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -178,14 +187,23 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                 ),
                 Tooltip(
                   message: '新しい記録',
-                  child: TextButton.icon(
+                  child: TextButton(
                     onPressed: newer == null
                         ? null
                         : () => setState(() => _id = newer.id),
                     style: _dayButtonStyle,
-                    iconAlignment: IconAlignment.end,
-                    icon: const Icon(Icons.chevron_right, size: 18),
-                    label: const Text('次の日'),
+                    child: SizedBox.expand(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Text('次の日'),
+                          const Positioned(
+                            right: 2,
+                            child: Icon(Icons.chevron_right, size: 18),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
