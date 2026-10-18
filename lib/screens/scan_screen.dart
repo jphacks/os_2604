@@ -852,7 +852,29 @@ class _ScanScreenState extends State<ScanScreen>
 
   Widget _failedView() {
     final reason = _failure ?? ScanFailureReason.processingFailed;
-    final copy = _failureCopy(reason);
+    final guidance = _session.service.currentProgress.guidance;
+    final copy =
+        (reason == ScanFailureReason.poorQuality ||
+                reason == ScanFailureReason.faceNotFound) &&
+            guidance != null
+        ? _FailureCopy(
+            heading: '計測を中断しました',
+            title: switch (guidance) {
+              ScanGuidance.faceNotFound => '顔を検出できなくなりました',
+              ScanGuidance.multipleFaces => '複数の顔が映りました',
+              ScanGuidance.missingData => '顔の情報を取得できませんでした',
+              ScanGuidance.lowLight => '顔の明るさが不足しました',
+              ScanGuidance.offAngle => '顔の向きが計測範囲を外れました',
+              ScanGuidance.offCenter => '顔の位置が計測範囲を外れました',
+              ScanGuidance.faceTooSmall => '顔がカメラから遠すぎます',
+              ScanGuidance.faceTooLarge => '顔がカメラに近すぎます',
+              ScanGuidance.moving => '顔の追跡が途切れました',
+              ScanGuidance.noFrames => 'カメラ画像の更新が途切れました',
+            },
+            body: '顔を正面に向け、明るい場所でもう一度お試しください。',
+            icon: Icons.center_focus_strong_outlined,
+          )
+        : _failureCopy(reason);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),

@@ -151,7 +151,7 @@ class HealthScanController implements HealthScanService {
             captured - previous >= _configuration.maxObservationGap)) {
       _stableSince = null;
       if (_measurementStart != null) {
-        _fail(ScanFailureReason.poorQuality);
+        _fail(ScanFailureReason.poorQuality, guidance: ScanGuidance.noFrames);
         return;
       }
       // A fresh frame after a preparation gap can begin a new stability period.
@@ -174,6 +174,7 @@ class HealthScanController implements HealthScanService {
           issue == ScanGuidance.faceNotFound
               ? ScanFailureReason.faceNotFound
               : ScanFailureReason.poorQuality,
+          guidance: issue,
         );
       } else {
         _emit(ScanProgress(phase: ScanPhase.preparing, guidance: issue));
@@ -264,7 +265,7 @@ class HealthScanController implements HealthScanService {
     if (last == null || _now() - last >= _configuration.maxObservationGap) {
       _stableSince = null;
       if (_measurementStart != null) {
-        _fail(ScanFailureReason.poorQuality);
+        _fail(ScanFailureReason.poorQuality, guidance: ScanGuidance.noFrames);
       } else {
         _emit(
           const ScanProgress(
@@ -288,11 +289,16 @@ class HealthScanController implements HealthScanService {
     return value.isNegative ? Duration.zero : value;
   }
 
-  void _fail(ScanFailureReason reason) {
-    unawaited(_finish(ScanFailure(reason: reason, elapsed: _elapsed())));
+  void _fail(ScanFailureReason reason, {ScanGuidance? guidance}) {
+    unawaited(
+      _finish(
+        ScanFailure(reason: reason, elapsed: _elapsed()),
+        guidance: guidance,
+      ),
+    );
   }
 
-  Future<void> _finish(ScanOutcome outcome) {
+  Future<void> _finish(ScanOutcome outcome, {ScanGuidance? guidance}) {
     if (_active == null) return _finishing ?? Future<void>.value();
     _active = null; // Invalidate callbacks before the first await.
     _permissionGate?.cancel();
@@ -334,6 +340,7 @@ class HealthScanController implements HealthScanService {
               phase: ScanPhase.failed,
               elapsed: elapsed,
               failureReason: reason,
+              guidance: identical(finalOutcome, outcome) ? guidance : null,
             ),
           );
       }

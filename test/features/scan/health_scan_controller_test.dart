@@ -314,6 +314,7 @@ void main() {
         frames.emit(issue: issue);
         time.flushMicrotasks();
         expect((outcome as ScanFailure).reason, ScanFailureReason.poorQuality);
+        expect(scan.currentProgress.guidance, issue);
       });
     });
   }
