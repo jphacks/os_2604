@@ -33,100 +33,6 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   late Stream<List<HealthCheckResult>> _records = widget.store.watchAll();
   bool _graph = false;
-  int? _year;
-  DateTime? _date;
-
-  Future<void> _pickDate() async {
-    final now = widget.now().toLocal();
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: _date ?? DateTime(_year ?? now.year, now.month, now.day),
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2100, 12, 31),
-      helpText: '記録を探す日付',
-    );
-    if (selected != null && mounted) {
-      setState(() {
-        _date = selected;
-        _year = selected.year;
-      });
-    }
-  }
-
-  List<HealthCheckResult> _filter(List<HealthCheckResult> records) => [
-    for (final r in records)
-      if ((_year == null || r.measuredAt.toLocal().year == _year) &&
-          (_date == null || _sameDay(r.measuredAt.toLocal(), _date!)))
-        r,
-  ];
-
-  Widget _searchControls(List<HealthCheckResult> records, int count) {
-    final years = {
-      widget.now().toLocal().year,
-      ?_year,
-      for (final r in records) r.measuredAt.toLocal().year,
-    }.toList()..sort((a, b) => b.compareTo(a));
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              DropdownButton<int>(
-                key: const ValueKey('history-year'),
-                value: _year,
-                hint: const Text('すべての年'),
-                items: [
-                  const DropdownMenuItem<int>(
-                    value: null,
-                    child: Text('すべての年'),
-                  ),
-                  for (final year in years)
-                    DropdownMenuItem(value: year, child: Text('$year年')),
-                ],
-                onChanged: (year) => setState(() {
-                  _year = year;
-                  _date = null;
-                }),
-              ),
-              OutlinedButton.icon(
-                key: const ValueKey('history-date'),
-                onPressed: _pickDate,
-                icon: const Icon(Icons.calendar_today, size: 18),
-                label: Text(
-                  _date == null
-                      ? '日付を選ぶ'
-                      : '${_date!.year}/${_date!.month}/${_date!.day}',
-                ),
-              ),
-              if (_year != null || _date != null)
-                TextButton(
-                  onPressed: () => setState(() {
-                    _year = null;
-                    _date = null;
-                  }),
-                  child: const Text('検索を解除'),
-                ),
-            ],
-          ),
-          if (_year != null || _date != null)
-            Text('検索結果：$count件', style: AsakaoStyle.caption),
-        ],
-      ),
-    );
-  }
-
-  DateTime _graphAnchor(List<HealthCheckResult> records) =>
-      _date ??
-      (_year == null
-          ? widget.now()
-          : records.isNotEmpty
-          ? records.first.measuredAt.toLocal()
-          : DateTime(_year!, 12, 31));
 
   Widget _baselineCard(List<HealthCheckResult> records) {
     final b = calculateHistoryBaseline([
@@ -180,26 +86,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _list(List<HealthCheckResult> records) {
     if (records.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(24, 48, 24, 24),
         child: Column(
           children: [
             Text(
-              _year != null || _date != null ? '条件に一致する記録がありません' : 'まだ記録がありません',
-              style: const TextStyle(
+              'まだ記録がありません',
+              style: TextStyle(
                 fontFamily: AsakaoStyle.displayFont,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: AsakaoStyle.ink,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
-              _year != null || _date != null
-                  ? '年や日付を変更するか、検索を解除してください。'
-                  : '最初のチェックのあと、ここに毎朝の記録が並びます。',
+              '最初のチェックのあと、ここに毎朝の記録が並びます。',
               textAlign: TextAlign.center,
-              style: const TextStyle(height: 1.6, color: AsakaoStyle.muted),
+              style: TextStyle(height: 1.6, color: AsakaoStyle.muted),
             ),
           ],
         ),
@@ -609,7 +513,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           }
           final records = [...data]
             ..sort((a, b) => b.measuredAt.compareTo(a.measuredAt));
-          final filtered = _filter(records);
           return CustomScrollView(
             slivers: [
               SliverPadding(
@@ -624,11 +527,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _baselineCard(records),
-                            _searchControls(records, filtered.length),
-                            _viewToggle(),
-                          ],
+                          children: [_baselineCard(records), _viewToggle()],
                         ),
                       ),
                     ],
@@ -669,14 +568,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             key: const ValueKey('history-graph'),
                             padding: const EdgeInsets.only(top: 12),
                             child: HistoryTrendView(
-                              records: filtered,
-                              now: () => _graphAnchor(filtered),
-                              singleDay: _date != null,
+                              records: records,
+                              now: widget.now,
                             ),
                           )
                         : KeyedSubtree(
                             key: const ValueKey('history-list'),
-                            child: _list(filtered),
+                            child: _list(records),
                           ),
                   ),
                 ),
