@@ -268,6 +268,8 @@ class IosCameraFrameSource implements ScanFrameSource {
           width: rect.width / detectionFrame.width,
           height: rect.height / detectionFrame.height,
         );
+        final continuousTrack =
+            _trackingId != null && face.trackingId == _trackingId;
         final trackChanged =
             _trackingId != null && face.trackingId != _trackingId;
         if (trackChanged) {
@@ -282,6 +284,7 @@ class IosCameraFrameSource implements ScanFrameSource {
           configuration,
           previous: _previousFace,
           trackFace: true,
+          continuousTrack: continuousTrack,
         );
         if (trackChanged) guidance = ScanGuidance.moving;
         _previousFace = guidance == null ? geometry : null;

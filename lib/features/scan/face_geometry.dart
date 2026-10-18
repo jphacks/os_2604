@@ -24,6 +24,7 @@ ScanGuidance? assessFaceGeometry(
   ScanConfiguration configuration, {
   FaceGeometry? previous,
   bool trackFace = false,
+  bool continuousTrack = false,
 }) {
   if ([face.left, face.top, face.width, face.height].any((v) => !v.isFinite) ||
       face.width <= 0 ||
@@ -41,10 +42,13 @@ ScanGuidance? assessFaceGeometry(
   }
   if (face.width < configuration.minFaceWidth) return ScanGuidance.faceTooSmall;
   if (face.width > configuration.maxFaceWidth) return ScanGuidance.faceTooLarge;
-  // Once acquired, follow overlapping detections instead of treating bounding
-  // box jitter as a quality failure. Partial faces still fail above. Require
-  // substantial overlap so a sudden jump cannot be mistaken for continuity.
+  // Once acquired, follow the native track instead of treating position changes
+  // as quality failures. Without a native ID, require overlapping detections.
+  // Partial faces and invalid sizes still fail above.
   if (trackFace && previous != null) {
+    // A continuing native track can move freely inside the image. The overlap
+    // fallback is only needed when the detector supplies no tracking ID.
+    if (continuousTrack) return null;
     final width = math.max(
       0.0,
       math.min(face.left + face.width, previous.left + previous.width) -
