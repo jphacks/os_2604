@@ -41,7 +41,8 @@ class ScanScreen extends StatefulWidget {
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-enum _Stage { idle, running, saving, saveFailed, failed }
+/// [failed] は中断画面（3-3）、[interrupted] はカメラの画面のままダイアログで知らせる中断。
+enum _Stage { idle, running, saving, saveFailed, failed, interrupted }
 
 class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
   // 計測の進み（円と残り秒数）は、届いた経過時間のあいだを毎フレーム補って滑らかに動かす。
@@ -188,8 +189,13 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
   }();
 
   Future<void> _start() async {
-    if (_leaving || (_stage != _Stage.idle && _stage != _Stage.failed)) return;
-    final retry = _stage == _Stage.failed;
+    if (_leaving ||
+        (_stage != _Stage.idle &&
+            _stage != _Stage.failed &&
+            _stage != _Stage.interrupted)) {
+      return;
+    }
+    final retry = _stage == _Stage.failed || _stage == _Stage.interrupted;
     final attempt = ++_attempt;
     setState(() {
       _stage = _Stage.running;
@@ -205,11 +211,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
       outcome = await _session.service.startHealthScan();
     } catch (_) {
       if (!_isCurrent(attempt)) return;
-      setState(() {
-        _stage = _Stage.failed;
-        _failure = ScanFailureReason.processingFailed;
-      });
-      SoundEffects.play(SoundEffect.pause); // 3-3
+      _fail(ScanFailureReason.processingFailed);
       return;
     }
     if (!_isCurrent(attempt)) return;
@@ -228,11 +230,51 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
         }
         await _save(result, attempt);
       case ScanFailure(:final reason):
-        setState(() {
-          _stage = _Stage.failed;
-          _failure = reason;
-        });
-        SoundEffects.play(SoundEffect.pause); // 3-3
+        _fail(reason);
+    }
+  }
+
+  /// 設定アプリでの手順が要る中断は、これまでどおり中断画面（3-3）で説明する。
+  static bool _needsScreen(ScanFailureReason r) =>
+      r == ScanFailureReason.permissionDenied ||
+      r == ScanFailureReason.cameraUnavailable;
+
+  bool _dialogOpen = false;
+
+  /// 計測が無効になった。記録は保存しない。
+  /// 顔が外れた・暗い・離脱などは、カメラの画面のままダイアログで知らせ、
+  /// 「もう一度測る」で状態をリセットして条件のチェックから再開する（自動では撮り直さない）。
+  void _fail(ScanFailureReason reason) {
+    SoundEffects.play(SoundEffect.pause);
+    if (_needsScreen(reason)) {
+      setState(() {
+        _stage = _Stage.failed;
+        _failure = reason;
+      });
+      return;
+    }
+    setState(() {
+      _stage = _Stage.interrupted;
+      _failure = reason;
+      _seenGuidance = false;
+    });
+    unawaited(_showInterrupted(reason));
+  }
+
+  Future<void> _showInterrupted(ScanFailureReason reason) async {
+    if (_dialogOpen) return;
+    _dialogOpen = true;
+    final again = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _InterruptedDialog(copy: _failureCopy(reason)),
+    );
+    _dialogOpen = false;
+    if (!mounted || _leaving) return;
+    if (again == true) {
+      unawaited(_start());
+    } else {
+      unawaited(_leave());
     }
   }
 
@@ -1177,6 +1219,75 @@ class _CameraCover extends StatelessWidget {
         );
       },
       child: child,
+    ),
+  );
+}
+
+/// 計測が無効になったときのダイアログ。こまった顔と理由、もう一度／やめる。
+class _InterruptedDialog extends StatefulWidget {
+  const _InterruptedDialog({required this.copy});
+
+  final _FailureCopy copy;
+
+  @override
+  State<_InterruptedDialog> createState() => _InterruptedDialogState();
+}
+
+class _InterruptedDialogState extends State<_InterruptedDialog> {
+  // 連打で2回閉じると、下の計測画面まで閉じてしまうので1回だけにする。
+  bool _closed = false;
+
+  void _close(bool again) {
+    if (_closed) return;
+    _closed = true;
+    Navigator.of(context).pop(again);
+  }
+
+  _FailureCopy get copy => widget.copy;
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+    backgroundColor: AsakaoStyle.background,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AsakaoMascot(mood: AsakaoMascotMood.sad, size: 110),
+          const SizedBox(height: 12),
+          Semantics(
+            header: true,
+            child: Text(
+              copy.title,
+              textAlign: TextAlign.center,
+              style: AsakaoStyle.heading,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            copy.body,
+            textAlign: TextAlign.center,
+            style: AsakaoStyle.body.copyWith(color: AsakaoStyle.muted),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'この計測は無効になりました。記録は保存されていません。',
+            textAlign: TextAlign.center,
+            style: AsakaoStyle.caption,
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: AsakaoPrimaryButton(
+              label: 'もう一度測る',
+              onPressed: () => _close(true),
+            ),
+          ),
+          AsakaoTextLink(label: 'やめる', onPressed: () => _close(false)),
+        ],
+      ),
     ),
   );
 }
