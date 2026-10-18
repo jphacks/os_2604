@@ -11,7 +11,6 @@ import '../features/scan/scan_widget.dart';
 import '../models/health_check_result.dart';
 import '../models/environment_snapshot.dart';
 import '../services/device/environment_save_service.dart';
-import '../widgets/environment_view.dart';
 import '../models/scan_contract.dart';
 import '../navigation/app_routes.dart';
 import '../navigation/app_transitions.dart';
@@ -464,26 +463,24 @@ class _ScanScreenState extends State<ScanScreen>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _header(measuring),
-                      Text(
-                        widget.researchMode ? '研究モード（試験機能）' : '通常モード',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AsakaoStyle.scanMuted,
-                          fontSize: 12,
-                        ),
-                      ),
+                      // 通常モードは表示しない。研究モードのときだけ試験中だと示す。
+                      widget.researchMode
+                          ? const Text(
+                              '研究モード（試験機能）',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AsakaoStyle.scanMuted,
+                                fontSize: 12,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                       const SizedBox(height: 16),
+                      // キットは接続中か未接続かだけを出す（詳しい状態は設定で見る）。
                       if (widget.ledService case final service?) ...[
-                        AsakaoCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              LedKitStatus(service: service),
-                              LiveEnvironmentView(service: service),
-                            ],
-                          ),
+                        Center(
+                          child: LedKitBadge(service: service, dark: true),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                       ],
                       _heading(measuring),
                       const SizedBox(height: 16),
@@ -571,17 +568,10 @@ class _ScanScreenState extends State<ScanScreen>
     disabledForegroundColor: AsakaoStyle.scanMuted,
   );
 
+  // 位置合わせ中は見出しを出さない（下の「枠の中に顔を…」で伝わる）。
   Widget _header(bool measuring) => measuring
       ? const Align(alignment: Alignment.centerLeft, child: _MeasuringPill())
-      : const Text(
-          '顔の位置合わせ',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: AsakaoStyle.scanText,
-          ),
-          textAlign: TextAlign.center,
-        );
+      : const SizedBox.shrink();
 
   Widget _heading(bool measuring) => measuring
       ? const Text(

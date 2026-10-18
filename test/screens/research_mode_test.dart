@@ -90,7 +90,8 @@ void main() {
     await camera(t);
     expect(standard.single.starts, 1);
     expect(research, isEmpty);
-    expect(find.text('通常モード'), findsOneWidget);
+    expect(find.text('通常モード'), findsNothing); // 通常モードは表示しない
+    expect(find.text('研究モード（試験機能）'), findsNothing);
     expect(find.byType(SwitchListTile), findsNothing);
     await close(t);
   });

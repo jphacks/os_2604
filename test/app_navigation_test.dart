@@ -51,11 +51,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('main-tab-1')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('顔の位置合わせ'), findsOneWidget); // 下から出てくる途中
+    expect(find.text('枠の中に顔を合わせてください'), findsOneWidget); // 下から出てくる途中
     await tester.pumpAndSettle();
     await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
-    expect(find.text('顔の位置合わせ'), findsNothing);
+    expect(find.text('枠の中に顔を合わせてください'), findsNothing);
     expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
     expect(selected(), 0);
 
@@ -131,11 +131,11 @@ void main() {
     expect(reminder.onOpen, isNotNull);
     reminder.onOpen!();
     await tester.pumpAndSettle();
-    expect(find.text('顔の位置合わせ'), findsOneWidget);
+    expect(find.text('枠の中に顔を合わせてください'), findsOneWidget);
     // 計測中にもう一度押しても重ねて開かない。
     reminder.onOpen!();
     await tester.pumpAndSettle();
-    expect(find.text('顔の位置合わせ'), findsOneWidget);
+    expect(find.text('枠の中に顔を合わせてください'), findsOneWidget);
     await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);

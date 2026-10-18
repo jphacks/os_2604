@@ -55,7 +55,7 @@ void main() {
     await open(tester);
     expect(scan.starts, 1); // 開いた瞬間にカメラを起動する（3-1'）
     expect(find.widgetWithText(FilledButton, '開始'), findsNothing);
-    expect(text('顔の位置合わせ'), findsOneWidget);
+    expect(text('顔の位置合わせ'), findsNothing); // 見出しは出さない
     expect(text('枠の中に顔を合わせてください'), findsOneWidget);
     expect(text('顔'), findsOneWidget);
     expect(text('明るさ'), findsOneWidget);
@@ -208,7 +208,7 @@ void main() {
     expect(text('うまく計測できませんでした'), findsOneWidget);
     expect(find.textContaining('位置を調整'), findsOneWidget);
     expect(text('この計測は無効になりました。記録は保存されていません。'), findsOneWidget);
-    expect(text('顔の位置合わせ'), findsOneWidget); // 下はカメラの画面のまま
+    expect(text('枠の中に顔を合わせてください'), findsOneWidget); // 下はカメラの画面のまま
     expect(scan.starts, 1);
     await tester.tap(text('もう一度測る'));
     await tester.pumpAndSettle();

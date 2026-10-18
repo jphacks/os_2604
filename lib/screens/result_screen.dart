@@ -15,7 +15,6 @@ import '../ui/pachinko_effects.dart';
 import '../widgets/manual_temperature_input.dart';
 import '../widgets/self_condition_input.dart';
 import '../services/device/environment_save_service.dart';
-import '../widgets/environment_view.dart';
 import '../services/device/led_notification_service.dart';
 import '../widgets/led_kit_controls.dart';
 
@@ -372,22 +371,37 @@ class _ResultScreenState extends State<ResultScreen> {
     };
   }
 
+  /// キットは接続中か未接続かだけを出す。保存した環境の値は履歴の詳細で見られる。
+  /// ただし環境情報の保存に失敗したときは、隠さずに知らせて再試行できるようにする。
   List<Widget> _kitInformation() => [
     if (widget.ledService case final service?) ...[
       const SizedBox(height: 16),
-      const Text('現在のキット接続・LED状態'),
-      LedKitStatus(service: service),
-      const Text('下の環境情報は計測終了時に保存した記録です。現在の接続状態とは別に表示します。'),
+      Center(child: LedKitBadge(service: service)),
     ],
-    if (widget.environmentSaves case final saves?) ...[
-      const SizedBox(height: 16),
-      SavedEnvironmentView(
-        key: ValueKey(widget.recordId),
-        recordId: widget.recordId!,
-        store: saves.store,
-        saves: saves,
+    if ((widget.environmentSaves, widget.recordId) case (
+      final saves?,
+      final id?,
+    ))
+      ListenableBuilder(
+        listenable: saves,
+        builder: (context, _) =>
+            saves.stateFor(id) != EnvironmentSaveState.failed
+            ? const SizedBox.shrink()
+            : Column(
+                children: [
+                  const SizedBox(height: 8),
+                  const Text(
+                    'チェックは保存済みです。環境情報を保存できませんでした',
+                    textAlign: TextAlign.center,
+                    style: AsakaoStyle.caption,
+                  ),
+                  TextButton(
+                    onPressed: () => saves.retry(id),
+                    child: const Text('環境情報の保存を再試行'),
+                  ),
+                ],
+              ),
       ),
-    ],
   ];
 
   // ---- 4-1 自己申告 ----
