@@ -188,7 +188,7 @@ class _ConditionCard extends StatelessWidget {
                   key: const ValueKey('condition-average'),
                   style: const TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: AsakaoStyle.ink,
                   ),
                 ),

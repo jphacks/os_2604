@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/health_check_result.dart';
 import '../navigation/app_routes.dart';
+import '../navigation/app_transitions.dart';
 import '../services/analysis/history_baseline.dart';
 import '../services/db/health_record_store.dart';
+import '../ui/asakao_flower.dart';
 import '../ui/asakao_record_widgets.dart';
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
@@ -62,92 +64,98 @@ class _HistoryScreenState extends State<HistoryScreen> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  Widget _surface(Widget child) => Material(
+  Widget _surface(Widget child, {bool fullBleed = false}) => Material(
     color: Colors.white,
     clipBehavior: Clip.antiAlias,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-      side: const BorderSide(color: AsakaoStyle.border),
-    ),
+    shape: fullBleed
+        ? const Border(
+            top: BorderSide(color: AsakaoStyle.border),
+            bottom: BorderSide(color: AsakaoStyle.border),
+          )
+        : RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: AsakaoStyle.border),
+          ),
     child: child,
   );
+
+  /// 5-1 ↔ 5-4。スイッチより下だけを入れ替える。
+  void _showView({required bool graph}) {
+    if (graph != _graph) setState(() => _graph = graph);
+  }
+
+  Widget _list(List<HealthCheckResult> records) {
+    if (records.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(24, 48, 24, 24),
+        child: Column(
+          children: [
+            Text(
+              'まだ記録がありません',
+              style: TextStyle(
+                fontFamily: AsakaoStyle.displayFont,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AsakaoStyle.ink,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '最初のチェックのあと、ここに毎朝の記録が並びます。',
+              textAlign: TextAlign.center,
+              style: TextStyle(height: 1.6, color: AsakaoStyle.muted),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < records.length; index++) ...[
+          if (index == 0 ||
+              records[index - 1].measuredAt.toLocal().month !=
+                  records[index].measuredAt.toLocal().month ||
+              records[index - 1].measuredAt.toLocal().year !=
+                  records[index].measuredAt.toLocal().year)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                '${records[index].measuredAt.toLocal().year}年${records[index].measuredAt.toLocal().month}月',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AsakaoStyle.muted,
+                ),
+              ),
+            ),
+          _record(records[index]),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
 
   void _open(HealthCheckResult record) =>
       Navigator.of(context)
           .pushNamed(AppRoutes.historyDetail, arguments: record.id);
 
-  Widget _today(List<HealthCheckResult> records) {
-    final today = widget.now().toLocal();
-    final valid = records.where(
-      (r) =>
-          r.quality == MeasurementQuality.good &&
-          _sameDay(r.measuredAt.toLocal(), today),
-    );
-    final latest = valid.firstOrNull;
-    return _surface(
-      Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Icon(
-                latest == null
-                    ? Icons.local_florist_outlined
-                    : Icons.local_florist,
-                size: 40,
-                color: latest == null ? AsakaoStyle.muted : AsakaoStyle.coral,
-              ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '今日 · ${today.month}月${today.day}日（${asakaoWeekdays[today.weekday - 1]}）',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AsakaoStyle.muted,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    latest == null ? '今日はまだチェックしていません' : '今日のチェック完了',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AsakaoStyle.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (latest != null)
-                    TextButton(
-                      onPressed: () => _open(latest),
-                      child: const Text('今日の記録を見る'),
-                    )
-                  else if (widget.onStartCheck != null)
-                    TextButton(
-                      onPressed: widget.onStartCheck,
-                      child: const Text('チェック開始'),
-                    )
-                  else
-                    const Text(
-                      'カメラから15秒で記録できます',
-                      style: TextStyle(fontSize: 12, color: AsakaoStyle.muted),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _week(List<HealthCheckResult> records) {
+  /// 5-1 / 5-1'。今日の状態と「今週咲いた花」を1枚のカードにまとめる。
+  Widget _todayCard(List<HealthCheckResult> records) {
     final now = widget.now().toLocal();
     final today = DateTime(now.year, now.month, now.day);
+    bool bloomed(DateTime day) => records.any(
+      (r) =>
+          r.quality == MeasurementQuality.good &&
+          _sameDay(r.measuredAt.toLocal(), day),
+    );
+    final latest = records
+        .where(
+          (r) =>
+              r.quality == MeasurementQuality.good &&
+              _sameDay(r.measuredAt.toLocal(), today),
+        )
+        .firstOrNull;
     final sunday = DateTime(
       today.year,
       today.month,
@@ -157,85 +165,171 @@ class _HistoryScreenState extends State<HistoryScreen> {
       7,
       (i) => DateTime(sunday.year, sunday.month, sunday.day + i),
     );
-    final done = days
-        .map(
-          (day) =>
-              !day.isAfter(today) &&
-              records.any(
-                (r) =>
-                    r.quality == MeasurementQuality.good &&
-                    _sameDay(r.measuredAt.toLocal(), day),
-              ),
-        )
-        .toList();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-        children: [
-          Row(
+    final done = [for (final d in days) !d.isAfter(today) && bloomed(d)];
+
+    final summary = Row(
+      children: [
+        // 5-1' → 5-1。チェックが済むと、その場でしおれた花が咲く。
+        _bloomSwitch(
+          SizedBox(
+            key: ValueKey(latest == null),
+            width: 92,
+            height: 88,
+            child: AsakaoMascot(
+              mood: latest == null
+                  ? AsakaoMascotMood.wilted
+                  : AsakaoMascotMood.happy,
+              size: 88,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
-                child: Text(
-                  '今週咲いた花',
-                  style: TextStyle(fontSize: 13, color: AsakaoStyle.muted),
-                ),
-              ),
               Text(
-                '${done.where((v) => v).length}輪',
+                latest == null
+                    ? '今日 · ${today.month}月${today.day}日（${asakaoWeekdays[today.weekday - 1]}）'
+                    : '今日 · ${formatClock(latest.measuredAt.toLocal())} に記録',
+                style: const TextStyle(fontSize: 12, color: AsakaoStyle.muted),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                latest == null ? '今日はまだチェックしていません' : '今日のチェック完了',
                 style: const TextStyle(
+                  fontFamily: AsakaoStyle.displayFont,
+                  fontSize: 19,
                   fontWeight: FontWeight.w700,
                   color: AsakaoStyle.ink,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              for (var i = 0; i < days.length; i++)
-                Expanded(
-                  child: Semantics(
-                    label:
-                        '${days[i].month}月${days[i].day}日 ${done[i] ? '記録あり' : '記録なし'}',
-                    excludeSemantics: true,
-                    child: Column(
-                      children: [
-                        Text(
-                          asakaoWeekdays[days[i].weekday - 1],
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AsakaoStyle.muted,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Icon(
-                          done[i] ? Icons.local_florist : Icons.eco_outlined,
-                          size: 26,
-                          color: done[i]
-                              ? AsakaoStyle.coral
-                              : AsakaoStyle.border,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${days[i].day}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: _sameDay(days[i], today)
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: AsakaoStyle.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              const SizedBox(height: 4),
+              if (latest == null)
+                const Text(
+                  '下のカメラから15秒で記録できます',
+                  style: TextStyle(fontSize: 13, color: AsakaoStyle.ink),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: AsakaoQualityChip(latest.quality),
                 ),
             ],
           ),
-        ],
+        ),
+        if (latest != null)
+          const Icon(Icons.chevron_right, size: 22, color: AsakaoStyle.muted),
+      ],
+    );
+
+    return _surface(
+      Padding(
+        // 中央の区切り線はフレームまで引くので、左右の余白は中身ごとに付ける。
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: latest == null
+                  ? summary
+                  : InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _open(latest),
+                      child: summary,
+                    ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(top: 14, bottom: 12),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: AsakaoStyle.border,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '今週咲いた花',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AsakaoStyle.ink,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  for (var i = 0; i < days.length; i++)
+                    Expanded(
+                      child: Semantics(
+                        label:
+                            '${days[i].month}月${days[i].day}日 ${done[i] ? '記録あり' : '記録なし'}',
+                        excludeSemantics: true,
+                        child: Column(
+                          children: [
+                            Text(
+                              asakaoWeekdays[days[i].weekday - 1],
+                              style: _sameDay(days[i], today)
+                                  ? const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: AsakaoStyle.todayAccent,
+                                    )
+                                  : const TextStyle(
+                                      fontSize: 12,
+                                      color: AsakaoStyle.muted,
+                                    ),
+                            ),
+                            const SizedBox(height: 5),
+                            if (_sameDay(days[i], today))
+                              // 計測から戻って履歴が見えたときに、今日のつぼみが咲く。
+                              AsakaoTodayBloom(
+                                bloomed: done[i],
+                                visible:
+                                    ModalRoute.isCurrentOf(context) ?? true,
+                              )
+                            else
+                              AsakaoDayFlower(
+                                state: done[i]
+                                    ? AsakaoFlowerState.bloomed
+                                    : AsakaoFlowerState.bud,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+      fullBleed: true,
     );
   }
+
+  /// つぼみ → 花の切り替え。少し弾ませて咲かせる。
+  static Widget _bloomSwitch(Widget child) => AnimatedSwitcher(
+    duration: const Duration(milliseconds: 450),
+    transitionBuilder: (child, animation) => ScaleTransition(
+      scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+      child: FadeTransition(opacity: animation, child: child),
+    ),
+    child: child,
+  );
 
   Widget _record(HealthCheckResult record) {
     final at = record.measuredAt.toLocal();
@@ -306,6 +400,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ),
               const SizedBox(width: 8),
+              // 数字がカードの縦中央に来るよう、上の「体調」と同じ高さを下にも空ける。
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -319,9 +414,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           )
                         : const TextStyle(
                             fontSize: 22,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: AsakaoStyle.ink,
                           ),
+                  ),
+                  const ExcludeSemantics(
+                    child: Opacity(
+                      opacity: 0,
+                      child: Text('体調', style: AsakaoStyle.caption),
+                    ),
                   ),
                 ],
               ),
@@ -355,13 +456,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   selected: _graph == graph,
                   excludeSemantics: true,
                   label: label,
-                  onTap: () => setState(() => _graph = graph),
+                  onTap: () => _showView(graph: graph),
                   child: Material(
                     color: _graph == graph ? Colors.white : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      onTap: () => setState(() => _graph = graph),
+                      onTap: () => _showView(graph: graph),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 44),
                         child: Center(
@@ -389,14 +490,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AsakaoStyle.background,
     appBar: AppBar(
-      title: const Text(
-        '履歴',
-        style: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          color: AsakaoStyle.ink,
-        ),
-      ),
+      title: const Text('履歴', style: AsakaoStyle.tabTitle),
       backgroundColor: AsakaoStyle.background,
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
@@ -425,102 +519,69 @@ class _HistoryScreenState extends State<HistoryScreen> {
           return CustomScrollView(
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
                 sliver: SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _today(records),
-                      _week(records),
-                      _baselineCard(records),
-                      _viewToggle(),
+                      _todayCard(records),
+                      const SizedBox(height: 14),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [_baselineCard(records), _viewToggle()],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-              if (_graph)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                  sliver: SliverToBoxAdapter(
-                    child: HistoryTrendView(records: records, now: widget.now),
-                  ),
-                )
-              else if (records.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.local_florist_outlined,
-                          size: 44,
-                          color: AsakaoStyle.coral,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'まだ記録がありません',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: AsakaoStyle.ink,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          '測定記録はまだありません。',
-                          style: TextStyle(color: AsakaoStyle.muted),
-                        ),
-                        Text(
-                          '最初のチェックのあと、ここに毎朝の記録が並びます。',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            height: 1.6,
-                            color: AsakaoStyle.muted,
-                          ),
-                        ),
-                      ],
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                // リスト ↔ グラフはスイッチより下だけを入れ替える。
+                // グラフは右から、リストは左から入る（push の向き）。
+                sliver: SliverToBoxAdapter(
+                  child: AnimatedSwitcher(
+                    duration: AppTransitions.fadeDuration,
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: Alignment.topCenter,
+                      children: [...previous, ?current],
                     ),
-                  ),
-                ),
-              if (!_graph)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                  sliver: SliverList.builder(
-                    itemCount: records.length,
-                    itemBuilder: (context, index) {
-                      final r = records[index];
-                      final date = r.measuredAt.toLocal();
-                      final previous = index == 0
-                          ? null
-                          : records[index - 1].measuredAt.toLocal();
-                      final monthStart =
-                          previous == null ||
-                          previous.year != date.year ||
-                          previous.month != date.month;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (monthStart)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                '${date.year}年${date.month}月',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AsakaoStyle.muted,
-                                ),
-                              ),
+                    transitionBuilder: (child, animation) => SlideTransition(
+                      position:
+                          Tween(
+                            begin: Offset(
+                              child.key == const ValueKey('history-graph')
+                                  ? 1
+                                  : -1,
+                              0,
                             ),
-                          _record(r),
-                          const SizedBox(height: 8),
-                        ],
-                      );
-                    },
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: FadeTransition(opacity: animation, child: child),
+                    ),
+                    child: _graph
+                        ? Padding(
+                            key: const ValueKey('history-graph'),
+                            padding: const EdgeInsets.only(top: 12),
+                            child: HistoryTrendView(
+                              records: records,
+                              now: widget.now,
+                            ),
+                          )
+                        : KeyedSubtree(
+                            key: const ValueKey('history-list'),
+                            child: _list(records),
+                          ),
                   ),
                 ),
+              ),
             ],
           );
         },

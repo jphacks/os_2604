@@ -1,3 +1,27 @@
+# 2026-10-18 PR #13 と研究モードの統合
+
+- ブランチ: `codex/ui-navigation-transitions`。main `d2179fd`（PR #12）を取り込み、app.dart・scan_screen.dartの競合を解消。
+- ユーザー承認: 通常／研究切替を設定画面へ移し、新UI・自動開始・アニメーション・フォント・キャラクター・効果音を維持。Liquid Glassの既存PR内実装を追加変更せず維持。
+- 設定の研究モードは初期オフ、端末内保存。撮影ルートで読み込んでから該当サービスのみ生成・自動開始。撮影中はモード固定。読込失敗はカメラを作らず再試行、保存失敗は設定を変更せず表示。
+- DB schema v6: scan_preferencesテーブル追加のみ。v5からの移行で既存の測定モード・履歴保持、設定の再起動後保持をテスト。Cの通常／研究処理・null・品質条件・結果のモード表示を保持。
+- 検証: 整形95ファイル変更なし、analyze指摘なし、全338テスト成功。iPhone向け署名付きRelease最終ビルド成功（88.7MB）。今回の統合版の実機操作は未確認。
+- PR #13へpushしレビュー可能にする。mainへのマージは今回行わない。
+
+## 2026-10-18 画面遷移仕様（push/fade/cover/sheet）の反映
+- ブランチ `codex/ui-navigation-transitions`（main `444390f` 起点）。未コミット。ユーザー提供の「あさかお 画面遷移仕様」に従う。
+- 共通：`lib/navigation/app_transitions.dart`（push=CupertinoPageRoute／fade=0.25秒／cover=下から・下へ／cover内fadeは閉じると下へ）。
+- 構成変更：ホームタブを廃止し履歴・設定の2タブ。起動・初回設定完了後は履歴。カメラボタンは計測を cover で開く（`main_tabs_screen.dart`）。`home_screen.dart` は未使用で残置。アプリの説明は設定「情報」→「アプリの説明」から push で再表示（ユーザー決定）。
+- 初回設定：入れ子Navigatorで 1-1→1-2 fade／1-2→1-3→1-4 push／1-4許可→1-6 push／1-4「今はしない」・拒否→1-5 fade（仕様変更：従来は1-6直行）／1-5→1-6 push（ユーザー承認済み）／1-6→1-7・1-6' fade。1-7→履歴はゲートで下へ閉じる。
+- 計測・結果：3-2→3-3 fade、3-2→4-1 fade、4-1→4-2→4-3/4-2' fade、4-3「履歴に戻る」は下へ閉じて履歴タブ。計測画面を開いた瞬間にカメラ起動・計測開始（ユーザー決定で「開始」ボタン廃止。iOSのカメラ許可確認も画面表示時）。テストの偽計測サービスは同期配信に変更。
+- 履歴：5-1→5-4 グラフを push（「リスト」で戻る）、5-1→5-2 push、つぼみ→花をその場でアニメーション。設定：6-2/6-4 push、6-3 をボトムシートに変更。6-5は未実装のまま。
+- 検証：format・analyze OK、flutter test 323件成功。iPhone 17（iOS 27.2）にReleaseビルドを導入・起動成功。アニメーションの見た目はユーザー確認待ち。
+- ローカル専用（コミットしない）：Bundle ID を `com.koki.os2604` に変更（個人チーム署名用）、CocoaPods 1.17.0 による Podfile.lock 差分。
+- キャラ画像：~/Downloads の IMG_1767=ふつう、1768=うれしい、1769=こまった、1770=いそがしい を白背景透過・正方形600pxにして `assets/mascot/{normal,happy,sad,busy}.png`、pubspec に assets 登録、`AsakaoMascot` を画像表示へ。
+- 第3回（ユーザー指摘）：履歴の今日カードと「今週咲いた花」を1枚のカードに統合（未完了=デザインの灰色しおれ画像 `assets/mascot/wilted.png`、完了=happy＋品質チップ、タップで今日の記録）。「今日の記録を見る」ボタン廃止、未完了は「下のカメラから15秒で記録できます」。花・つぼみはデザインSVGを `lib/ui/asakao_flower.dart` で描画。リスト↔グラフは push をやめ、スイッチより下だけをスライド＋fadeで切替。設定は見出し下と各グループの間隔を拡大。format・analyze OK、テスト323件成功、iPhone 17へ導入・起動成功。見た目はユーザー確認待ち。
+- 第4回以降：フォント同梱（Zen Maru Gothic=見出し、Noto Sans JP=本文・UI・数字、OFL、assets/fonts、アプリ約89MB）。タブ中央カメラを66px・#FF8A5Bに（`ios/Runner/CameraTabBar.swift`、B担当範囲・要共有）。履歴/設定の見出しを共通 `AsakaoStyle.tabTitle` で統一。履歴↔設定は左右スライド。初回設定：1-1「タップしてはじめる」を下部へ、1-2本文から「記録が」削除、1-2〜1-4のドットはNavigator外に固定、下部ボタンは遅れて表示（`AsakaoReveal`）、1-7は状態2行を時間差で表示。1-8 Tipは全体を暗くして操作を止め×で閉じる・カメラを指す吹き出し。テスト323件成功、iPhone 17へ上書き導入。
+- 効果音（ユーザー指定）：assets/sounds（~/Downloads の mp3 を英名でコピー）。iOS は AppDelegate.swift の `SoundEffectPlayer`（AVAudioPlayer、ambient＋mixWithOthers＝消音スイッチに従う）を `jp.jphacks.os_2604/sound_effects` で呼ぶ。Dart は `lib/services/sound/sound_effects.dart`。一時停止=3-3表示時、計測完了=計測成功時、撮影準備=3条件がそろった時（試行ごと1回）、初期設定完了=1-7表示時、蕾=今日のつぼみが咲く時。録音開始は不使用（ユーザー決定）。計測中.mp3 は使い所未定（同梱済み・未使用）。テスト330件成功。カード全幅化（履歴の今日カード・詳細の全カード・設定の全カード、線もフレームまで）、詳細の戻るを拡大。
+- 検証（第2回）：format・analyze OK、flutter test 323件成功、iPhone 17へ導入・起動成功。見た目・カメラ自動起動の実機確認はユーザー待ち。
+
 ## 2026-10-18 計測開始時の誤中断修正
 - ブランチ: `codex/fix-scan-countdown-interruption`（全画面UI `82c2e7d` 起点）。
 - 準備→計測で兄弟Widgetの型が変わると、キーのないカメラ部分が破棄され、ScanWidgetのdeactivate/disposeがcancelScanを呼んでいた。回帰テストで中断呼び出し2回を再現。

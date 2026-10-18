@@ -111,11 +111,12 @@ private struct CameraTabs: View {
     } label: {
       Group {
         if index == 1 {
+          // デザインのカメラボタン：コーラル #FF8A5B の丸と濃い茶のアイコン。
           Image(systemName: symbol)
-            .font(.system(size: 27, weight: .semibold))
-            .foregroundStyle(.black)
-            .frame(width: 56, height: 56)
-            .background(.white, in: Circle())
+            .font(.system(size: 31, weight: .semibold))
+            .foregroundStyle(Color(red: 0x2B / 255, green: 0x12 / 255, blue: 0x06 / 255))
+            .frame(width: 66, height: 66)
+            .background(Color(red: 0xFF / 255, green: 0x8A / 255, blue: 0x5B / 255), in: Circle())
         } else {
           VStack(spacing: 4) {
             Image(systemName: symbol)

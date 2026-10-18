@@ -12,6 +12,8 @@ import 'package:os_2604/services/settings/onboarding_store.dart';
 
 import 'package:os_2604/services/settings/reminder_settings_store.dart';
 
+import 'package:os_2604/ui/asakao_flower.dart';
+
 import '../support/fake_reminder.dart';
 import '../support/fake_scan.dart';
 
@@ -115,7 +117,7 @@ void main() {
   group('history', () {
     tw('empty state', (tester) async {
       await pumpHistory(tester);
-      expect(find.text('測定記録はまだありません。'), findsOneWidget);
+      expect(find.text('まだ記録がありません'), findsOneWidget);
       expect(find.text('基準値蓄積中（有効記録 0/3件）'), findsOneWidget);
     });
 
@@ -168,9 +170,7 @@ void main() {
     tw('tap opens the detail for that id', (tester) async {
       await repo.insert(_rec('a', DateTime(2026, 10, 16, 8)));
       await repo.updateReport('a', '保存済みレポート', ReportMode.template);
-      await pumpApp(tester);
-      await tester.tap(find.text('履歴'));
-      await tester.pumpAndSettle();
+      await pumpApp(tester); // 起動すると履歴（5-1）
       await tester.tap(row('a'));
       await tester.pumpAndSettle();
       expect(find.text('8:00 に記録'), findsOneWidget);
@@ -179,9 +179,7 @@ void main() {
     });
 
     Future<void> openDetailFromApp(WidgetTester tester, String id) async {
-      await pumpApp(tester);
-      await tester.tap(find.text('履歴'));
-      await tester.pumpAndSettle();
+      await pumpApp(tester); // 起動すると履歴（5-1）
       await tester.tap(row(id));
       await tester.pumpAndSettle();
     }
@@ -237,16 +235,22 @@ void main() {
       );
       await repo.insert(_rec('future', DateTime(2026, 10, 18, 8)));
       await repo.insert(_rec('previous-week', DateTime(2026, 10, 10, 8)));
+      // 「N輪」の表示はやめたので、咲いた花の数で数える。
+      int bloomed() => tester
+          .widgetList<AsakaoDayFlower>(find.byType(AsakaoDayFlower))
+          .where((f) => f.state == AsakaoFlowerState.bloomed)
+          .length;
       await pumpHistory(tester);
-      expect(find.text('1輪'), findsOneWidget);
+      expect(find.textContaining('輪'), findsNothing);
+      expect(bloomed(), 1);
       expect(find.text('今日はまだチェックしていません'), findsOneWidget);
       await repo.insert(_rec('today', DateTime(2026, 10, 17, 7)));
       await tester.pumpAndSettle();
-      expect(find.text('2輪'), findsOneWidget);
+      expect(bloomed(), 2);
       expect(find.text('今日のチェック完了'), findsOneWidget);
       await repo.deleteOne('today');
       await tester.pumpAndSettle();
-      expect(find.text('1輪'), findsOneWidget);
+      expect(bloomed(), 1);
       expect(find.text('今日はまだチェックしていません'), findsOneWidget);
     });
 
@@ -382,6 +386,7 @@ void main() {
       await tester.tap(find.text('記録をすべて削除'));
       await tester.pumpAndSettle();
       expect(find.text('すべての記録を削除しますか？'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget); // 6-3 は sheet
       expect(find.textContaining('取り消せません'), findsOneWidget);
       await confirm(tester, '削除する');
       expect(await repo.findInRange(DateTime(2000), DateTime(2100)), isEmpty);

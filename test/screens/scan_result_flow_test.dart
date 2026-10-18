@@ -53,12 +53,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('チェック開始'));
+    await tester.tap(find.byKey(const ValueKey('main-tab-1'))); // カメラボタン
     await tester.pumpAndSettle();
   }
 
   Future<void> startAndFinish(WidgetTester tester, ScanOutcome o) async {
-    await tester.tap(find.text('開始'));
     await tester.pump();
     scan.finish(o);
     await tester.pumpAndSettle();
@@ -67,15 +66,10 @@ void main() {
   tw('success saves before the result screen; nulls are 未入力', (tester) async {
     await openScan(tester);
     expect(find.textContaining('診断目的ではありません'), findsOneWidget);
-    await tester.tap(find.text('開始'));
     await tester.pump();
-    expect(find.widgetWithText(FilledButton, '開始'), findsOneWidget);
-    expect(
-      tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '開始'))
-          .onPressed,
-      isNull,
-    );
+    // 開いた瞬間に1回だけ計測を始める。開始ボタンは無い。
+    expect(scan.starts, 1);
+    expect(find.widgetWithText(FilledButton, '開始'), findsNothing);
     scan.emit(
       const ScanProgress(
         phase: ScanPhase.measuring,
@@ -105,7 +99,7 @@ void main() {
     expect(find.textContaining('15.2 秒'), findsOneWidget);
     await tester.tap(find.text('履歴に戻る'));
     await tester.pumpAndSettle();
-    expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
   });
 
   tw('insert failure: no navigation, honest message, retry saves', (
@@ -154,17 +148,16 @@ void main() {
     tester,
   ) async {
     await openScan(tester);
-    await tester.tap(find.text('開始'));
     await tester.pump();
     await tester.tap(find.text('中止する'));
     await tester.pumpAndSettle();
     expect(scan.cancels, greaterThanOrEqualTo(1));
     expect(scan.disposes, 1);
-    expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
     scan.finish(successOutcome('late'));
     await tester.pumpAndSettle();
     expect(await repo.findById('late'), isNull);
-    expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, '履歴'), findsOneWidget);
   });
 
   tw('result: inputs persist on the same record; failure shown then retried', (

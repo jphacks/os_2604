@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +7,7 @@ import 'package:os_2604/models/scan_contract.dart';
 import 'package:os_2604/services/db/app_database.dart';
 import 'package:os_2604/services/db/health_record_repository.dart';
 import 'package:os_2604/services/settings/onboarding_store.dart';
+import 'package:os_2604/services/settings/scan_mode_store.dart';
 
 import '../support/fake_scan.dart';
 import '../support/fake_reminder.dart';
@@ -20,13 +19,18 @@ class _Done implements OnboardingStore {
   Future<void> completeOnboarding() async {}
 }
 
-class _SlowDispose extends FakeScanService {
-  final gate = Completer<void>();
+class _FailStore implements ScanModeStore {
   @override
-  Future<void> dispose() async {
-    await super.dispose();
-    await gate.future;
-  }
+  Future<bool> loadResearchMode() async => throw Exception('load');
+  @override
+  Future<void> saveResearchMode(bool enabled) async => throw Exception('save');
+}
+
+class _SaveFailureStore implements ScanModeStore {
+  @override
+  Future<bool> loadResearchMode() async => false;
+  @override
+  Future<void> saveResearchMode(bool enabled) async => throw Exception('save');
 }
 
 void main() {
@@ -34,7 +38,6 @@ void main() {
   late HealthRecordRepository repo;
   late List<FakeScanService> standard;
   late List<FakeScanService> research;
-
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     repo = HealthRecordRepository(db);
@@ -42,11 +45,7 @@ void main() {
     research = [];
   });
   tearDown(() => db.close());
-
-  Future<void> open(
-    WidgetTester tester, {
-    FakeScanService Function()? createStandard,
-  }) async {
+  Future<void> open(WidgetTester tester, {ScanModeStore? store}) async {
     tester.view.physicalSize = const Size(800, 2800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -58,49 +57,63 @@ void main() {
         aiRunner: runnerOf(FakeAiClient()),
         reminderService: FakeReminderService(),
         reminderStore: FakeReminderStore(),
+        scanModeStore: store ?? DriftScanModeStore(db),
         createScanSession: () {
-          final scan = createStandard?.call() ?? FakeScanService();
-          standard.add(scan);
-          return sessionOf(scan);
+          final s = FakeScanService();
+          standard.add(s);
+          return sessionOf(s);
         },
         createResearchScanSession: () {
-          final scan = FakeScanService();
-          research.add(scan);
-          return sessionOf(scan);
+          final s = FakeScanService();
+          research.add(s);
+          return sessionOf(s);
         },
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('チェック開始'));
-    await tester.pumpAndSettle();
   }
 
-  Future<void> close(WidgetTester tester) async {
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 1));
+  Future<void> camera(WidgetTester t) async {
+    await t.tap(find.byKey(const ValueKey('main-tab-1')));
+    await t.pumpAndSettle();
   }
 
+  Future<void> close(WidgetTester t) async {
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(milliseconds: 1));
+  }
+
+  testWidgets('standard is default and starts automatically without research', (
+    t,
+  ) async {
+    await open(t);
+    await camera(t);
+    expect(standard.single.starts, 1);
+    expect(research, isEmpty);
+    expect(find.text('通常モード'), findsOneWidget);
+    expect(find.byType(SwitchListTile), findsNothing);
+    await close(t);
+  });
   testWidgets(
-    'research is opt-in, locked during scan and saved even without an estimate',
-    (tester) async {
-      await open(tester);
+    'settings persists research; camera auto-starts it and saves mode with null estimates',
+    (t) async {
+      await open(t);
+      await t.tap(find.byKey(const ValueKey('main-tab-2')));
+      await t.pumpAndSettle();
       expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        t.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
         isFalse,
       );
-      expect(research, isEmpty);
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pumpAndSettle();
-      expect(standard.single.disposes, 1);
-      expect(research, hasLength(1));
-      await tester.tap(find.text('開始'));
-      await tester.pump();
-      expect(research.single.starts, 1);
-      expect(standard.single.starts, 0);
+      await t.tap(find.byType(SwitchListTile));
+      await t.pumpAndSettle();
       expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
-        isNull,
+        await t.runAsync(() => DriftScanModeStore(db).loadResearchMode()),
+        isTrue,
       );
+      await camera(t);
+      expect(standard, isEmpty);
+      expect(research.single.starts, 1);
+      expect(find.text('研究モード（試験機能）'), findsOneWidget);
       research.single.finish(
         ScanSuccess(
           HealthCheckResult(
@@ -113,100 +126,52 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
-      expect(find.text('研究モード'), findsOneWidget);
-      expect(find.textContaining('研究用の試験機能'), findsOneWidget);
-      final saved = (await repo.findById('research-null'))!;
+      await t.pumpAndSettle();
+      final saved = (await t.runAsync(() => repo.findById('research-null')))!;
       expect(saved.scanMode, ScanMode.research);
       expect(saved.estimatedHeartRateBpm, isNull);
-      await tester.ensureVisible(find.text('4'));
-      await tester.tap(find.text('4'));
-      await tester.pump();
-      await tester.ensureVisible(find.text('体調を保存'));
-      await tester.tap(find.text('体調を保存'));
-      await tester.pumpAndSettle();
-      expect((await repo.findById(saved.id))!.scanMode, ScanMode.research);
-      await tester.ensureVisible(find.text('レポートを作成'));
-      await tester.tap(find.text('レポートを作成'));
-      await tester.pumpAndSettle();
-      final reported = (await repo.findById(saved.id))!;
-      expect(reported.scanMode, ScanMode.research);
-      expect(reported.aiMode, ReportMode.template);
-      expect(reported.reportText, contains('計測モード：研究モード'));
-      await tester.ensureVisible(find.text('ホームへ'));
-      await tester.tap(find.text('ホームへ'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('チェック開始'));
-      await tester.pumpAndSettle();
+      expect(saved.faceColorFeature, isNull);
+      await close(t);
+      // Recreate the application: selection survives and can be turned off.
+      await open(t);
+      await t.tap(find.byKey(const ValueKey('main-tab-2')));
+      await t.pumpAndSettle();
       expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        isFalse,
+        t.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isTrue,
       );
-      expect(standard, hasLength(2));
-      await close(tester);
+      await t.tap(find.byType(SwitchListTile));
+      await t.pumpAndSettle();
+      await camera(t);
+      expect(standard.single.starts, 1);
+      expect(research, hasLength(1));
+      await close(t);
     },
   );
-
-  testWidgets('turning research off replaces its service before starting', (
-    tester,
+  testWidgets('failed setting save keeps standard mode and reports failure', (
+    t,
   ) async {
-    await open(tester);
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-    expect(research.single.disposes, 1);
-    expect(standard, hasLength(2));
-    await tester.tap(find.text('開始'));
-    await tester.pump();
-    expect(standard.last.starts, 1);
-    expect(research.single.starts, 0);
-    standard.last.finish(
-      ScanSuccess(
-        HealthCheckResult(
-          id: 'standard',
-          measuredAt: DateTime(2026, 10, 18),
-          elapsed: const Duration(seconds: 15),
-          faceDetected: true,
-          quality: MeasurementQuality.good,
-          scanMode: ScanMode.standard,
-        ),
-      ),
+    await open(t, store: _SaveFailureStore());
+    await t.tap(find.byKey(const ValueKey('main-tab-2')));
+    await t.pumpAndSettle();
+    await t.tap(find.byType(SwitchListTile));
+    await t.pumpAndSettle();
+    expect(
+      t.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isFalse,
     );
-    await tester.pumpAndSettle();
-    expect(find.text('通常モード'), findsOneWidget);
-    final saved = (await repo.findById('standard'))!;
-    expect(saved.scanMode, ScanMode.standard);
-    expect(saved.estimatedHeartRateBpm, isNull);
-    expect(saved.faceColorFeature, isNull);
-    await close(tester);
+    expect(find.textContaining('計測モードを保存できませんでした'), findsOneWidget);
+    await camera(t);
+    expect(standard.single.starts, 1);
+    expect(research, isEmpty);
+    await close(t);
   });
-  testWidgets(
-    'leaving during a mode change releases once and never opens the next session',
-    (tester) async {
-      final old = _SlowDispose();
-      await open(tester, createStandard: () => old);
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pump();
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
-        isNull,
-      );
-      expect(
-        tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '開始'))
-            .onPressed,
-        isNull,
-      );
-      await tester.tap(find.byType(BackButton));
-      await tester.pump();
-      old.gate.complete();
-      await tester.pumpAndSettle();
-      expect(research, isEmpty);
-      expect(old.disposes, 1);
-      expect(await repo.loadAll(), isEmpty);
-      expect(find.text('毎朝の自分を振り返る'), findsOneWidget);
-      await close(tester);
-    },
-  );
+  testWidgets('preference read failure never starts a camera', (t) async {
+    await open(t, store: _FailStore());
+    await camera(t);
+    expect(find.text('計測モードを読み込めませんでした'), findsOneWidget);
+    expect(standard, isEmpty);
+    expect(research, isEmpty);
+    await close(t);
+  });
 }

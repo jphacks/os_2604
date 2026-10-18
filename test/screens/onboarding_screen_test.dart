@@ -99,6 +99,8 @@ void main() {
     await pumpFlow(tester);
     await toCameraPage(tester);
     await tapText(tester, '今はしない');
+    // 1-4 → 1-5（fade）→ 1-6（push）
+    await tapText(tester, 'あとで設定する');
     // 時間のホイールを1つ分ずらす。
     await tester.drag(find.byType(CupertinoPicker).first, const Offset(0, -32));
     await tester.pumpAndSettle();
@@ -141,6 +143,10 @@ void main() {
     );
     await toCameraPage(tester);
     await tapText(tester, '今はしない');
+    // 1-4 → 1-5（fade）→ 1-6（push）
+    expect(find.text('カメラがオフです'), findsOneWidget);
+    expect(find.text('カメラを使います'), findsNothing); // 置き換えで戻り先に残らない
+    await tapText(tester, 'あとで設定する');
     expect(find.text('通知の時刻'), findsOneWidget);
     await tapText(tester, 'スキップ');
     expect(asked, 0);
@@ -204,6 +210,8 @@ void main() {
     await pumpFlow(tester);
     await toCameraPage(tester);
     await tapText(tester, '今はしない');
+    // 1-4 → 1-5（fade）→ 1-6（push）
+    await tapText(tester, 'あとで設定する');
     await tapText(tester, '設定する');
     expect(find.textContaining('通知を設定できませんでした'), findsOneWidget);
     expect(find.text('通知の時刻'), findsOneWidget);
@@ -229,6 +237,8 @@ void main() {
     );
     await toCameraPage(tester);
     await tapText(tester, '今はしない');
+    // 1-4 → 1-5（fade）→ 1-6（push）
+    await tapText(tester, 'あとで設定する');
     await tapText(tester, '設定する');
     expect(find.textContaining('通知を設定できませんでした'), findsOneWidget);
     expect(reminder.cancels, 1);

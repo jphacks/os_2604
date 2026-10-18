@@ -17,6 +17,7 @@ abstract final class AsakaoStyle {
   static const card = Colors.white;
   static const coralPale = Color(0xFFFFE7D9);
   static const coralInk = Color(0xFFB4481D);
+  static const todayAccent = Color(0xFFC9511F); // 「今週咲いた花」の今日の曜日
 
   /// 「プライバシーポリシーを読む」「今はしない」などのリンク色。
   static const link = Color(0xFF1F6F94);
@@ -41,17 +42,31 @@ abstract final class AsakaoStyle {
   static const scanText = Colors.white;
   static const scanMuted = Color(0xFFC9BDB5);
 
-  // --- 文字スタイル（システムフォントのみ。太さとサイズで近似） ---
-  /// 画面タイトル。丸ゴシック太字風に w900 を使う。
+  // --- 文字スタイル ---
+  /// 見出しなど大きい文字は Zen Maru Gothic。本文・UI・数字は Noto Sans JP（テーマの既定）。
+  static const displayFont = 'ZenMaruGothic';
+  static const bodyFont = 'NotoSansJP';
+
+  /// 画面タイトル。
   static const title = TextStyle(
+    fontFamily: displayFont,
     fontSize: 28,
     fontWeight: FontWeight.w900,
     height: 1.3,
     color: ink,
   );
+
+  /// 履歴・設定タブの見出し。2つのタブで大きさと位置をそろえる。
+  static const tabTitle = TextStyle(
+    fontFamily: displayFont,
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    color: ink,
+  );
   static const heading = TextStyle(
+    fontFamily: displayFont,
     fontSize: 20,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w700,
     height: 1.35,
     color: ink,
   );
@@ -74,7 +89,11 @@ ThemeData asakaoTheme() {
     onSurface: AsakaoStyle.ink,
     error: AsakaoStyle.destructive,
   );
-  final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+  final base = ThemeData(
+    colorScheme: scheme,
+    useMaterial3: true,
+    fontFamily: AsakaoStyle.bodyFont,
+  );
   return base.copyWith(
     scaffoldBackgroundColor: AsakaoStyle.background,
     textTheme: base.textTheme.apply(

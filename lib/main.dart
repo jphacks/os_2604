@@ -60,6 +60,7 @@ class _DatabaseHostState extends State<_DatabaseHost> {
     aiRunner: _aiRunner,
     createScanSession: _createSession,
     createResearchScanSession: _createResearchSession,
+    scanModeStore: DriftScanModeStore(_database),
     reminderService: _reminderService,
     reminderStore: _reminderStore,
   );

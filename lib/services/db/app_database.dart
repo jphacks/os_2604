@@ -3,6 +3,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 import '../../models/health_check_result.dart';
 import '../settings/onboarding_store.dart';
+import '../settings/scan_mode_store.dart';
 import '../settings/reminder_settings_store.dart';
 
 part 'app_database.g.dart';
@@ -22,6 +23,13 @@ class ReminderPreferences extends Table {
   IntColumn get hour => integer()();
   IntColumn get minute => integer()();
 
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class ScanPreferences extends Table {
+  IntColumn get id => integer().customConstraint('NOT NULL CHECK (id = 1)')();
+  BoolColumn get research => boolean()();
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -66,7 +74,12 @@ class HealthRecords extends Table {
 
 /// The application owns this connection and must await [close] on disposal.
 @DriftDatabase(
-  tables: [OnboardingCompletions, HealthRecords, ReminderPreferences],
+  tables: [
+    OnboardingCompletions,
+    HealthRecords,
+    ReminderPreferences,
+    ScanPreferences,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -74,7 +87,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.production() : super(driftDatabase(name: 'os_2604'));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -97,6 +110,7 @@ class AppDatabase extends _$AppDatabase {
           ],
         );
       }
+      if (from < 6) await m.createTable(scanPreferences);
       if (from >= 2 && from < 5) {
         await m.addColumn(healthRecords, healthRecords.scanMode);
       }
@@ -158,6 +172,27 @@ class DriftReminderSettingsStore implements ReminderSettingsStore {
             enabled: settings.enabled,
             hour: settings.hour,
             minute: settings.minute,
+          ),
+        );
+  }
+}
+
+class DriftScanModeStore implements ScanModeStore {
+  DriftScanModeStore(this.database);
+  final AppDatabase database;
+  @override
+  Future<bool> loadResearchMode() async =>
+      (await database.select(database.scanPreferences).getSingleOrNull())
+          ?.research ??
+      false;
+  @override
+  Future<void> saveResearchMode(bool enabled) async {
+    await database
+        .into(database.scanPreferences)
+        .insertOnConflictUpdate(
+          ScanPreferencesCompanion.insert(
+            id: const Value(1),
+            research: enabled,
           ),
         );
   }
