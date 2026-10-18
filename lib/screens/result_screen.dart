@@ -560,6 +560,8 @@ class _ResultScreenState extends State<ResultScreen> {
           ],
         ),
         const SizedBox(height: 16),
+        RecordQualityCard(r),
+        const SizedBox(height: 12),
         TodayInsightCard(
           record: r,
           baseline: baseline,
@@ -567,8 +569,6 @@ class _ResultScreenState extends State<ResultScreen> {
               ? '今日の気づき'
               : 'この日の気づき',
         ),
-        const SizedBox(height: 12),
-        RecordQualityCard(r),
         const AsakaoSectionLabel('今日の記録'),
         RecordValuesCard(r, conditionDiff: diff),
         ..._kitInformation(),
