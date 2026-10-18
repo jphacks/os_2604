@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:os_2604/screens/history_screen.dart';
 import 'package:os_2604/services/db/app_database.dart';
@@ -46,19 +47,43 @@ void main() {
     await t.pumpAndSettle();
   }
 
+  Future<void> roll(WidgetTester t, String name, int index) async {
+    final picker = t.widget<CupertinoPicker>(key('history-$name-wheel'));
+    picker.scrollController!.animateToItem(
+      index,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.linear,
+    );
+    await t.pumpAndSettle();
+  }
+
+  Future<void> apply(WidgetTester t) async {
+    await t.ensureVisible(key('history-period-apply'));
+    await t.pumpAndSettle();
+    await t.tap(key('history-period-apply'));
+    await t.pumpAndSettle();
+  }
+
   historyTest(
-    'inline month grid enables recorded months; selected month and count match list and graph',
+    'year is left of month; selection is applied only on confirmation',
     (t) async {
       await open(t);
-      expect(key('history-row-oct-a'), findsOneWidget);
-      expect(key('history-row-sep'), findsNothing);
-      expect(t.widget<Text>(key('history-period-count')).data, '2件');
       await expand(t);
-      expect(t.widget<TextButton>(key('history-month-8')).onPressed, isNull);
-      expect(t.widget<TextButton>(key('history-month-9')).onPressed, isNotNull);
-      await t.tap(key('history-month-9'));
-      await t.pumpAndSettle();
-      expect(key('history-month-9'), findsNothing);
+      expect(
+        t.getCenter(key('history-year-wheel')).dx,
+        lessThan(t.getCenter(key('history-month-wheel')).dx),
+      );
+      await roll(t, 'month', 8);
+      expect(find.text('この月の記録はありません'), findsOneWidget);
+      expect(
+        t.widget<FilledButton>(key('history-period-apply')).onPressed,
+        isNull,
+      );
+      await roll(t, 'month', 9);
+      expect(t.widget<Text>(key('history-period-count')).data, '2件');
+      expect(key('history-row-oct-a'), findsOneWidget);
+      await apply(t);
+      expect(key('history-period-overlay'), findsNothing);
       expect(key('history-row-sep'), findsOneWidget);
       expect(key('history-row-oct-a'), findsNothing);
       expect(t.widget<Text>(key('history-period-count')).data, '1件');
@@ -73,73 +98,73 @@ void main() {
       expect(key('history-row-sep'), findsOneWidget);
     },
   );
-  historyTest('whole year includes all months; leap month is 29 days', (
+  historyTest(
+    'whole year includes all months; year wheel and leap month work',
+    (t) async {
+      await open(t);
+      await expand(t);
+      await roll(t, 'month', 0);
+      await apply(t);
+      expect(t.widget<Text>(key('history-period-count')).data, '3件');
+      await expand(t);
+      await roll(t, 'year', 1);
+      await roll(t, 'month', 2);
+      await apply(t);
+      expect(key('history-row-leap'), findsOneWidget);
+      await t.tap(find.text('グラフ'));
+      await t.pumpAndSettle();
+      final graph = t.widget<HistoryTrendView>(find.byType(HistoryTrendView));
+      expect(graph.period!.end, DateTime(2024, 2, 29));
+      expect(key('bar-2024-02-29'), findsOneWidget);
+    },
+  );
+  historyTest('whole year graph keeps daily gaps and supports scrolling', (
     t,
   ) async {
     await open(t);
     await expand(t);
-    await t.tap(key('history-whole-year'));
-    await t.pumpAndSettle();
-    expect(t.widget<Text>(key('history-period-count')).data, '3件');
-    expect(key('history-row-sep'), findsOneWidget);
-    await expand(t);
-    await t.tap(key('history-year-2024'));
-    await t.pumpAndSettle();
-    expect(key('history-row-leap'), findsOneWidget);
-    await t.tap(key('history-month-2'));
-    await t.pumpAndSettle();
+    await roll(t, 'month', 0);
+    await apply(t);
     await t.tap(find.text('グラフ'));
     await t.pumpAndSettle();
-    final graph = t.widget<HistoryTrendView>(find.byType(HistoryTrendView));
-    expect(graph.period!.end, DateTime(2024, 2, 29));
-    expect(find.byKey(const ValueKey('bar-2024-02-29')), findsOneWidget);
+    expect(key('bar-2026-09-30'), findsOneWidget);
+    expect(key('bar-2026-10-17'), findsOneWidget);
+    expect(find.text('左右にスクロールして日別の記録を確認できます'), findsOneWidget);
+    expect(t.takeException(), isNull);
   });
-  historyTest(
-    'whole year graph renders daily records without fabricating missing days',
-    (t) async {
-      await open(t);
-      await expand(t);
-      await t.tap(key('history-whole-year'));
-      await t.pumpAndSettle();
-      await t.tap(find.text('グラフ'));
-      await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('bar-2026-09-30')), findsOneWidget);
-      expect(find.byKey(const ValueKey('bar-2026-10-17')), findsOneWidget);
-      expect(find.text('左右にスクロールして日別の記録を確認できます'), findsOneWidget);
-      expect(t.takeException(), isNull);
-    },
-  );
-  historyTest('small phone with large text can open panel and select a month', (
-    t,
-  ) async {
+  historyTest('small phone with large text can roll and apply', (t) async {
     await open(t, largeText: true);
     await t.ensureVisible(key('history-period-toggle'));
     await t.pumpAndSettle();
     await expand(t);
-    await t.ensureVisible(key('history-month-9'));
-    await t.pumpAndSettle();
-    await t.tap(key('history-month-9'));
-    await t.pumpAndSettle();
+    await roll(t, 'month', 9);
+    await apply(t);
     expect(t.widget<Text>(key('history-period-count')).data, '1件');
     expect(t.takeException(), isNull);
   });
-  historyTest(
-    'opening menu overlays rows without moving them; outside tap and back dismiss',
-    (t) async {
-      await open(t);
-      final before = t.getTopLeft(key('history-row-oct-a'));
-      await expand(t);
-      expect(t.getTopLeft(key('history-row-oct-a')), before);
-      expect(key('history-period-overlay'), findsOneWidget);
-      await t.tapAt(const Offset(5, 5));
-      await t.pumpAndSettle();
-      expect(key('history-period-overlay'), findsNothing);
-      expect(t.getTopLeft(key('history-row-oct-a')), before);
-      await expand(t);
-      await t.binding.handlePopRoute();
-      await t.pumpAndSettle();
-      expect(key('history-period-overlay'), findsNothing);
-      expect(key('history-row-oct-a'), findsOneWidget);
-    },
-  );
+  historyTest('outside tap and back discard draft without shifting records', (
+    t,
+  ) async {
+    await open(t);
+    final before = t.getTopLeft(key('history-row-oct-a'));
+    await expand(t);
+    expect(t.getTopLeft(key('history-row-oct-a')), before);
+    await roll(t, 'month', 9);
+    await t.tapAt(const Offset(5, 5));
+    await t.pumpAndSettle();
+    expect(key('history-period-overlay'), findsNothing);
+    expect(t.widget<Text>(key('history-period-count')).data, '2件');
+    await expand(t);
+    expect(
+      t
+          .widget<CupertinoPicker>(key('history-month-wheel'))
+          .scrollController!
+          .selectedItem,
+      10,
+    );
+    await t.binding.handlePopRoute();
+    await t.pumpAndSettle();
+    expect(key('history-period-overlay'), findsNothing);
+    expect(t.getTopLeft(key('history-row-oct-a')), before);
+  });
 }

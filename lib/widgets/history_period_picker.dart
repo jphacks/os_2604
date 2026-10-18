@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../ui/asakao_style.dart';
 import '../ui/asakao_widgets.dart';
@@ -11,7 +12,7 @@ class HistoryPeriodPicker extends StatelessWidget {
     required this.month,
     required this.expanded,
     required this.years,
-    required this.availableMonths,
+    required this.monthsByYear,
     required this.count,
     required this.onToggle,
     required this.onYear,
@@ -22,7 +23,7 @@ class HistoryPeriodPicker extends StatelessWidget {
   final int? month;
   final bool expanded;
   final List<int> years;
-  final Set<int> availableMonths;
+  final Map<int, Set<int>> monthsByYear;
   final int count;
   final VoidCallback onToggle;
   final ValueChanged<int> onYear;
@@ -68,109 +69,170 @@ class HistoryPeriodPicker extends StatelessWidget {
         ),
       ],
     ),
-    panel: AsakaoCard(
+    panel: _PeriodWheels(
+      year: year,
+      month: month,
+      years: years,
+      monthsByYear: monthsByYear,
+      onApply: (value) {
+        onYear(value.year);
+        value.month == null ? onWholeYear() : onMonth(value.month!);
+      },
+    ),
+  );
+}
+
+class _PeriodWheels extends StatefulWidget {
+  const _PeriodWheels({
+    required this.year,
+    required this.month,
+    required this.years,
+    required this.monthsByYear,
+    required this.onApply,
+  });
+  final int year;
+  final int? month;
+  final List<int> years;
+  final Map<int, Set<int>> monthsByYear;
+  final ValueChanged<({int year, int? month})> onApply;
+  @override
+  State<_PeriodWheels> createState() => _PeriodWheelsState();
+}
+
+class _PeriodWheelsState extends State<_PeriodWheels> {
+  late int _year = widget.year;
+  late int? _month = widget.month;
+  late final _yearScroll = FixedExtentScrollController(
+    initialItem: widget.years.indexOf(_year),
+  );
+  late final _monthScroll = FixedExtentScrollController(
+    initialItem: _month ?? 0,
+  );
+  bool _yearMoving = false;
+  bool _monthMoving = false;
+  @override
+  void dispose() {
+    _yearScroll.dispose();
+    _monthScroll.dispose();
+    super.dispose();
+  }
+
+  Widget _wheel({
+    required String name,
+    required FixedExtentScrollController controller,
+    required List<Widget> children,
+    required ValueChanged<int> onChanged,
+  }) => Expanded(
+    child: Column(
+      children: [
+        Text(name == 'year' ? '年' : '月', style: AsakaoStyle.caption),
+        const SizedBox(height: 8),
+        NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification is ScrollStartNotification ||
+                notification is ScrollEndNotification) {
+              setState(() {
+                final moving = notification is ScrollStartNotification;
+                name == 'year' ? _yearMoving = moving : _monthMoving = moving;
+              });
+            }
+            return false;
+          },
+          child: SizedBox(
+            height:
+                MediaQuery.textScalerOf(context).scale(20).clamp(28, 44) * 4,
+            child: CupertinoPicker(
+              key: ValueKey('history-$name-wheel'),
+              scrollController: controller,
+              itemExtent:
+                  MediaQuery.textScalerOf(context).scale(20).clamp(28, 44) + 16,
+              onSelectedItemChanged: onChanged,
+              children: children,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _label(String text, {bool available = true}) => Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: available
+                ? AsakaoStyle.ink
+                : AsakaoStyle.muted.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final available =
+        _month == null ||
+        (widget.monthsByYear[_year]?.contains(_month) ?? false);
+    return AsakaoCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('年', style: AsakaoStyle.caption),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final y in years)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: TextButton(
-                      key: ValueKey('history-year-$y'),
-                      style: TextButton.styleFrom(
-                        backgroundColor: y == year
-                            ? Colors.white
-                            : AsakaoStyle.neutralBackground,
-                        foregroundColor: AsakaoStyle.ink,
-                        side: BorderSide(
-                          color: y == year
-                              ? AsakaoStyle.border
-                              : Colors.transparent,
-                        ),
-                        minimumSize: const Size(120, 44),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      onPressed: () => onYear(y),
-                      child: Text('$y年'),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text('月', style: AsakaoStyle.caption),
-          const SizedBox(height: 10),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = MediaQuery.textScalerOf(context).scale(1) > 1.4
-                  ? 3
-                  : 4;
-              final width =
-                  (constraints.maxWidth - (columns - 1) * 8) / columns;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _wheel(
+                name: 'year',
+                controller: _yearScroll,
+                children: [for (final year in widget.years) _label('$year年')],
+                onChanged: (index) =>
+                    setState(() => _year = widget.years[index]),
+              ),
+              const SizedBox(width: 12),
+              _wheel(
+                name: 'month',
+                controller: _monthScroll,
                 children: [
-                  for (var m = 1; m <= 12; m++)
-                    SizedBox(
-                      width: width,
-                      child: TextButton(
-                        key: ValueKey('history-month-$m'),
-                        style: TextButton.styleFrom(
-                          backgroundColor: month == m
-                              ? AsakaoStyle.coral
-                              : availableMonths.contains(m)
-                              ? Colors.white
-                              : AsakaoStyle.neutralBackground,
-                          foregroundColor: AsakaoStyle.ink,
-                          disabledBackgroundColor:
-                              AsakaoStyle.neutralBackground,
-                          disabledForegroundColor: AsakaoStyle.muted.withValues(
-                            alpha: 0.5,
-                          ),
-                          side: BorderSide(
-                            color: availableMonths.contains(m) && month != m
-                                ? AsakaoStyle.border
-                                : Colors.transparent,
-                          ),
-                          minimumSize: const Size(44, 44),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        onPressed: availableMonths.contains(m)
-                            ? () => onMonth(m)
-                            : null,
-                        child: Text('$m月'),
-                      ),
+                  _label('すべて'),
+                  for (var month = 1; month <= 12; month++)
+                    _label(
+                      '$month月',
+                      available:
+                          widget.monthsByYear[_year]?.contains(month) ?? false,
                     ),
                 ],
-              );
-            },
+                onChanged: (index) =>
+                    setState(() => _month = index == 0 ? null : index),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          OutlinedButton(
-            key: const ValueKey('history-whole-year'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AsakaoStyle.ink,
-              side: const BorderSide(color: AsakaoStyle.border),
-              minimumSize: const Size(44, 48),
+          const SizedBox(height: 12),
+          if (!available)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'この月の記録はありません',
+                style: AsakaoStyle.caption,
+                textAlign: TextAlign.center,
+              ),
             ),
-            onPressed: onWholeYear,
-            child: Text('$year年をすべて表示'),
+          FilledButton(
+            key: const ValueKey('history-period-apply'),
+            onPressed: available && !_yearMoving && !_monthMoving
+                ? () => widget.onApply((year: _year, month: _month))
+                : null,
+            child: const Text('表示する'),
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// The menu lives in an overlay, so opening it cannot move history rows.

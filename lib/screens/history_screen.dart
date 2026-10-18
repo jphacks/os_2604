@@ -62,10 +62,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
         expanded: _periodExpanded,
         years: years,
         count: count,
-        availableMonths: {
-          for (final r in records)
-            if (r.measuredAt.toLocal().year == _year)
-              r.measuredAt.toLocal().month,
+        monthsByYear: {
+          for (final year in years)
+            year: {
+              for (final r in records)
+                if (r.measuredAt.toLocal().year == year)
+                  r.measuredAt.toLocal().month,
+            },
         },
         onToggle: () => setState(() => _periodExpanded = !_periodExpanded),
         onYear: (year) => setState(() {
